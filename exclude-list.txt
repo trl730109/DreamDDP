@@ -1,0 +1,13 @@
+scripts/sync.sh
+scripts/dist_run_local.sh
+scripts/kallp2p.sh
+#settings.py
+#dr.sh
+#mpi.sh
+*.log
+#cluster*
+*.conf
+*_mpi.sh
+batch.sh
+.git*
+logs
