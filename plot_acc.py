@@ -3,7 +3,7 @@ import time
 import matplotlib.pyplot as plt
 from plot_loss import plot_loss, markers, ax, fig
 import itertools
-
+'''
 def plot_with_params(dnn, nworkers, bs, lr, prefix='', title='ResNet-20'):
     dir = '%s-n%d-bs%d-lr%.4f' % (dnn, nworkers, bs, lr)
     if prefix != '':
@@ -16,6 +16,11 @@ def plot_with_params(dnn, nworkers, bs, lr, prefix='', title='ResNet-20'):
         legend = dir + ' Lian et al. 2018'
     if nworkers == 1:
         legend = 'bs=32 SGD 1 GPU' 
+    plot_loss(logfile, legend, isacc=True, title=dnn)
+'''
+def plot_with_params(dnn, nworkers, overlap, lr, prefix='', title='ResNet-20',logdirlist=[]):
+    overlapping = 'overlap' if overlap == True else 'nonoverlap'
+    dir = '%s-n%d-%s.4f' % (dnn, nworkers, overlapping)
     plot_loss(logfile, legend, isacc=True, title=dnn)
 
 def resnet20():

@@ -29,7 +29,7 @@ import json
 from LR import LRSchedule
 from encoding import huffman
 #from tensorboardX import SummaryWriter
-from datasets import DatasetHDF5
+#from datasets import DatasetHDF5
 from profiling import benchmark
 import transformer.Constants as Constants
 #writer = SummaryWriter()
@@ -38,7 +38,7 @@ import ptb_reader
 import models.lstm as lstmpy
 from torch.autograd import Variable
 
-from data_sampler import CachedIndexImages, CachedSampler, CachedImageFolder
+#from data_sampler import CachedIndexImages, CachedSampler, CachedImageFolder
 
 if settings.FP16:
     import apex
@@ -466,6 +466,7 @@ class DLTrainer:
             train_sampler.set_epoch(0)
             shuffle = False
         self.train_sampler = train_sampler
+        print("Downlaod the CIFAR10 dataset.")
         self.trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size,
                                                   shuffle=shuffle, num_workers=NUM_CPU_THREADS, sampler=train_sampler)
         self.testloader = torch.utils.data.DataLoader(testset, batch_size=1000,
@@ -881,7 +882,8 @@ class DLTrainer:
             correct = pred.eq(target.view(1, -1).expand_as(pred))
             res = []
             for k in topk:
-                correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+                #correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+                correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
                 #res.append(correct_k)
                 res.append(correct_k.mul_(1.0 / batch_size))
             return res

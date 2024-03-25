@@ -1,1 +1,2 @@
-scigpu12 slots=8
+gpu23 slots=4
+gpu22 slots=4

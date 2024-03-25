@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import time
+import datetime
 import torch
 import numpy as np
 import argparse, os
@@ -26,13 +27,17 @@ writer = None
 from settings import logger, formatter
 
 
-def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, threshold, gradient_path=None, momentum_correction=False, prefix=None):
+def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, overlap, overlap_scalar, threshold, gradient_path=None, momentum_correction=False, prefix=None):
     rank = hvd.rank()
+    logger.info('the rank of current process: %d', rank)
+    #print("The ssgd_with_horovod is called by rank: ", rank)
     if compressor in ['randomksame', 'randomksameec']:
         torch.manual_seed(3000)
         torch.cuda.manual_seed_all(3000)
     #torch.manual_seed(rank)
-    torch.cuda.set_device(rank%nwpernode)
+    #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
+    selected_gpu = 0 if (rank % nwpernode) == 0 else 3
+    torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
     trainer = DLTrainer(rank, nworkers, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer)
@@ -70,7 +75,7 @@ def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
     if settings.ORIGINAL_HOROVOD:
         optimizer = hvd.DistributedOptimizer(trainer.optimizer, named_parameters=trainer.net.named_parameters(), backward_passes_per_step=nsteps_update)
     else:
-        optimizer = hvd.DistributedOptimizer(trainer.optimizer, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
+        optimizer = hvd.DistributedOptimizer(trainer.optimizer, overlap=overlap, overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
     trainer.update_optimizer(optimizer)
     iters_per_epoch = trainer.num_batches_per_epoch #trainer.get_num_of_training_samples() // (nworkers * batch_size * nsteps_update)
     #max_epochs=0
@@ -106,12 +111,24 @@ def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
                 time_per_iter = np.mean(times)
                 logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
                 times = []
+
+        val_acc = trainer.test(epoch)
         if not settings.ORIGINAL_HOROVOD:
             optimizer.train_epoch += 1
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    # if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    if isinstance(v, str) and v.lower() in ('true', 'True'):
+        return True
+    elif isinstance(v, str) and v.lower() in ('false', 'False'):
+        return False
+    else:
+        return v
 
 if __name__ == '__main__':
-
+    print("The main function is called for single worker")
     #torch.multiprocessing.set_start_method('spawn')
     parser = argparse.ArgumentParser(description="AllReduce trainer")
     parser.add_argument('--batch-size', type=int, default=32)
@@ -130,7 +147,11 @@ if __name__ == '__main__':
     parser.add_argument('--density', type=float, default=1, help='Density for sparsification')
     parser.add_argument('--threshold', type=int, default=0, help='Specify the threshold for gradient merging')
     parser.add_argument('--momentum-correction', type=int, default=0, help='Set it to 1 to turn on momentum_correction for TopK sparsification, default is 0')
+    parser.add_argument('--overlap', type=str, default='false', help='Overlap for TopK sparsification, default is false')
+    parser.add_argument('--overlap_scalar', type=float, default=0.1, help='Overlap scalar for TopK sparsification, default is 0.1')
     args = parser.parse_args()
+    logger.info('The overlap boolean is ' + str(str2bool(args.overlap) == False))
+    logger.info(str2bool(args.overlap) == True)
     batch_size = args.batch_size * args.nsteps_update
     momentum_correction = args.momentum_correction != 0
     prefix = settings.PREFIX
@@ -140,6 +161,10 @@ if __name__ == '__main__':
             prefix = 'mc-'+ prefix
     prefix = 'allreduce-%s-thres-%dkbytes' % (prefix, args.threshold/1024)
     logdir = '%s/%s-n%d-bs%d-lr%.4f-ns%d-ds%s' % (prefix, args.dnn, args.nworkers, batch_size, args.lr, args.nsteps_update, str(args.density)) 
+    overlapping = 'overlap' if str2bool(args.overlap) else 'no-overlap'
+    logdir = '%s' % (overlapping) + logdir
+    logdir = '%s' % (datetime.datetime.now().strftime("%m-%d-%H:%M")) + logdir
+    #args.log_file_name = 'experiment_log-%s' % (datetime.datetime.now().strftime("%Y-%m-%d-%H:%M-%S"))
     relative_path = './logs/%s'%logdir
     gradient_relative_path = None 
     utils.create_path(relative_path)
@@ -148,9 +173,11 @@ if __name__ == '__main__':
         utils.create_path(gradient_relative_path)
     rank = 0
     #set_start_method('spawn')
+    print("Start initializing the horovod")
     if args.nworkers > 1:
         hvd.init()
         rank = hvd.rank()
+        print("The horovod is initialized by rank: ", rank)
     if rank == 0:
         tb_runs = './runs/%s'%logdir
         writer = None #SummaryWriter(tb_runs)
@@ -159,4 +186,4 @@ if __name__ == '__main__':
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr) 
     logger.info('Configurations: %s', args)
-    ssgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.threshold, gradient_relative_path, momentum_correction, prefix)
+    ssgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, str2bool(args.overlap),args.overlap_scalar, args.threshold, gradient_relative_path, momentum_correction, prefix)

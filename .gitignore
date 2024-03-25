@@ -5,9 +5,14 @@
 *.swp
 *.swo
 *.pfm
+*.pdf
 *_local.sh
 tmp
 data*
+test_script*
+sign_plot*
+index_plot*
+logs*
 weights
 .nfs*
 runs

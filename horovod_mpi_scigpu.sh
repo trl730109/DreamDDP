@@ -9,15 +9,17 @@ momentum_correction="${momentum_correction:-0}"
 nwpernode=4
 nstepsupdate=1
 #PY=/home/comp/csshshi/anaconda2/bin/python
-PY=/usr/local/bin/python
+#PY=/usr/local/bin/python
+PY=~/miniconda3/envs/DDP/bin/python3
 #PY=/home/comp/csshshi/anaconda2/bin/python
-MPIPATH=/usr/local/openmpi/openmpi-4.0.1
+MPIPATH=~/miniconda3/envs/DDP/
 #MPIPATH=/home/comp/csshshi/local/openmpi3.1.1
 #MPIPATH=/home/esetstore/.local/openmpi-4.0.1
 #PY=/home/esetstore/anaconda3/bin/python
 #PY=python3
 #PY=/home/comp/15485625/pytorch1.4/bin/python
-GRADSPATH=./logs/iclr
+#GRADSPATH=./logs/iclr
+GRADSPATH=./logs/tzc
 
 #cd $CURR_PATH
 #HOROVOD_CYCLE_TIME=1 HOROVOD_FUSION_THRESHOLD=0 

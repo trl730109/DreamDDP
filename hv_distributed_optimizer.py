@@ -33,6 +33,7 @@ import utils
 import collections
 import settings
 from settings import logger, ADAPTIVE_MERGE, ADAPTIVE_SPARSE, DEBUG
+from draw_plot import plot_tensor_distribution, plot_sign_distribution
 
 from profiling import CommunicationProfiler
 from sklearn.linear_model import LinearRegression
@@ -42,7 +43,7 @@ from sklearn.linear_model import LinearRegression
 
 
 class _DistributedOptimizer(torch.optim.Optimizer):
-    def __init__(self, params, named_parameters, compression, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
+    def __init__(self, overlap, overlap_scalar, params, named_parameters, compression, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
         super(self.__class__, self).__init__(params)
         self._compression = compression
         self._sparse = is_sparse
@@ -55,6 +56,8 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._threshold = threshold
         self._writer = writer
         self._gradient_path = gradient_path
+        self.index_overlap = overlap
+        self.index_overlap_scalar = overlap_scalar
         self.alpha = None
         self.beta = None
         if self._layerwise_times is not None and self._seq_layernames is not None:
@@ -540,17 +543,21 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         #logger.info('tensorname: %s', allreduce_name)
         handle = allreduce_async_(tensor, average=True, name=allreduce_name)
         return handle, None
-
+    
     def _sparse_allreduce_async(self, p, name, density):
         stime = time.time()
         tensor = p.data.view(-1)
         tensor_compressed, ctx, selected_values = self._compression.compress(tensor, name, ratio=density)
-
+        contribution_mask = tensor_compressed != 0
+        logger.info('Compression ratio is %.2f', (density))
+        #logger.info('Size of one worker tensor is %s', selected_values.size())
+        #logger.info('tensor_compressed percentage: %.2f', (torch.count_nonzero(selected_values).float() / tensor.numel()))
         if settings.LOGGING_GRADIENTS and rank() == 0 and self.train_iter % 200 == 0 and self.train_iter < 3000:
             grads = tensor.cpu().numpy()
             layer_idx = self._sequential_keys.index(name)
             np.save('%s/r%d_gradients_iter_%d::%s::%d' % (self._gradient_path, rank(), self.train_iter, name, layer_idx), grads)
         indexes = ctx
+        #logger.info('whetehr indexes are non: %s', indexes is not None)
         if indexes is None:
             handle = allgather_async(tensor_compressed, name)
             handle_idx = None # quantization uses all indices
@@ -595,7 +602,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
                 new_name, new_tensor = self._push_to_buffer(name, d_p)
                 if new_tensor is not None:
-                    density = self.get_current_density(name=new_name)
+                    #density = self.get_current_density(name=new_name)
+                    density = self._density
+                    #logger.info('Compression density is: %s', density)
                     if self._sparse and density < 1:
 
                         handle, ctx = self._sparse_allreduce_async(new_tensor, new_name, density)
@@ -606,7 +615,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return hook
 
     def synchronize(self):
-
+        #logger.info('Synchronize functions are called')
         num_of_workers = size()
         for p, value in self._handles.items():
             name = self._merged_parameter_names.get(p)
@@ -618,8 +627,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                 if type(handle) is tuple:
                     handle, handle_idx = handle[0], handle[1]
                 output = synchronize(handle)
+                #logger.info('output size: %s', output.size())
                 if handle_idx is not None:
                     all_indexes = synchronize(handle_idx)
+                    #logger.info('output index size: %s', all_indexes.size())
 
                 if self._profiling:
                     utils.force_insert_item(self._allreduce_timers, name, time.time()-stime)
@@ -628,8 +639,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                 new_grad.fill_(0.0)
                 numel = output.size(0)
                 real_num_values = numel//num_of_workers
+                index_overlap_store = torch.zeros_like(new_grad)
+                sign_store = torch.zeros_like(new_grad)
                 for i in range(num_of_workers):
                     values_and_indexes = output.data[i*real_num_values:(i+1)*real_num_values]
+                    #logger.info('All_indexes is None: %s', all_indexes is None)
                     if all_indexes is None:
                         values = values_and_indexes
                         indexes = None
@@ -642,6 +656,22 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                         per_values = values[0:indexes.numel()]
                         per_values = self._compression.decompress(per_values, p.size())
                         new_grad[indexes[0:indexes.numel()]] += per_values
+                        #check index overlap
+                        index_overlap_store[indexes[0:indexes.numel()]] += 1
+                        #check sign distribution
+                        sign_store[indexes[0:indexes.numel()]] += per_values.sign()
+                        if(self.train_epoch % 30 == 0):
+                            plot_sign_distribution(sign_store, self.train_epoch)
+                            plot_tensor_distribution(index_overlap_store.cpu(), self.train_epoch)
+
+                #plot_tensor_distribution(index_overlap_store.cpu(), './index_overlap.pdf')
+                #logger.info('index_overlap is: %s', self.index_overlap)
+                if (self.index_overlap):
+                    logger.info('Overlap is used')
+                    new_grad[index_overlap_store == 1] *= (size()/2)
+                    #for i in range(1,size()):
+                    #    new_grad[index_overlap_store == i] *= (size()/i)
+
                 new_grad /= num_of_workers
 
                 if self._profiling:
@@ -763,7 +793,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
 
 
-def DistributedOptimizer(optimizer, named_parameters=None, compression=None, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
+def DistributedOptimizer(optimizer, overlap, overlap_scalar, named_parameters=None, compression=None, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -799,7 +829,7 @@ def DistributedOptimizer(optimizer, named_parameters=None, compression=None, is_
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
 
-    return cls(optimizer.param_groups, named_parameters, compression, is_sparse, density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=None, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
+    return cls(overlap, overlap_scalar, optimizer.param_groups, named_parameters, compression, is_sparse, density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=None, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
 
 
 def broadcast_parameters(params, root_rank):
