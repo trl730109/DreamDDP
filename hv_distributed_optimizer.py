@@ -864,6 +864,40 @@ def broadcast_parameters(params, root_rank):
         synchronize(handle)
 
 
+
+def allreduce_parameters(params):
+    """
+    allreduce the parameters from all other processes.
+    Typical usage is to broadcast the `model.state_dict()`,
+    `model.named_parameters()`, or `model.parameters()`.
+
+    Arguments:
+        params: One of the following:
+            - list of parameters to broadcast
+            - dict of parameters to broadcast
+        root_rank: The rank of the process from which parameters will be
+                   broadcasted to all other processes.
+    """
+    if isinstance(params, dict):
+        params = sorted(params.items())
+    elif isinstance(params, list):
+        # support both named_parameters() and regular parameters()
+        params = [p if isinstance(p, tuple) else (None, p) for p in params]
+    else:
+        raise ValueError('invalid params of type: %s' % type(params))
+
+    # Run asynchronous broadcasts.
+    handles = []
+    for name, p in params:
+        handle = allreduce_async_(p, average=True, name=name)
+        handles.append(handle)
+
+    # Wait for completion.
+    for handle in handles:
+        synchronize(handle)
+
+
+
 def broadcast_optimizer_state(optimizer, root_rank):
     """
     Broadcasts an optimizer state from root rank to all other processes.
@@ -981,3 +1015,76 @@ def broadcast_optimizer_state(optimizer, root_rank):
     for key, p in params:
         if key in callbacks:
             callbacks[key]()
+
+
+
+def allreduce_model_weights(model):
+    state_dict = model.state_dict()
+
+    params = []
+    callbacks = {}
+    occurrences = collections.defaultdict(int)
+
+    # Returns the full type structure of the possibly nested objects for recursive casting back
+    def _get_types(x):
+        if isinstance(x, collections.Iterable):
+            return type(x), [_get_types(xi) for xi in x]
+        else:
+            return type(x)
+
+    # Casts an object encoded in a tensor back into its original type and subtypes
+    def _recursive_cast(x, dtype):
+        if isinstance(dtype, tuple):
+            t, dtypes = dtype
+            x = t(x)
+            return t([_recursive_cast(x[i], dtypes[i]) for i in range(len(x))])
+        else:
+            return dtype(x)
+
+    # Some optimizer parameters may be represented as scalars instead of
+    # tensors.  In such cases, we need to wrap the scalar in a tensor, then
+    # broadcast, then update the appropriate value in the state_dict with the
+    # new unwrapped scalar value via a callback.
+    def _create_callback(name, t, p):
+        def _from_tensor():
+            state_dict[name] = t(p.numpy()[0])
+        return _from_tensor
+
+    # Param groups are an ordered list, normally there is only one per model,
+    # but users can add additional param groups for example to train
+    # previously frozen layers
+
+    # The params list here is ordered by the layers in the model
+    for name, p in state_dict.items():
+        # Some parameter names may appear more than once, in which
+        # case we ensure they have a unique identifier defined by
+        # their order
+        occurrences[name] += 1
+        key = '%s.%d' % (str(name), occurrences[name])
+
+        if not torch.is_tensor(p):
+            # Wrap the scalar in a FloatTensor, and remember its type
+            # so we can cast it back after unwrapping
+            t = type(p)
+            p = torch.Tensor([p])
+            callbacks[key] = _create_callback(name, t, p)
+
+        params.append((key, p))
+
+    # Synchronized allreduce of all parameters
+    allreduce_parameters(params)
+
+    # Post-broadcast clenaup for non-tensor parameters
+    for key, p in params:
+        if key in callbacks:
+            callbacks[key]()
+    return params
+
+
+
+
+
+
+
+
+

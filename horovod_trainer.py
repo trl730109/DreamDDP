@@ -15,6 +15,7 @@ if settings.ORIGINAL_HOROVOD:
     import horovod.torch as hvd
 else:
     import hv_distributed_optimizer as hvd
+    from hv_distributed_optimizer import allreduce_model_weights 
     os.environ['HOROVOD_FUSION_THRESHOLD'] = '0'
     os.environ['HOROVOD_CACHE_CAPACITY'] = '0'
 from tensorboardX import SummaryWriter
@@ -116,6 +117,105 @@ def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
         if not settings.ORIGINAL_HOROVOD:
             optimizer.train_epoch += 1
 
+
+
+def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, overlap, overlap_scalar, threshold, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1):
+    assert nsteps_localsgd > 1
+    rank = hvd.rank()
+    logger.info('the rank of current process: %d', rank)
+    #print("The ssgd_with_horovod is called by rank: ", rank)
+    if compressor in ['randomksame', 'randomksameec']:
+        torch.manual_seed(3000)
+        torch.cuda.manual_seed_all(3000)
+    #torch.manual_seed(rank)
+    #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
+    selected_gpu = 0 if (rank % nwpernode) == 0 else 3
+    torch.cuda.set_device(selected_gpu)
+    if rank != 0:
+        pretrain = None
+    trainer = DLTrainer(rank, nworkers, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer)
+
+    init_epoch = torch.ones(1) * trainer.get_train_epoch()
+    init_iter = torch.ones(1) * trainer.get_train_iter()
+    trainer.set_train_epoch(int(hvd.broadcast(init_epoch, root_rank=0)[0]))
+    trainer.set_train_iter(int(hvd.broadcast(init_iter, root_rank=0)[0]))
+    is_sparse = density < 1
+    if not is_sparse:
+        compressor = None
+
+    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
+        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
+        layerwise_times = comm.bcast(layerwise_times, root=0)
+        if rank == 0:
+            logger.info('layerwise backward times: %s', list(layerwise_times))
+            logger.info('layerwise backward sizes: %s', list(layerwise_sizes))
+        logger.info('Bencharmked backward time: %f', np.sum(layerwise_times))
+        logger.info('Model size: %d', np.sum(layerwise_sizes))
+    else:
+        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
+
+    logger.info('Broadcast parameters....')
+    hvd.broadcast_parameters(trainer.net.state_dict(), root_rank=0)
+    logger.info('Broadcast parameters finished....')
+
+
+    norm_clip = None
+    if dnn in ['lstm', 'lstmwt2']:
+        norm_clip = 0.25
+    elif dnn == 'lstman4':
+        norm_clip = 400
+
+    # if settings.ORIGINAL_HOROVOD:
+    #     optimizer = hvd.DistributedOptimizer(trainer.optimizer, named_parameters=trainer.net.named_parameters(), backward_passes_per_step=nsteps_update)
+    # else:
+    #     optimizer = hvd.DistributedOptimizer(trainer.optimizer, overlap=overlap, overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
+    # trainer.update_optimizer(optimizer)
+    optimizer = trainer.optimizer
+    iters_per_epoch = trainer.num_batches_per_epoch #trainer.get_num_of_training_samples() // (nworkers * batch_size * nsteps_update)
+    #max_epochs=0
+
+    times = []
+    logger.info('max_epochs: %d', max_epochs)
+    display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+
+    total_iters = 0
+    for epoch in range(max_epochs):
+        hidden = None
+        if dnn in ['lstm', 'lstmwt2']:
+            hidden = trainer.net.init_hidden()
+        for i in range(iters_per_epoch//nsteps_update):
+            s = time.time()
+            optimizer.zero_grad()
+            for j in range(nsteps_update):
+                if dnn in ['lstm', 'lstmwt2']:
+                    _, hidden = trainer.train(1, hidden=hidden)
+                else:
+                    trainer.train(1)
+            if dnn in ['lstm', 'lstmwt2']:
+                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            elif dnn == 'lstman4':
+                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+            trainer.update_model()
+            times.append(time.time()-s)
+            if i % display == 0 and i > 0: 
+                time_per_iter = np.mean(times)
+                logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                times = []
+            if total_iters // nsteps_localsgd == nsteps_localsgd - 1:
+                avg_params = allreduce_model_weights(trainer.net)
+                trainer.net.load_state_dict(dict(avg_params))
+            else:
+                pass
+
+            total_iters += 1
+
+        val_acc = trainer.test(epoch)
+        if not settings.ORIGINAL_HOROVOD:
+            optimizer.train_epoch += 1
+
+
+
+
 def str2bool(v):
     if isinstance(v, bool):
         return v
@@ -149,6 +249,8 @@ if __name__ == '__main__':
     parser.add_argument('--momentum-correction', type=int, default=0, help='Set it to 1 to turn on momentum_correction for TopK sparsification, default is 0')
     parser.add_argument('--overlap', type=str, default='false', help='Overlap for TopK sparsification, default is false')
     parser.add_argument('--overlap_scalar', type=float, default=0.1, help='Overlap scalar for TopK sparsification, default is 0.1')
+    parser.add_argument('--nsteps-localsgd', type=int, default=1)
+
     args = parser.parse_args()
     logger.info('The overlap boolean is ' + str(str2bool(args.overlap) == False))
     logger.info(str2bool(args.overlap) == True)
@@ -186,4 +288,8 @@ if __name__ == '__main__':
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr) 
     logger.info('Configurations: %s', args)
-    ssgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, str2bool(args.overlap),args.overlap_scalar, args.threshold, gradient_relative_path, momentum_correction, prefix)
+    if args.nsteps_localsgd > 1:
+        local_sgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, str2bool(args.overlap),args.overlap_scalar, args.threshold, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
+    else:
+        ssgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, str2bool(args.overlap),args.overlap_scalar, args.threshold, gradient_relative_path, momentum_correction, prefix)
+
