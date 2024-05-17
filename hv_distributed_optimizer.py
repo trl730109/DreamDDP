@@ -1070,9 +1070,11 @@ def allreduce_model_weights(model):
             callbacks[key] = _create_callback(name, t, p)
 
         params.append((key, p))
-
+        
     # Synchronized allreduce of all parameters
+    #print("Before allreduce:", [name for name, _ in params])
     allreduce_parameters(params)
+    #print("After allreduce:", [name for name, _ in params])
 
     # Post-broadcast clenaup for non-tensor parameters
     for key, p in params:

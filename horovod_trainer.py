@@ -201,9 +201,12 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
                 time_per_iter = np.mean(times)
                 logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
                 times = []
-            if total_iters // nsteps_localsgd == nsteps_localsgd - 1:
+            if total_iters % nsteps_localsgd == nsteps_localsgd - 1:
                 avg_params = allreduce_model_weights(trainer.net)
-                trainer.net.load_state_dict(dict(avg_params))
+                #print(type(avg_params))
+                logger.info("Successfully averaging the parameters using allreduce.")
+                corrected_params = {'.'.join(name.split('.')[:-1]): value for name, value in avg_params}
+                trainer.net.load_state_dict(dict(corrected_params))
             else:
                 pass
 
@@ -211,7 +214,7 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
 
         val_acc = trainer.test(epoch)
         if not settings.ORIGINAL_HOROVOD:
-            optimizer.train_epoch += 1
+            trainer.train_epoch += 1
 
 
 
@@ -267,7 +270,7 @@ if __name__ == '__main__':
     logdir = '%s' % (overlapping) + logdir
     logdir = '%s' % (datetime.datetime.now().strftime("%m-%d-%H:%M")) + logdir
     #args.log_file_name = 'experiment_log-%s' % (datetime.datetime.now().strftime("%Y-%m-%d-%H:%M-%S"))
-    relative_path = './logs/%s'%logdir
+    relative_path = './localsgd_logs/%s'%logdir
     gradient_relative_path = None 
     utils.create_path(relative_path)
     if settings.LOGGING_GRADIENTS:
