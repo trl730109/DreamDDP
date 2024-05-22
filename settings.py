@@ -36,9 +36,9 @@ if PS:
 
 
 PREFIX=PREFIX+'-dc'+str(DELAY_COMM)
-EXCHANGE_MODE = 'MODEL' 
+#EXCHANGE_MODE = 'MODEL' 
 #EXCHANGE_MODE = 'MODEL+GRAD' 
-#EXCHANGE_MODE = 'GRAD' 
+EXCHANGE_MODE = 'MODEL' 
 
 LOGGING_ASSUMPTION=False
 LOGGING_GRADIENTS=False
@@ -69,6 +69,7 @@ if ADAPTIVE_MERGE:
 
 FAKE_DATA=False
 ORIGINAL_HOROVOD=False
+EXCHANGE_PARA=False
 if ORIGINAL_HOROVOD:
     PREFIX=PREFIX+'-hvd'
 
@@ -97,4 +98,3 @@ strhdlr = logging.StreamHandler()
 logger.addHandler(strhdlr)
 formatter = logging.Formatter('%(asctime)s [%(filename)s:%(lineno)d] %(levelname)s %(message)s')
 strhdlr.setFormatter(formatter)
-

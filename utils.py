@@ -3,7 +3,206 @@ import time
 import os
 import numpy as np
 import scipy.stats as stats
+import torch
 
+import matplotlib.pyplot as plt
+
+
+def check_sign_conflicts_simplified(tensors):
+    encode_sign = lambda x: 4 * (x > 0).long() + 2 * (x < 0).long() + (x == 0).long()
+    encoded_tensors = [encode_sign(tensor) for tensor in tensors]
+
+    aggregated_signs = encoded_tensors[0]
+    for encoded_tensor in encoded_tensors[1:]:
+        aggregated_signs |= encoded_tensor
+    #print(aggregated_signs)
+    conflicts = aggregated_signs == 6 | (aggregated_signs == 7)
+    all_zeros = aggregated_signs == 1 
+    no_conflict = (aggregated_signs == 4) | (aggregated_signs == 2) | (aggregated_signs == 3) | (aggregated_signs == 5)
+
+    conflicts = (conflicts.sum().float() / conflicts.numel())
+    all_zeros = (all_zeros.sum().float() / all_zeros.numel())
+    no_conflict = (no_conflict.sum().float() / no_conflict.numel())
+    return conflicts, all_zeros, no_conflict
+
+def aggregate_elected_sign_vector_and_disjoint_merge(tensors):
+    total_sum = sum(tensors)
+    gamma_m = torch.sign(total_sum)
+
+    disjoint_mean = torch.zeros_like(tensors[0], dtype=torch.float)
+    count_matching_signs = torch.zeros_like(tensors[0], dtype=torch.float)
+    
+    for tensor in tensors:
+        mask = (torch.sign(tensor) == gamma_m) & (tensor != 0)  
+        disjoint_mean += tensor * mask.float() 
+        count_matching_signs += mask.float()  
+
+    count_matching_signs[count_matching_signs == 0] = 1
+    disjoint_mean /= count_matching_signs  
+    
+    return disjoint_mean
+
+def aggregate_elected_sign_vector_and_disjoint_max(tensors):
+    total_sum = sum(tensors)
+    gamma_m = torch.sign(total_sum)
+    
+    disjoint_mean = torch.zeros_like(tensors[0], dtype=torch.float)
+    count_matching_signs = torch.zeros_like(tensors[0], dtype=torch.float)
+    
+    for tensor in tensors:
+        mask = (torch.sign(tensor) == gamma_m)# & (tensor != 0)  # Match signs, ignore zeros
+        disjoint_mean = torch.maximum((tensor * mask.float()).abs(),disjoint_mean)  # Add matching values
+           
+    return disjoint_mean * gamma_m
+
+def plot_overlap_trends(data,path_prefix):
+    title='Trends of Overlap Cases'
+    xlabel='Time or Entry Index'
+    ylabel='Percentage'
+    figsize=(10, 6)
+    data_array = np.array(data)
+    data_transposed = data_array.T
+    plt.figure(figsize=figsize)  # Set the size of the figure
+    num_cases = data_transposed.shape[0]  # Number of overlap cases
+    for i in range(num_cases):
+        plt.plot(data_transposed[i], label=f'Overlap-{i+1}')
+
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.legend()  # Show legend with overlap case labels
+    path = "./trend/" + path_prefix+ 'overlap_trend.pdf'
+    plt.savefig(path)
+    # Show the plot
+    plt.show()
+
+def find_single_nonzero_indices(gradient_tensors):
+    stacked_gradients = torch.stack(gradient_tensors)
+    nonzero_mask = stacked_gradients != 0
+    nonzero_counts = nonzero_mask.sum(dim=0)
+    single_nonzero_indices = (nonzero_counts == 1).nonzero().squeeze()
+    return single_nonzero_indices
+
+def nonzero_distribution(gradient_tensors):
+    gradient_tensors = [tensor.to("cpu") for tensor in gradient_tensors]
+    stacked_gradients = torch.stack(gradient_tensors)
+    signs = stacked_gradients.sign()
+    nonzero_mask = stacked_gradients != 0
+    max_signs = torch.where(nonzero_mask, signs, torch.tensor(float('-inf'), device=signs.device))
+    min_signs = torch.where(nonzero_mask, signs, torch.tensor(float('inf'), device=signs.device))
+    max_signs = max_signs.max(dim=0).values
+    min_signs = min_signs.min(dim=0).values
+    same_sign_nonzero = (max_signs == min_signs) & (max_signs != float('-inf')) & (min_signs != float('inf'))
+    nonzero_counts = nonzero_mask.sum(dim=0)
+    num_workers = len(gradient_tensors)
+    distribution = torch.zeros(num_workers, dtype=torch.float) 
+
+    for i in range(1, num_workers + 1):
+        distribution[i - 1] = ((nonzero_counts == i) & same_sign_nonzero).float().sum()
+    total_elements = (nonzero_counts > 0).float().sum()
+    if total_elements == 0:
+        return [0.0] * num_workers 
+
+    distribution_percentages = (distribution / total_elements * 100).tolist()
+    return distribution_percentages[:-1]
+
+def plot_similarity_trend(similarity_scores, type, path_prefix):
+    iterations = list(range(1, len(similarity_scores) + 1))
+
+    # Create a plot
+    plt.figure(figsize=(10, 5))
+    plt.plot(iterations, similarity_scores, marker='o', linestyle='-', color='b')
+
+    # Adding titles and labels
+    plt.title('Similarity of Compressed Gradients Across Iterations')
+    plt.xlabel('Iteration')
+    plt.ylabel('Similarity')
+
+    # Optionally add a grid
+    plt.grid(True)
+    path = "./trend/" + path_prefix+ type + 'similarity.pdf'
+    plt.savefig(path)
+    # Show the plot
+    plt.show()
+
+
+
+def multi_tensor_similarity(gradient_tensors):
+    stacked_gradients = torch.stack(gradient_tensors)
+    signs = stacked_gradients.sign()
+    nonzero_mask = stacked_gradients != 0
+
+    # Cases where all or none of the elements are non-zero
+    all_nonzero = nonzero_mask.all(dim=0)
+    all_zero = (~nonzero_mask).all(dim=0)
+
+    # Determine the max and min signs for each element across the tensors
+    max_signs = torch.where(nonzero_mask, signs, torch.tensor(float('-inf'), device=signs.device))
+    min_signs = torch.where(nonzero_mask, signs, torch.tensor(float('inf'), device=signs.device))
+    max_signs = max_signs.max(dim=0).values
+    min_signs = min_signs.min(dim=0).values
+
+    # Define the cases based on the conditions
+    case2 = ((max_signs == min_signs) & all_nonzero).sum()
+    case3 = ((max_signs != min_signs) & all_nonzero).sum()
+    case4 = ((max_signs == min_signs) & ~all_nonzero & ~all_zero).sum()
+    case5 = ((max_signs != min_signs) & ~all_nonzero & ~all_zero).sum()
+
+    # Calculate totals for the similarity computation
+    positive_cases = case2 + case4
+    total_cases = case2 + case3 + case4 + case5
+
+    # Compute the similarity and case4 percentage
+    similarity = (positive_cases.float() / total_cases.float()) if total_cases > 0 else 0.0
+    case4_percentage = (case4.float() / total_cases.float()) if total_cases > 0 else 0.0
+
+    return similarity.item(), case4_percentage.item()
+
+def cal_similarity(values_store,type):
+    similarity_list = []
+    for i in range(len(values_store)):
+        for j in range(i+1, len(values_store)):
+            if type == 'sign':
+                similarity_list.append(sign_similarity(values_store[i],values_store[j]))
+            elif type == 'cosine':
+                similarity_list.append(cosine_similarity(values_store[i],values_store[j]))
+    return similarity_list
+            
+def sign_similarity(tensor1, tensor2):
+    sign1 = tensor1.sign()
+    sign2 = tensor2.sign()
+    both_nonzero_same_sign = (sign1 == sign2) & (sign1 != 0)
+    both_nonzero_diff_sign = (sign1 != sign2) & (sign1 != 0) & (sign2 != 0)
+    one_zero_one_nonzero = ((sign1 == 0) & (sign2 != 0)) | ((sign2 == 0) & (sign1 != 0))
+    positive_count = torch.sum(both_nonzero_same_sign | one_zero_one_nonzero).item()
+    negative_count = torch.sum(both_nonzero_diff_sign).item()
+
+    if positive_count + negative_count == 0:
+        return 0.0  # Avoid division by zero
+    similarity = positive_count / (positive_count + negative_count)
+
+    return similarity
+
+def cosine_similarity(vector1, vector2):
+    if vector1.is_cuda:
+        vector1 = vector1.cpu()
+    if vector2.is_cuda:
+        vector2 = vector2.cpu()
+
+    vector1_np = vector1.numpy()
+    vector2_np = vector2.numpy()
+
+    dot_product = np.dot(vector1_np, vector2_np)
+
+    norm1 = np.linalg.norm(vector1_np)
+    norm2 = np.linalg.norm(vector2_np)
+
+    if norm1 == 0 or norm2 == 0:
+        return 0
+    else:
+        cosine_similarity = dot_product / (norm1 * norm2)
+    
+    return cosine_similarity
 
 def gen_random_id():
     id_ = hashlib.sha256()

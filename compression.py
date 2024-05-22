@@ -36,6 +36,9 @@ class TopKCompressor():
         self.name = 'topk'
         self.zc = None
         self.current_ratio = 1
+        # ===================================
+        self.shapes = {}
+
 
     def _process_data_before_selecting(self, name, data):
         pass
@@ -58,26 +61,59 @@ class TopKCompressor():
     def compress(self, tensor, name=None, sigma_scale=2.5, ratio=0.05):
         start = time.time()
         with torch.no_grad():
-            if name not in self.residuals:
-                self.residuals[name] = torch.zeros_like(tensor.data)
             # top-k solution
             numel = tensor.numel()
             k = max(int(numel * ratio), 1)
             self.current_ratio = ratio
-            #tensor.data.add_(TopKCompressor.residuals[name].data)
-            self._process_data_before_selecting(name, tensor.data)
 
             values, indexes = torch.topk(torch.abs(tensor.data), k=k)
             values = tensor.data[indexes]
 
-            self.residuals[name].data = tensor.data + 0.0 
-            self.residuals[name].data[indexes] = 0. 
             self.values[name] = values
             self.indexes[name] = indexes
 
-            self._process_data_after_residual(name, tensor.data)
-
             return tensor, indexes, values
+
+    def decompress(self, tensor, original_tensor_size):
+        return tensor
+
+
+    def decompress_new(self, tensor, indexes, name=None, shape=None):
+        '''
+            Just decompress, without unflatten.
+            Remember to do unflatter after decompress
+        '''
+        if shape is None:
+            decompress_tensor = torch.zeros(
+                self.shapes[name], dtype=tensor.dtype, device=tensor.device).view(-1)
+            decompress_tensor[indexes] = tensor
+            # decompress_tensor = torch.zeros(self.shapes[name]).view(-1)
+            # decompress_tensor[indexes] = tensor.type(decompress_tensor.dtype)
+            return decompress_tensor
+        else:
+            decompress_tensor = torch.zeros(
+                shape, dtype=tensor.dtype, device=tensor.device).view(-1)
+            decompress_tensor[indexes] = tensor
+            return decompress_tensor
+
+    def flatten(self, tensor, name=None):
+        ''' 
+            flatten a tensor 
+        '''
+        self.shapes[name] = tensor.shape
+        return tensor.view(-1)
+
+    def unflatten(self, tensor, name=None, shape=None):
+        ''' 
+            unflatten a tensor 
+        '''
+        if shape is None:
+            return tensor.view(self.shapes[name])
+        else:
+            return tensor.view(shape)
+
+    def update_shapes_dict(self, tensor, name):
+        self.shapes[name] = tensor.shape
 
     def get_residuals(self, name, like_tensor):
         if name not in self.residuals:
@@ -97,9 +133,6 @@ class TopKCompressor():
             #selected_indexes = TopKCompressor.indexes[name][indexes_t]
             #residuals.data[selected_indexes] = 0.0 
             #logger.info('residuals after: %f', torch.norm(TopKCompressor.residuals[name].data))
-
-    def decompress(self, tensor, original_tensor_size):
-        return tensor
 
 
 class TopKDDCompressor(TopKCompressor):
@@ -134,6 +167,31 @@ class EFTopKCompressor(TopKCompressor):
     def __init__(self):
         super().__init__()
         self.name = 'eftopk'
+
+    def compress(self, tensor, name=None, sigma_scale=2.5, ratio=0.05):
+        start = time.time()
+        with torch.no_grad():
+            if name not in self.residuals:
+                self.residuals[name] = torch.zeros_like(tensor.data)
+            # top-k solution
+            numel = tensor.numel()
+            k = max(int(numel * ratio), 1)
+            self.current_ratio = ratio
+            #tensor.data.add_(TopKCompressor.residuals[name].data)
+            self._process_data_before_selecting(name, tensor.data)
+
+            values, indexes = torch.topk(torch.abs(tensor.data), k=k)
+            values = tensor.data[indexes]
+
+            self.residuals[name].data = tensor.data + 0.0 
+            self.residuals[name].data[indexes] = 0. 
+            self.values[name] = values
+            self.indexes[name] = indexes
+
+            self._process_data_after_residual(name, tensor.data)
+
+            return tensor, indexes, values
+
 
     def _process_data_before_selecting(self, name, data):
         data.add_(self.residuals[name].data)
@@ -818,4 +876,3 @@ if __name__ == '__main__':
     print('decompressed shape: ', decompressed_tensor.shape)
     diff = (decompressed_tensor - z).norm()
     print('difff norm: ', diff)
-

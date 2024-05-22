@@ -7,6 +7,7 @@ import numpy as np
 import argparse, os
 import settings
 import utils
+import pytz
 import logging
 from multiprocessing import set_start_method
 
@@ -28,7 +29,7 @@ writer = None
 from settings import logger, formatter
 
 
-def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, overlap, overlap_scalar, threshold, gradient_path=None, momentum_correction=False, prefix=None):
+def ssgd_with_horovod(overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
     rank = hvd.rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -37,7 +38,8 @@ def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
         torch.cuda.manual_seed_all(3000)
     #torch.manual_seed(rank)
     #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
-    selected_gpu = 0 if (rank % nwpernode) == 0 else 3
+        
+    selected_gpu = rank%nwpernode
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
@@ -76,7 +78,7 @@ def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
     if settings.ORIGINAL_HOROVOD:
         optimizer = hvd.DistributedOptimizer(trainer.optimizer, named_parameters=trainer.net.named_parameters(), backward_passes_per_step=nsteps_update)
     else:
-        optimizer = hvd.DistributedOptimizer(trainer.optimizer, overlap=overlap, overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
+        optimizer = hvd.DistributedOptimizer(trainer.optimizer, strategy=strategy,overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
     trainer.update_optimizer(optimizer)
     iters_per_epoch = trainer.num_batches_per_epoch #trainer.get_num_of_training_samples() // (nworkers * batch_size * nsteps_update)
     #max_epochs=0
@@ -118,8 +120,8 @@ def ssgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
             optimizer.train_epoch += 1
 
 
-
-def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, overlap, overlap_scalar, threshold, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1):
+    
+def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1):
     assert nsteps_localsgd > 1
     rank = hvd.rank()
     logger.info('the rank of current process: %d', rank)
@@ -127,9 +129,8 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
     if compressor in ['randomksame', 'randomksameec']:
         torch.manual_seed(3000)
         torch.cuda.manual_seed_all(3000)
-    #torch.manual_seed(rank)
-    #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
-    selected_gpu = 0 if (rank % nwpernode) == 0 else 3
+
+    selected_gpu = rank % nwpernode
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
@@ -171,7 +172,7 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
     #     optimizer = hvd.DistributedOptimizer(trainer.optimizer, overlap=overlap, overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
     # trainer.update_optimizer(optimizer)
     optimizer = trainer.optimizer
-    iters_per_epoch = trainer.num_batches_per_epoch #trainer.get_num_of_training_samples() // (nworkers * batch_size * nsteps_update)
+    iters_per_epoch = trainer.num_batches_per_epoch
     #max_epochs=0
 
     times = []
@@ -202,9 +203,9 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
                 logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
                 times = []
             if total_iters % nsteps_localsgd == nsteps_localsgd - 1:
-                avg_params = allreduce_model_weights(trainer.net)
+                avg_params = allreduce_model_weights(trainer.net,compressors[compressor](), density,strategy, overlap_scalar)
                 #print(type(avg_params))
-                logger.info("Successfully averaging the parameters using allreduce.")
+                #logger.info("Successfully averaging the parameters using allreduce.")
                 corrected_params = {'.'.join(name.split('.')[:-1]): value for name, value in avg_params}
                 trainer.net.load_state_dict(dict(corrected_params))
             else:
@@ -250,27 +251,42 @@ if __name__ == '__main__':
     parser.add_argument('--density', type=float, default=1, help='Density for sparsification')
     parser.add_argument('--threshold', type=int, default=0, help='Specify the threshold for gradient merging')
     parser.add_argument('--momentum-correction', type=int, default=0, help='Set it to 1 to turn on momentum_correction for TopK sparsification, default is 0')
-    parser.add_argument('--overlap', type=str, default='false', help='Overlap for TopK sparsification, default is false')
-    parser.add_argument('--overlap_scalar', type=float, default=0.1, help='Overlap scalar for TopK sparsification, default is 0.1')
-    parser.add_argument('--nsteps-localsgd', type=int, default=1)
+    parser.add_argument('--strategy', type=str, default='average', help='gradient averaging strategies, choosing from ties, ties_max, average, overlap')
+    parser.add_argument('--overlap_scalar', type=float, default=2, help='Overlap scalar for TopK sparsification, default is 0.1')
+    parser.add_argument('--nsteps_localsgd', type=int, default=1)
 
     args = parser.parse_args()
-    logger.info('The overlap boolean is ' + str(str2bool(args.overlap) == False))
-    logger.info(str2bool(args.overlap) == True)
     batch_size = args.batch_size * args.nsteps_update
     momentum_correction = args.momentum_correction != 0
     prefix = settings.PREFIX
     if args.density < 1:
-        prefix = 'comp-' + args.compressor + '-' + prefix
+        if (args.strategy == 'overlap'):
+            prefix = '-' + args.strategy + '-' + 'Scalar-' + str(args.overlap_scalar) + '-' + 'comp-' + args.compressor + '-' + prefix
+        else:
+            prefix = '-' + args.strategy + '-' + 'comp-' + args.compressor + '-' + prefix
         if momentum_correction:
             prefix = 'mc-'+ prefix
-    prefix = 'allreduce-%s-thres-%dkbytes' % (prefix, args.threshold/1024)
-    logdir = '%s/%s-n%d-bs%d-lr%.4f-ns%d-ds%s' % (prefix, args.dnn, args.nworkers, batch_size, args.lr, args.nsteps_update, str(args.density)) 
-    overlapping = 'overlap' if str2bool(args.overlap) else 'no-overlap'
-    logdir = '%s' % (overlapping) + logdir
-    logdir = '%s' % (datetime.datetime.now().strftime("%m-%d-%H:%M")) + logdir
+    #prefix = 'allreduce-%s-thres-%dkbytes' % (prefix, args.threshold/1024)
+    #logdir = '%s/%s-n%d-bs%d-lr%.4f-ns%d-ds%s' % (prefix, args.dnn, args.nworkers, batch_size, args.lr, args.nsteps_update, str(args.density)) 
+    
+    #overlapping = 'overlap' if str2bool(args.overlap) else 'no-overlap'
+    #logdir = '%s' % (overlapping) + logdir
+    beijing_tz = pytz.timezone('Asia/Shanghai')
+    #current_time_beijing = datetime.datetime.now(beijing_tz)
+    logdir = '%s' % (datetime.datetime.now(beijing_tz).strftime("%m-%d-%H:%M")) + prefix
     #args.log_file_name = 'experiment_log-%s' % (datetime.datetime.now().strftime("%Y-%m-%d-%H:%M-%S"))
-    relative_path = './localsgd_logs/%s'%logdir
+    if (args.nsteps_localsgd == 1):
+        directory_path = os.path.join('./logs', args.dnn, args.compressor)
+    elif (args.nsteps_localsgd > 1):
+        directory_path = os.path.join('./localsgd_logs', args.dnn, args.compressor)
+    # if not os.path.exists(directory_path):
+    #     print(f"Directory does not exist. Creating {directory_path}.")
+    #     os.makedirs(directory_path)
+    #relative_path = './logs/args.dnn/%s'%logdir
+    relative_path = os.path.join(directory_path, logdir)
+
+    print(relative_path)
+
     gradient_relative_path = None 
     utils.create_path(relative_path)
     if settings.LOGGING_GRADIENTS:
@@ -291,8 +307,47 @@ if __name__ == '__main__':
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr) 
     logger.info('Configurations: %s', args)
-    if args.nsteps_localsgd > 1:
-        local_sgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, str2bool(args.overlap),args.overlap_scalar, args.threshold, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
-    else:
-        ssgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, str2bool(args.overlap),args.overlap_scalar, args.threshold, gradient_relative_path, momentum_correction, prefix)
 
+    if args.nsteps_localsgd > 1:
+        logger.info("Communicate localsgd to acheive DDP.")
+        local_sgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
+    else:
+        logger.info("Communicate gradients to acheive DDP.")
+        ssgd_with_horovod(args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
+
+    # logger.info('The overlap boolean is ' + str(str2bool(args.overlap) == False))
+    # logger.info(str2bool(args.overlap) == True)
+    # batch_size = args.batch_size * args.nsteps_update
+    # momentum_correction = args.momentum_correction != 0
+    # prefix = settings.PREFIX
+    # if args.density < 1:
+    #     prefix = 'comp-' + args.compressor + '-' + prefix
+    #     if momentum_correction:
+    #         prefix = 'mc-'+ prefix
+    # prefix = 'allreduce-%s-thres-%dkbytes' % (prefix, args.threshold/1024)
+    # logdir = '%s/%s-n%d-bs%d-lr%.4f-ns%d-ds%s' % (prefix, args.dnn, args.nworkers, batch_size, args.lr, args.nsteps_update, str(args.density)) 
+    # overlapping = 'overlap' if str2bool(args.overlap) else 'no-overlap'
+    # logdir = '%s' % (overlapping) + logdir
+    # logdir = '%s' % (datetime.datetime.now().strftime("%m-%d-%H:%M")) + logdir
+    # #args.log_file_name = 'experiment_log-%s' % (datetime.datetime.now().strftime("%Y-%m-%d-%H:%M-%S"))
+    # relative_path = './localsgd_logs/%s'%logdir
+    # gradient_relative_path = None 
+    # utils.create_path(relative_path)
+    # if settings.LOGGING_GRADIENTS:
+    #     gradient_relative_path = '%s/gradients/%s'%(args.saved_dir, logdir)
+    #     utils.create_path(gradient_relative_path)
+    # rank = 0
+    # #set_start_method('spawn')
+    # print("Start initializing the horovod")
+    # if args.nworkers > 1:
+    #     hvd.init()
+    #     rank = hvd.rank()
+    #     print("The horovod is initialized by rank: ", rank)
+    # if rank == 0:
+    #     tb_runs = './runs/%s'%logdir
+    #     writer = None #SummaryWriter(tb_runs)
+    # logfile = os.path.join(relative_path, settings.hostname+'-'+str(rank)+'.log')
+    # hdlr = logging.FileHandler(logfile)
+    # hdlr.setFormatter(formatter)
+    # logger.addHandler(hdlr) 
+    # logger.info('Configurations: %s', args)

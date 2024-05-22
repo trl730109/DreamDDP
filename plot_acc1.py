@@ -23,14 +23,12 @@ def parse_metrics(log_file):
 
 # Directories containing experiment logs.
 log_directories = {
-    'Baseline': '/home/comp/amelieczhou/DDP-Train/logs/03-22-09:21allreduce-gwarmup-dc1-model-debug-thres-512000kbytes/resnet20-n4-bs128-lr0.1000-ns1-ds1.0/gpu23-0.log',
-    'Overlap': '/home/comp/amelieczhou/DDP-Train/logs/03-21-19:34overlapallreduce-comp-topk-gwarmup-dc1-model-debug-thres-512000kbytes/resnet20-n4-bs128-lr0.1000-ns1-ds0.01/gpu23-0.log',
-    'Non-overlap': '/home/comp/amelieczhou/DDP-Train/logs/03-21-19:36no-overlapallreduce-comp-topk-gwarmup-dc1-model-debug-thres-512000kbytes/resnet20-n4-bs128-lr0.1000-ns1-ds0.01/gpu23-0.log',
-    #'warmup-overlap': '/home/comp/amelieczhou/DDP-Train/logs/03-21-15:10allreduce-comp-topk-gwarmup-dc1-model-debug-thres-512000kbytes/resnet20-n4-bs128-lr0.1000-ns1-ds0.01/gpu23-0.log',
-    #'warmup-non-overlap': '/home/comp/amelieczhou/DDP-Train/logs/03-21-15:23allreduce-comp-topk-gwarmup-dc1-model-debug-thres-512000kbytes/resnet20-n4-bs128-lr0.1000-ns1-ds0.01/gpu23-0.log',
-    'Full-Overlap': '/home/comp/amelieczhou/DDP-Train/logs/03-22-13:09overlapallreduce-comp-topk-gwarmup-dc1-model-debug-thres-512000kbytes/resnet20-n4-bs128-lr0.1000-ns1-ds0.01/gpu23-0.log',
-    'Half-Overlap': '/home/comp/amelieczhou/DDP-Train/logs/03-22-14:04overlapallreduce-comp-topk-gwarmup-dc1-model-debug-thres-512000kbytes/resnet20-n4-bs128-lr0.1000-ns1-ds0.01/gpu23-0.log'
-    # Add more experiments as needed.
+    'local-sgd': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/none/05-22-13:59gwarmup-dc1-model-debug/gpu15-0.log',
+    'gradient_compressed': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-20-17:01-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
+    'gradient': '/home/yinyiming/DDP-Train-main/logs/resnet20/none/05-20-18:22gwarmup-dc1-model-debug/gpu15-0.log',
+    'local-sgd_compressed': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/topk/05-22-14:28-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
+    
+    
 }
 
 # Plotting accuracies and losses for each experiment.

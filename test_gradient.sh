@@ -1,6 +1,5 @@
 #!/bin/bash
 export HOROVOD_WITH_MPI=1
-export NCCL_DEBUG=WARN
 #export HOROVOD_WITH_GLOO=1
 dnn="${dnn:-resnet20}"
 source exp_configs/$dnn.conf
@@ -20,6 +19,6 @@ PY=~/miniconda3/envs/DDP/bin/python3
 MPIPATH=~/miniconda3/envs/DDP/
 
 GRADSPATH=./logs/tzc
-#--mpi-args="-x NCCL_DEBUG=INFO"
+
 # Loop through each strategy and run the training script
 horovodrun -np $nworkers -H localhost:4 $PY horovod_trainer.py --nsteps_localsgd $nsteps_localsgd --strategy $strategy --overlap_scalar $overlap_scalar --dnn $dnn --dataset $dataset --max-epochs $max_epochs --batch-size $batch_size --nworkers $nworkers --data-dir $data_dir --lr $lr --nsteps-update $nstepsupdate --nwpernode $nwpernode --density $density --compressor $compressor --threshold $threshold --saved-dir $GRADSPATH --momentum-correction $momentum_correction
