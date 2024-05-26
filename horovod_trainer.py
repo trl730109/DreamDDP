@@ -121,7 +121,7 @@ def ssgd_with_horovod(overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batc
 
 
     
-def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1):
+def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1):
     assert nsteps_localsgd > 1
     rank = hvd.rank()
     logger.info('the rank of current process: %d', rank)
@@ -134,7 +134,7 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer)
+    trainer = DLTrainer(rank, nworkers, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name)
 
     init_epoch = torch.ones(1) * trainer.get_train_epoch()
     init_iter = torch.ones(1) * trainer.get_train_iter()
@@ -181,6 +181,7 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
 
     total_iters = 0
     for epoch in range(max_epochs):
+        logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
         hidden = None
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
@@ -254,6 +255,7 @@ if __name__ == '__main__':
     parser.add_argument('--strategy', type=str, default='average', help='gradient averaging strategies, choosing from ties, ties_max, average, overlap')
     parser.add_argument('--overlap_scalar', type=float, default=2, help='Overlap scalar for TopK sparsification, default is 0.1')
     parser.add_argument('--nsteps_localsgd', type=int, default=1)
+    parser.add_argument('--optimizer_name',type=str, default=None, help='Optimizer used in the training, default to be SGD.')
 
     args = parser.parse_args()
     batch_size = args.batch_size * args.nsteps_update
@@ -261,9 +263,9 @@ if __name__ == '__main__':
     prefix = settings.PREFIX
     if args.density < 1:
         if (args.strategy == 'overlap'):
-            prefix = '-' + args.strategy + '-' + 'Scalar-' + str(args.overlap_scalar) + '-' + 'comp-' + args.compressor + '-' + prefix
+            prefix = '-' + args.optimizer_name + '-' + args.strategy + '-' + 'scalar-' + str(args.overlap_scalar) + '-' + 'comp-' + args.compressor + '-' + prefix
         else:
-            prefix = '-' + args.strategy + '-' + 'comp-' + args.compressor + '-' + prefix
+            prefix = '-' + args.optimizer_name + '-' + args.strategy + '-' + 'comp-' + args.compressor + '-' + prefix
         if momentum_correction:
             prefix = 'mc-'+ prefix
     #prefix = 'allreduce-%s-thres-%dkbytes' % (prefix, args.threshold/1024)
@@ -310,7 +312,7 @@ if __name__ == '__main__':
 
     if args.nsteps_localsgd > 1:
         logger.info("Communicate localsgd to acheive DDP.")
-        local_sgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
+        local_sgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
     else:
         logger.info("Communicate gradients to acheive DDP.")
         ssgd_with_horovod(args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)

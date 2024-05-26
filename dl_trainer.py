@@ -167,7 +167,7 @@ class DLTrainer:
 
     def __init__(self, rank, size, master='gpu10', dist=True, ngpus=1, batch_size=32, 
         is_weak_scaling=True, data_dir='./data', dataset='cifar10', dnn='resnet20', 
-        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None):
+        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name=None):
 
         self.size = size
         self.rank = rank
@@ -178,6 +178,7 @@ class DLTrainer:
         self.ngpus = ngpus
         self.writer = tb_writer
         self.amp_handle = amp_handle
+        self.optimizer_name = optimizer_name
         if settings.EFFICIENT_IO:
             self.cached_index_images = CachedIndexImages()
         else:
@@ -287,9 +288,20 @@ class DLTrainer:
         #        decay.append(param)
         #parameters = [{'params': no_decay, 'weight_decay': 0.},
         #            {'params': decay, 'weight_decay': weight_decay}]
-
-        self.optimizer = optim.SGD(self.net.parameters(), 
-        #self.optimizer = optim.SGD(parameters, 
+        if (self.optimizer_name == 'Adam'):
+            self.optimizer = optim.Adam(
+            self.net.parameters(),
+            lr=lr,
+            weight_decay=weight_decay
+        )
+        elif(self.optimizer_name == 'AdamW'):
+            self.optimizer = optim.AdamW(
+            self.net.parameters(),
+            lr=lr,
+            weight_decay=weight_decay
+        )
+        else:
+            self.optimizer = optim.SGD(self.net.parameters(), 
                 lr=self.lr,
                 momentum=self.m, 
                 weight_decay=weight_decay,

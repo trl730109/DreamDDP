@@ -1081,7 +1081,7 @@ def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar
 
     # Post-broadcast clenaup for non-tensor parameters
     for key, p in params:
-        logger.info(f"p is {p}")
+        #logger.info(f"p is {p}")
         if key in callbacks:
             callbacks[key]()
     return params
@@ -1130,6 +1130,7 @@ def allgather_parameters(params, compressor, density, strategy, overlap_scalar):
     handles = []
     compressor.clear()
     for name, p in params:
+        #logger.info(f'p name is {name}')
         flattern_tensor = compressor.flatten(p,name=name)
         _, indexes, compressed_param = compressor.compress(flattern_tensor,name=name, ratio=density)
         #handle_allR = allreduce_async_(p, average=True, name=name)
@@ -1153,6 +1154,7 @@ def allgather_parameters(params, compressor, density, strategy, overlap_scalar):
             # logger.info(f'Uncompressed tensor is {p}')
             # logger.info(f'Compressed index is {indexes}')
             new_params += compressor.decompress_new(values, indexes, shape=shape)
+            #logger.info(f'Values, indexes and accumulated tensors dtype are {values.dtype}, {indexes.dtype}, and {new_params.dtype}')
             # logger.info(f'Compressed tensor is {compressor.decompress_new(values, indexes, shape=shape)}')
             # logger.info(f'The decompressed size is exactly the same {compressor.decompress_new(values, indexes, shape=shape).shape == p.view(-1).shape}')
             # logger.info(f'New params accumulated is {new_params}')
@@ -1161,7 +1163,7 @@ def allgather_parameters(params, compressor, density, strategy, overlap_scalar):
             
         new_params = new_params.float() / size()
         if (strategy == 'average'):
-            #logger.info("Normal averaging on local-SGD is used.")
+            logger.info("Normal averaging on local-SGD is used.")
             p.data.copy_(new_params.view(shape))
         elif (strategy == 'ties'):
             #logger.info("TIES averaging on local-SGD is used.")
