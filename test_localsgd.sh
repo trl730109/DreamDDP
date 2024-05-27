@@ -11,9 +11,9 @@ momentum_correction="${momentum_correction:-0}"
 nwpernode=4
 nstepsupdate=1
 overlap_scalar=2
-strategy='average'
+strategy='ties'
 nsteps_localsgd=10
-optimizer_name='Adam'
+optimizer_name='SGD'
 PY=~/miniconda3/envs/DDP/bin/python3
 
 MPIPATH=~/miniconda3/envs/DDP/

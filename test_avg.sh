@@ -1,3 +1,4 @@
+#!/bin/bash
 export HOROVOD_WITH_MPI=1
 # Uncomment the following line if you want to use GLOO
 # export HOROVOD_WITH_GLOO=1
@@ -13,20 +14,20 @@ momentum_correction="${momentum_correction:-0}"
 nwpernode=4
 nstepsupdate=1
 overlap_scalar=2
-strategy='average'
 nsteps_localsgd=10
+optimizer_name='SGD'
 PY=~/miniconda3/envs/DDP/bin/python3
+
 MPIPATH=~/miniconda3/envs/DDP/
 GRADSPATH=./logs/tzc
 
-# Optimizers to run
-optimizers=('Adam' 'AdamW')
+# Strategies to iterate over
 strategies=('average' 'ties' 'ties_max' 'overlap')
 
-# Loop through each optimizer
-for optimizer_name in "${optimizers[@]}"
+# Loop through each strategy
+for strategy in "${strategies[@]}"
 do
-    echo "Running training with $optimizer_name optimizer..."
+    echo "Running training with $strategy strategy..."
     horovodrun -np $nworkers -H localhost:4 $PY horovod_trainer.py \
         --optimizer_name $optimizer_name \
         --nsteps_localsgd $nsteps_localsgd \

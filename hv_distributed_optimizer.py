@@ -1019,7 +1019,10 @@ def broadcast_optimizer_state(optimizer, root_rank):
             callbacks[key]()
 
 def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar):
-    state_dict = model.state_dict()
+    if isinstance(model, dict):
+        state_dict = model
+    else:
+        state_dict = model.state_dict()
 
     params = []
     callbacks = {}
@@ -1168,11 +1171,14 @@ def allgather_parameters(params, compressor, density, strategy, overlap_scalar):
         elif (strategy == 'ties'):
             #logger.info("TIES averaging on local-SGD is used.")
             params_ties = aggregate_elected_sign_vector_and_disjoint_merge(params_list)
-            p.data.copy_(params_ties)
+            #logger.info(f'The shape of ties is {params_ties.view(shape).shape}')
+            #logger.info(f'The shape of p is {shape}')
+            p.data.copy_(params_ties.view(shape))
         elif (strategy == 'ties_max'):
             #logger.info("TIES_MAX averaging on local-SGD is used.")
             params_ties_max = aggregate_elected_sign_vector_and_disjoint_max(params_list)
-            p.data.copy_(params_ties_max)
+            logger.info(f'The shape of ties is {params_ties_max.shape}')
+            p.data.copy_(params_ties_max.view(shape))
         elif(strategy == 'overlap'):
             #logger.info('Overlap averaging is used')
             indices = find_single_nonzero_indices(params_list)

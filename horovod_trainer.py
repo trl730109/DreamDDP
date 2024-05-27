@@ -183,11 +183,16 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
     for epoch in range(max_epochs):
         logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
         hidden = None
+        logger.info(f'The updates counts for each epoch is {str(iters_per_epoch//nsteps_update)}')
+        logger.info(f'The updates counts for each epoch is {str(iters_per_epoch)}')
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
         for i in range(iters_per_epoch//nsteps_update):
             s = time.time()
             optimizer.zero_grad()
+            
+            initial_params = {name: param.clone() for name, param in trainer.net.state_dict().items()}
+            
             for j in range(nsteps_update):
                 if dnn in ['lstm', 'lstmwt2']:
                     _, hidden = trainer.train(1, hidden=hidden)
@@ -204,11 +209,14 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
                 logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
                 times = []
             if total_iters % nsteps_localsgd == nsteps_localsgd - 1:
-                avg_params = allreduce_model_weights(trainer.net,compressors[compressor](), density,strategy, overlap_scalar)
-                #print(type(avg_params))
-                #logger.info("Successfully averaging the parameters using allreduce.")
-                corrected_params = {'.'.join(name.split('.')[:-1]): value for name, value in avg_params}
-                trainer.net.load_state_dict(dict(corrected_params))
+                pseudo_gradients = {name: param - initial_params[name] for name, param in trainer.net.state_dict().items()}
+                #logger.info(f'Calculate the pseudo gradients of workers')
+                avg_pseudo_gradients = allreduce_model_weights(pseudo_gradients, compressors[compressor](), density, strategy, overlap_scalar)
+                corrected_avg_pseudo_gradients = {'.'.join(name.split('.')[:-1]): value for name, value in avg_pseudo_gradients}
+                updated_params = {name: initial_params[name] + corrected_avg_pseudo_gradients[name] for name in initial_params}
+                trainer.net.load_state_dict(dict(updated_params))
+
+                #trainer.net.load_state_dict(dict(corrected_params))
             else:
                 pass
 
@@ -233,7 +241,6 @@ def str2bool(v):
         return v
 
 if __name__ == '__main__':
-    print("The main function is called for single worker")
     #torch.multiprocessing.set_start_method('spawn')
     parser = argparse.ArgumentParser(description="AllReduce trainer")
     parser.add_argument('--batch-size', type=int, default=32)
@@ -260,12 +267,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     batch_size = args.batch_size * args.nsteps_update
     momentum_correction = args.momentum_correction != 0
-    prefix = settings.PREFIX
+    prefix = settings.PREFIX + '-' + args.optimizer_name 
     if args.density < 1:
         if (args.strategy == 'overlap'):
-            prefix = '-' + args.optimizer_name + '-' + args.strategy + '-' + 'scalar-' + str(args.overlap_scalar) + '-' + 'comp-' + args.compressor + '-' + prefix
+            prefix = '-' + args.strategy + '-' + 'scalar-' + str(args.overlap_scalar) + '-' + 'comp-' + args.compressor + '-' + prefix
         else:
-            prefix = '-' + args.optimizer_name + '-' + args.strategy + '-' + 'comp-' + args.compressor + '-' + prefix
+            prefix = '-' + args.strategy + '-' + 'comp-' + args.compressor + '-' + prefix
         if momentum_correction:
             prefix = 'mc-'+ prefix
     #prefix = 'allreduce-%s-thres-%dkbytes' % (prefix, args.threshold/1024)

@@ -35,6 +35,7 @@ log_directories = {
     'gradient_compressed': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-20-17:01-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
     'gradient': '/home/yinyiming/DDP-Train-main/logs/resnet20/none/05-20-18:22gwarmup-dc1-model-debug/gpu15-0.log',
     'local-sgd_compressed': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/topk/05-22-14:28-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
+    'pseudo-localsgd-compressed': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/topk/05-27-16:24-SGD-ties-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log'
 }
 
 # Plotting accuracies and losses for each experiment.
