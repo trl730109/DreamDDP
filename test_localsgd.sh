@@ -4,9 +4,9 @@ export HOROVOD_WITH_MPI=1
 dnn="${dnn:-resnet20}"
 source exp_configs/$dnn.conf
 nworkers="${nworkers:-4}"
-density="${density:-0.01}"
+density="${density:-1.0}"
 threshold="${threshold:-524288000}"
-compressor="${compressor:-topk}"
+compressor="${compressor:-none}"
 momentum_correction="${momentum_correction:-0}"
 nwpernode=4
 nstepsupdate=1

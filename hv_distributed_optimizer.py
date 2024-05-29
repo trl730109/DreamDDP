@@ -1077,9 +1077,10 @@ def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar
     # Synchronized allreduce of all parameters
     #print("Before allreduce:", [name for name, _ in params])
     if (density < 1):
-        allgather_parameters(params, compressor, density, strategy, overlap_scalar)
+        allgather_parameters_compressed(params, compressor, density, strategy, overlap_scalar)
     else:
-        allreduce_parameters(params)
+        #allreduce_parameters(params)
+        allgather_parameters(params,strategy)
     #print("After allreduce:", [name for name, _ in params])
 
     # Post-broadcast clenaup for non-tensor parameters
@@ -1120,7 +1121,7 @@ def allreduce_parameters(params):
     for handle in handles:
         synchronize(handle)
         
-def allgather_parameters(params, compressor, density, strategy, overlap_scalar):
+def allgather_parameters_compressed(params, compressor, density, strategy, overlap_scalar):
     if isinstance(params, dict):
         params = sorted(params.items())
     elif isinstance(params, list):
@@ -1184,3 +1185,43 @@ def allgather_parameters(params, compressor, density, strategy, overlap_scalar):
             indices = find_single_nonzero_indices(params_list)
             new_params[indices] *= overlap_scalar
             p.data.copy_(new_params.view(shape))
+            
+def allgather_parameters(params, strategy):
+    if isinstance(params, dict):
+        params = sorted(params.items())
+    elif isinstance(params, list):
+        params = [p if isinstance(p, tuple) else (None, p) for p in params]
+    else:
+        raise ValueError('invalid params of type: %s' % type(params))
+
+    handles = []
+    for name, p in params:
+        handle = allgather_async(p.data.view(-1), name=name)
+        handles.append((handle, p, name))
+
+    for handle, p, name in handles:
+        shape = p.shape
+        gathered_tensors = synchronize(handle)
+        real_num_values = gathered_tensors.numel() // size()
+        new_params = torch.zeros_like(p).view(-1)
+        params_list = []
+        
+        for i in range(size()):
+            gather_tensor = gathered_tensors.data[i*real_num_values:(i+1)*real_num_values]
+            new_params += gather_tensor
+            params_list.append(gather_tensor)
+        
+        new_params = new_params.float() / size()
+
+        if (strategy == 'average'):
+            logger.info("Normal averaging on local-SGD is used.")
+            p.data.copy_(new_params.view(shape))
+        elif (strategy == 'ties'):
+            logger.info("TIES averaging on uncompressed local-SGD is used.")
+            params_ties = aggregate_elected_sign_vector_and_disjoint_merge([t.view(shape) for t in params_list])
+            p.data.copy_(params_ties.view(shape))
+        elif (strategy == 'ties_max'):
+            #logger.info("TIES_MAX averaging on local-SGD is used.")
+            params_ties_max = aggregate_elected_sign_vector_and_disjoint_max([t.view(shape) for t in params_list])
+            #logger.info(f'The shape of ties_max is {params_ties_max.shape}')
+            p.data.copy_(params_ties_max.view(shape))

@@ -35,7 +35,7 @@ from hv_distributed_optimizer import *
 class SimpleModel(nn.Module):
     def __init__(self):
         super(SimpleModel, self).__init__()
-        self.param = nn.Parameter(torch.randn(10))  # Initialize parameters
+        self.param = nn.Parameter(torch.randn(10)).reshape(2,5)  # Initialize parameters
 
 
 def main():
@@ -48,7 +48,7 @@ def main():
     
     # Each rank modifies its parameter to be range(10) * hvd.rank()
     values = torch.arange(10, dtype=torch.float32) * hvd.rank()
-    model.param.data.copy_(values.cuda())
+    model.param.data.copy_((values.reshape(2,5)).cuda())
 
     # Run the allreduce model weights function
     allreduce_model_weights(model, compressor, density=0.1, strategy='average', overlap_scalar=1.0)

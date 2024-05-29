@@ -13,6 +13,8 @@ test_script*
 sign_plot*
 index_plot*
 logs*
+localsgd_logs*
+plots*
 weights
 .nfs*
 runs

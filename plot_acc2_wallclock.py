@@ -59,4 +59,4 @@ plt.ylabel('Loss')
 plt.legend()
 
 plt.tight_layout()
-plt.savefig('training_plots_wallclock.pdf')
+plt.savefig('./plots/training_plots_wallclock.pdf')

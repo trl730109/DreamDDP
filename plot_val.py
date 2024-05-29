@@ -87,4 +87,4 @@ plt.ylabel('Loss')
 plt.legend()
 
 plt.tight_layout()
-plt.savefig('test_acc.pdf')
+plt.savefig('./plots/test_acc.pdf')

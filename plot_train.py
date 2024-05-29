@@ -28,7 +28,7 @@ log_directories = {
     #'gradient': '/home/yinyiming/DDP-Train-main/logs/resnet20/none/05-20-18:22gwarmup-dc1-model-debug/gpu15-0.log',
     'Adam': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/none/05-27-09:46gwarmup-dc1-model-debug/gpu15-0.log',
     'AdamW': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/none/05-27-10:00gwarmup-dc1-model-debug/gpu15-0.log',
-    ''
+    
     
     
 }
@@ -54,4 +54,4 @@ plt.ylabel('Loss')
 plt.legend()
 
 plt.tight_layout()
-plt.savefig('train_acc.pdf')
+plt.savefig('./plots/train_acc.pdf')
