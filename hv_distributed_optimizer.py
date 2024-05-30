@@ -1214,14 +1214,13 @@ def allgather_parameters(params, strategy):
         new_params = new_params.float() / size()
 
         if (strategy == 'average'):
-            logger.info("Normal averaging on local-SGD is used.")
+            #logger.info("Normal averaging on uncompressed local-SGD is used.")
             p.data.copy_(new_params.view(shape))
         elif (strategy == 'ties'):
-            logger.info("TIES averaging on uncompressed local-SGD is used.")
+            #logger.info("TIES averaging on uncompressed local-SGD is used.")
             params_ties = aggregate_elected_sign_vector_and_disjoint_merge([t.view(shape) for t in params_list])
             p.data.copy_(params_ties.view(shape))
         elif (strategy == 'ties_max'):
             #logger.info("TIES_MAX averaging on local-SGD is used.")
             params_ties_max = aggregate_elected_sign_vector_and_disjoint_max([t.view(shape) for t in params_list])
-            #logger.info(f'The shape of ties_max is {params_ties_max.shape}')
             p.data.copy_(params_ties_max.view(shape))

@@ -52,15 +52,12 @@ def parse_metrics_val(log_file):
 # }
 #EFTOPK
 log_directories = {
-    'local-sgd': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/none/05-22-13:59gwarmup-dc1-model-debug/gpu15-0.log',
+    'localsgd': '/home/comp/amelieczhou/DDP-Train/localsgd_logs/resnet20/none/05-29-15:21gwarmup-dc1-model-debug-SGD/gpu22-0.log',
     #'gradient_compressed': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-20-17:01-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
     #'gradient': '/home/yinyiming/DDP-Train-main/logs/resnet20/none/05-20-18:22gwarmup-dc1-model-debug/gpu15-0.log',
-    'localsgd_compressed-average': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/topk/05-22-14:28-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
-    'localsgd-compressed-ties': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/topk/05-27-09:13-SGD-ties-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
-    'pseudo-localsgd-compressed': '/home/yinyiming/DDP-Train-main/localsgd_logs/resnet20/topk/05-27-16:24-SGD-ties-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
-       
-    
-    
+    'localsgd-ties': '/home/comp/amelieczhou/DDP-Train/localsgd_logs/resnet20/none/05-29-15:40gwarmup-dc1-model-debug-SGD/gpu22-0.log',
+    'localsgd-ties_max': '/home/comp/amelieczhou/DDP-Train/localsgd_logs/resnet20/none/05-29-16:01gwarmup-dc1-model-debug-SGD/gpu22-0.log',
+
 }
 
 

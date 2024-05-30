@@ -267,12 +267,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     batch_size = args.batch_size * args.nsteps_update
     momentum_correction = args.momentum_correction != 0
-    prefix = settings.PREFIX + '-' + args.optimizer_name 
+    prefix = settings.PREFIX + '-' + args.optimizer_name + '-' + args.strategy
     if args.density < 1:
         if (args.strategy == 'overlap'):
-            prefix = '-' + args.strategy + '-' + 'scalar-' + str(args.overlap_scalar) + '-' + 'comp-' + args.compressor + '-' + prefix
+            prefix = '-' + 'scalar-' + str(args.overlap_scalar) + '-' + 'comp-' + args.compressor + '-' + prefix
         else:
-            prefix = '-' + args.strategy + '-' + 'comp-' + args.compressor + '-' + prefix
+            prefix = '-' + 'comp-' + args.compressor + '-' + prefix
         if momentum_correction:
             prefix = 'mc-'+ prefix
     #prefix = 'allreduce-%s-thres-%dkbytes' % (prefix, args.threshold/1024)
