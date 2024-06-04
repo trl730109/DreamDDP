@@ -1,6 +1,6 @@
+#!/bin/bash
 export HOROVOD_WITH_MPI=1
-# Uncomment the following line if you want to use GLOO
-# export HOROVOD_WITH_GLOO=1
+#export HOROVOD_WITH_GLOO=1
 
 # Default settings
 dnn="${dnn:-resnet20}"
@@ -14,18 +14,19 @@ nwpernode=4
 nstepsupdate=1
 overlap_scalar=2
 strategy='average'
-nsteps_localsgd=10
+nsteps_localsgd=1
 PY=~/miniconda3/envs/DDP/bin/python3
+
 MPIPATH=~/miniconda3/envs/DDP/
 GRADSPATH=./logs/tzc
 
-# Optimizers to run
-optimizers=('Adam' 'AdamW' 'SGD')
+# Optimizers to iterate over
+optimizers=('Adam' 'SGD' 'AdamW')
 
 # Loop through each optimizer
 for optimizer_name in "${optimizers[@]}"
 do
-    echo "Running training with $optimizer_name optimizer..."
+    echo "Running training with optimizer: $optimizer_name"
     horovodrun -np $nworkers -H localhost:4 $PY horovod_trainer.py \
         --optimizer_name $optimizer_name \
         --nsteps_localsgd $nsteps_localsgd \

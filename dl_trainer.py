@@ -165,9 +165,9 @@ def create_net(num_classes, dnn='resnet20', **kwargs):
 
 class DLTrainer:
 
-    def __init__(self, rank, size, master='gpu10', dist=True, ngpus=1, batch_size=32, 
+    def __init__(self, rank, size, master='gpu10', localsgd=False, dist=True, ngpus=1, batch_size=32, 
         is_weak_scaling=True, data_dir='./data', dataset='cifar10', dnn='resnet20', 
-        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name=None):
+        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='SGD'):
 
         self.size = size
         self.rank = rank
@@ -179,6 +179,7 @@ class DLTrainer:
         self.writer = tb_writer
         self.amp_handle = amp_handle
         self.optimizer_name = optimizer_name
+        self.localsgd = localsgd
         if settings.EFFICIENT_IO:
             self.cached_index_images = CachedIndexImages()
         else:
@@ -300,7 +301,7 @@ class DLTrainer:
             lr=lr,
             weight_decay=weight_decay
         )
-        else:
+        elif(self.optimizer_name == 'SGD'):
             self.optimizer = optim.SGD(self.net.parameters(), 
                 lr=self.lr,
                 momentum=self.m, 
@@ -933,6 +934,8 @@ class DLTrainer:
         # zero the parameter gradients
         #self.optimizer.zero_grad()
         for i in range(num_of_iters):
+            # if(not self.localsgd):
+            #     logger.info('Adaptively adjust the learning rate.')
             self.adjust_learning_rate(self.train_epoch, self.optimizer)
             if self.train_iter % self.num_batches_per_epoch == 0 and self.train_iter > 0:
                 self.train_epoch += 1

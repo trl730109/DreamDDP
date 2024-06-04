@@ -1018,7 +1018,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
         if key in callbacks:
             callbacks[key]()
 
-def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar):
+def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar,trainable_list):
     if isinstance(model, dict):
         state_dict = model
     else:
@@ -1062,17 +1062,19 @@ def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar
         # Some parameter names may appear more than once, in which
         # case we ensure they have a unique identifier defined by
         # their order
-        occurrences[name] += 1
-        key = '%s.%d' % (str(name), occurrences[name])
+        if (name in trainable_list):
+            logger.info(f'{name} is processed in the trainable list.')
+            occurrences[name] += 1
+            key = '%s.%d' % (str(name), occurrences[name])
+            if not torch.is_tensor(p):
+                #logger.info(f'p is {p}')
+                # Wrap the scalar in a FloatTensor, and remember its type
+                # so we can cast it back after unwrapping
+                t = type(p)
+                p = torch.Tensor([p])
+                callbacks[key] = _create_callback(name, t, p) #create the function that transfers the scalar back to the original type
 
-        if not torch.is_tensor(p):
-            # Wrap the scalar in a FloatTensor, and remember its type
-            # so we can cast it back after unwrapping
-            t = type(p)
-            p = torch.Tensor([p])
-            callbacks[key] = _create_callback(name, t, p) #create the function that transfers the scalar back to the original type
-
-        params.append((key, p))
+            params.append((key, p))
         
     # Synchronized allreduce of all parameters
     #print("Before allreduce:", [name for name, _ in params])
@@ -1158,8 +1160,8 @@ def allgather_parameters_compressed(params, compressor, density, strategy, overl
             # logger.info(f'Uncompressed tensor is {p}')
             # logger.info(f'Compressed index is {indexes}')
             new_params += compressor.decompress_new(values, indexes, shape=shape)
-            #logger.info(f'Values, indexes and accumulated tensors dtype are {values.dtype}, {indexes.dtype}, and {new_params.dtype}')
-            # logger.info(f'Compressed tensor is {compressor.decompress_new(values, indexes, shape=shape)}')
+            logger.info(f'Values, indexes and accumulated tensors dtype are {values.dtype}, {indexes.dtype}, and {new_params.dtype}')
+            logger.info(f'Compressed tensor is {compressor.decompress_new(values, indexes, shape=shape)}')
             # logger.info(f'The decompressed size is exactly the same {compressor.decompress_new(values, indexes, shape=shape).shape == p.view(-1).shape}')
             # logger.info(f'New params accumulated is {new_params}')
             # logger.info(f'dtype the same is {new_params.dtype == compressor.decompress_new(values, indexes, shape=shape).dtype}')
@@ -1195,15 +1197,27 @@ def allgather_parameters(params, strategy):
         raise ValueError('invalid params of type: %s' % type(params))
 
     handles = []
+    # non_trainable = [name for name, p in params if not p.requires_grad]
+    # print(f'Non-trainable params are {non_trainable}')
+    # trainable = [name for name, p in params if p.requires_grad]
+    # print(f'Trainable params are {trainable}')
     for name, p in params:
-        handle = allgather_async(p.data.view(-1), name=name)
+        if p.dtype == torch.int64:
+            logger.info(f'The {name} parameters has int64 type.')
+        handle = allgather_async(p.data.view(-1).float(), name=name)  # Ensure floating point operations
         handles.append((handle, p, name))
+        # else:
+        #     logger.info(f'Skipping non-trainable parameter: {name}')
 
+    
     for handle, p, name in handles:
         shape = p.shape
+        ty = p.dtype
         gathered_tensors = synchronize(handle)
+        #logger.info(f'type is {gathered_tensors.dtype}')
         real_num_values = gathered_tensors.numel() // size()
-        new_params = torch.zeros_like(p).view(-1)
+        new_params = torch.zeros_like(p, dtype=torch.float32, device=gathered_tensors.device).view(-1)
+        # new_params = torch.zeros(p, dtype=torch.float32, device=gathered_tensors.device)
         params_list = []
         
         for i in range(size()):
@@ -1211,7 +1225,9 @@ def allgather_parameters(params, strategy):
             new_params += gather_tensor
             params_list.append(gather_tensor)
         
-        new_params = new_params.float() / size()
+        new_params = new_params / size()
+        logger.info(f'Types for p, new_params, gathered params are {ty},{new_params.dtype}, {gathered_tensors.dtype}')
+        
 
         if (strategy == 'average'):
             #logger.info("Normal averaging on uncompressed local-SGD is used.")

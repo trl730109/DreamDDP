@@ -29,7 +29,7 @@ writer = None
 from settings import logger, formatter
 
 
-def ssgd_with_horovod(overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
+def ssgd_with_horovod(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
     rank = hvd.rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -43,8 +43,8 @@ def ssgd_with_horovod(overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batc
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer)
-
+    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer)
+    
     init_epoch = torch.ones(1) * trainer.get_train_epoch()
     init_iter = torch.ones(1) * trainer.get_train_iter()
     trainer.set_train_epoch(int(hvd.broadcast(init_epoch, root_rank=0)[0]))
@@ -134,8 +134,11 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name)
 
+    trainable_list = [name for name, p in trainer.net.named_parameters() if p.requires_grad]
+    #print(f'Trainable params are {trainable}')
+    
     init_epoch = torch.ones(1) * trainer.get_train_epoch()
     init_iter = torch.ones(1) * trainer.get_train_iter()
     trainer.set_train_epoch(int(hvd.broadcast(init_epoch, root_rank=0)[0]))
@@ -183,8 +186,8 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
     for epoch in range(max_epochs):
         logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
         hidden = None
-        logger.info(f'The updates counts for each epoch is {str(iters_per_epoch//nsteps_update)}')
-        logger.info(f'The updates counts for each epoch is {str(iters_per_epoch)}')
+        #logger.info(f'The updates counts for each epoch is {str(iters_per_epoch//nsteps_update)}')
+        #logger.info(f'The updates counts for each epoch is {str(iters_per_epoch)}')
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
         for i in range(iters_per_epoch//nsteps_update):
@@ -210,11 +213,13 @@ def local_sgd_with_horovod(dnn, dataset, data_dir, nworkers, lr, batch_size, nst
                 times = []
             if total_iters % nsteps_localsgd == nsteps_localsgd - 1:
                 pseudo_gradients = {name: param - initial_params[name] for name, param in trainer.net.state_dict().items()}
-                #logger.info(f'Calculate the pseudo gradients of workers')
-                avg_pseudo_gradients = allreduce_model_weights(pseudo_gradients, compressors[compressor](), density, strategy, overlap_scalar)
+                avg_pseudo_gradients = allreduce_model_weights(pseudo_gradients, compressors[compressor](), density, strategy, overlap_scalar,trainable_list)
                 corrected_avg_pseudo_gradients = {'.'.join(name.split('.')[:-1]): value for name, value in avg_pseudo_gradients}
-                updated_params = {name: initial_params[name] + corrected_avg_pseudo_gradients[name] for name in initial_params}
-                trainer.net.load_state_dict(dict(updated_params))
+                for name in corrected_avg_pseudo_gradients.keys():
+                    initial_params[name] += corrected_avg_pseudo_gradients[name]
+                # initial_params[name] += corrected_avg_pseudo_gradients[name] for name in corrected_avg_pseudo_gradients
+                # updated_params = {name: initial_params[name] + corrected_avg_pseudo_gradients[name] for name in initial_params}
+                trainer.net.load_state_dict(dict(initial_params))
 
                 #trainer.net.load_state_dict(dict(corrected_params))
             else:
@@ -322,7 +327,7 @@ if __name__ == '__main__':
         local_sgd_with_horovod(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
     else:
         logger.info("Communicate gradients to acheive DDP.")
-        ssgd_with_horovod(args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
+        ssgd_with_horovod(args.optimizer_name, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
 
     # logger.info('The overlap boolean is ' + str(str2bool(args.overlap) == False))
     # logger.info(str2bool(args.overlap) == True)

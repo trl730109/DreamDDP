@@ -23,14 +23,12 @@ def parse_metrics(log_file):
 
 # Directories containing experiment logs.
 log_directories = {
-    'localsgd': '/home/comp/amelieczhou/DDP-Train/localsgd_logs/resnet20/none/05-29-15:21gwarmup-dc1-model-debug-SGD/gpu22-0.log',
+    'SGD': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-14:06gwarmup-dc1-model-debug-SGD-average/gpu15-0.log',
     #'gradient_compressed': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-20-17:01-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
     #'gradient': '/home/yinyiming/DDP-Train-main/logs/resnet20/none/05-20-18:22gwarmup-dc1-model-debug/gpu15-0.log',
-    'localsgd-ties': '/home/comp/amelieczhou/DDP-Train/localsgd_logs/resnet20/none/05-29-15:40gwarmup-dc1-model-debug-SGD/gpu22-0.log',
-    'localsgd-ties_max': '/home/comp/amelieczhou/DDP-Train/localsgd_logs/resnet20/none/05-29-16:01gwarmup-dc1-model-debug-SGD/gpu22-0.log',
-    
-    
-    
+    'Adam': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-13:50gwarmup-dc1-model-debug-Adam-average/gpu15-0.log',
+    'AdamW': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-14:21gwarmup-dc1-model-debug-AdamW-average/gpu15-0.log',
+
 }
 
 # Plotting accuracies and losses for each experiment.
