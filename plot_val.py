@@ -40,26 +40,49 @@ def parse_metrics_val(log_file):
                 val_losses.append(val_loss)
     return epochs, val_accuracies, val_losses
 
-#TOPK s
 # log_directories = {
-#     'TOPK': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-13-21:07-average-comp-topk-gwarmup-dc1-model-debug/gpu9-0.log',
-#     'TIES': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-13-21:53-ties-comp-topk-gwarmup-dc1-model-debug/gpu9-0.log',
-#     'TIES_Max': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-13-22:40-ties_max-comp-topk-gwarmup-dc1-model-debug/gpu9-0.log',
-#     'Overlap-2': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-14-09:26-overlap-Scalar-2.0-comp-topk-gwarmup-dc1-model-debug/gpu9-0.log',
-#     'Overlap-3': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-14-09:49-overlap-Scalar-3.0-comp-topk-gwarmup-dc1-model-debug/gpu9-0.log',
-#     'Overlap-4': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-14-10:39-overlap-Scalar-4.0-comp-topk-gwarmup-dc1-model-debug/gpu9-0.log',
-
+#     #'localsgd': '/home/comp/amelieczhou/DDP-Train/baselines/localsgd_logs/resnet20/none/06-12-09:33gwarmup-dc1-model-debug-desync-SGD-average-mu_1.0-std_0.5/gpu22-0.log',
+#     #'Layerwise': '/home/comp/amelieczhou/DDP-Train/test/layerwise/resnet20/none/06-13-16:21-layerwise-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     #'Sequential':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-16-17:23-seq-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     'localsgd-20': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/none/06-17-09:54-localsgd-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     'Seq-20':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-17-09:30-seq-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     #'Seq-20-ties_max':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-10:15-seq-SGD-ties_max-mu_0.0-std_0.01/gpu22-0.log',
+#     'Seq-20-ties':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-10:33-seq-SGD-ties-mu_0.0-std_0.01/gpu22-0.log',
+#     'Seq-2p-ties-fw':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-11:01-seq-SGD-ties-mu_0.0-std_0.01/gpu22-0.log',
 # }
-#EFTOPK
 log_directories = {
-    'SGD': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-14:06gwarmup-dc1-model-debug-SGD-average/gpu15-0.log',
+    #'localsgd': '/home/comp/amelieczhou/DDP-Train/baselines/localsgd_logs/resnet20/none/06-12-09:33gwarmup-dc1-model-debug-desync-SGD-average-mu_1.0-std_0.5/gpu22-0.log',
+    #'Layerwise': '/home/comp/amelieczhou/DDP-Train/test/layerwise/resnet20/none/06-13-16:21-layerwise-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+    #'Sequential':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-16-17:23-seq-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+    'localsgd-20': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/none/06-18-18:20-localsgd-SGD-average-mu_0.0-std_0.01/gpu23-0.log',
+    'Seq-20-fw':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-18:49-seq-SGD-average-mu_0.0-std_0.01/gpu23-0.log',
+    #'Seq-20-ties_max':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-10:15-seq-SGD-ties_max-mu_0.0-std_0.01/gpu22-0.log',
+    'Seq-20-ties':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-19:18-seq-SGD-ties-mu_0.0-std_0.01/gpu23-0.log',
+    #'Seq-2p-ties-fw':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-11:01-seq-SGD-ties-mu_0.0-std_0.01/gpu22-0.log',
+}
+
+
+#Add noise
+# log_directories = {
+#     #'grad_mu_0_std_0.0001': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-07-21:30gwarmup-dc1-model-debug-SGD-average-mu_0.0-std_0.0001/gpu22-0.log',
+#     #'grad_mu_0_std_0.001': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-07-21:43gwarmup-dc1-model-debug-SGD-average-mu_0.0-std_0.001/gpu22-0.log',
+#     'grad_mu_0_std_0.01': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-07-21:55gwarmup-dc1-model-debug-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     'grad_mu_0_std_0.1': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-07-22:07gwarmup-dc1-model-debug-SGD-average-mu_0.0-std_0.1/gpu22-0.log',
+#     'grad_mu_0_std_1': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-07-22:19gwarmup-dc1-model-debug-SGD-average-mu_0.0-std_1.0/gpu22-0.log',
+#     #'desync_mu_0_std_0.0001': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-08-23:06gwarmup-dc1-model-debug-desync-SGD-average-mu_0.0-std_0.0001/gpu22-0.log',
+#     #'desync_mu_0_std_0.001': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-08-23:17gwarmup-dc1-model-debug-desync-SGD-average-mu_0.0-std_0.001/gpu22-0.log',
+#     'desync_mu_0_std_0.01': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-08-23:28gwarmup-dc1-model-debug-desync-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     'desync_mu_0_std_0.1': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-08-23:39gwarmup-dc1-model-debug-desync-SGD-average-mu_0.0-std_0.1/gpu22-0.log',
+#     'desync_mu_0_std_1': '/home/comp/amelieczhou/DDP-Train/logs/resnet20/none/06-08-23:50gwarmup-dc1-model-debug-desync-SGD-average-mu_0.0-std_1.0/gpu22-0.log',
+   
+    
     #'gradient_compressed': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-20-17:01-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
     #'gradient': '/home/yinyiming/DDP-Train-main/logs/resnet20/none/05-20-18:22gwarmup-dc1-model-debug/gpu15-0.log',
     # 'Adam': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-13:50gwarmup-dc1-model-debug-Adam-average/gpu15-0.log',
     # 'AdamW': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-14:21gwarmup-dc1-model-debug-AdamW-average/gpu15-0.log',
-    'localsgd-fixed-lr': '/home/yinyiming/DDP-Train/localsgd_logs/resnet20/none/06-04-09:32gwarmup-dc1-model-debug-SGD-average/gpu15-0.log'
+    #'localsgd-fixed-lr': '/home/yinyiming/DDP-Train/localsgd_logs/resnet20/none/06-04-09:32gwarmup-dc1-model-debug-SGD-average/gpu15-0.log'
 
-}
+#}
 
 
 # Plotting accuracies and losses for each experiment.
@@ -67,22 +90,22 @@ plt.subplot(1, 2, 1)
 for experiment_name, log_file_path in log_directories.items():
     epochs, accuracies, _ = parse_metrics_val(log_file_path)
     smoothed_accuracies = gaussian_filter1d(accuracies, sigma=4)
-    plt.plot(epochs, smoothed_accuracies, label=experiment_name)
+    plt.plot(epochs, accuracies, label=experiment_name)
 plt.title('Validation Accuracy vs. Epoch')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
-plt.legend()
+plt.legend(fontsize='small')
 
 # Subplot for losses.
 plt.subplot(1, 2, 2)
 for experiment_name, log_file_path in log_directories.items():
     epochs, _, losses = parse_metrics_val(log_file_path)
     smoothed_losses = gaussian_filter1d(losses, sigma=4)
-    plt.plot(epochs, smoothed_losses, label=experiment_name)
+    plt.plot(epochs, losses, label=experiment_name)
 plt.title('Validation Loss vs. Epoch')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
-plt.legend()
+plt.legend(fontsize='small')
 
 plt.tight_layout()
-plt.savefig('./plots/test_acc.pdf')
+plt.savefig('./plots/test_acc_comparison.pdf')

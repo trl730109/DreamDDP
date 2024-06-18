@@ -4,9 +4,84 @@ import os
 import numpy as np
 import scipy.stats as stats
 import torch
+from horovod.torch.mpi_ops import allreduce_async_
+from horovod.torch.mpi_ops import synchronize
+from collections import defaultdict
 
 import matplotlib.pyplot as plt
 
+def group_layers(layer_names):
+    layers_dict = defaultdict(list)
+    for name in layer_names:
+        parts = name.split('.')
+        if 'stage' in parts[0]:
+            layer_base = '.'.join(parts[:3]) 
+        else:
+            if 'conv' in parts[0] or 'bn' in parts[0]:
+                layer_base = parts[0]
+            else:
+                layer_base = '.'.join(parts[:2])
+        layers_dict[layer_base].append(name)
+
+    # Convert dictionary to list of lists
+    return list(layers_dict.values())
+
+def AllReduce_L2(score_dict, comm_layer_list):
+    handles = []
+    for name in comm_layer_list:
+        handle = allreduce_async_(score_dict[name], average=True, name=name)
+        handles.append(handle)
+    for handle in handles:
+        synchronize(handle)
+
+def adjust_interval(named_params, interval_list, score_list, increasing_factor, interval):
+    # Calculate total model size and total model discrepancy
+    total_model_size = 0
+    total_discrepancy = 0
+    for name in named_params:
+        total_model_size += named_params[name].numel()
+        total_discrepancy += (named_params[name].numel() * score_list[name])
+
+    # Calculate layer-wise cumulative discrepancy and size ratios
+    sorted_layers = sorted(score_list, key=score_list.get)  # Sort layers by discrepancy
+    #print(f'Sorted layer values are {sorted_layers}')
+    cumulative_discrepancy = 0
+    cumulative_size = 0
+
+    # Sort the discrepancies and sizes
+    sorted_discrepancies = [score_list[name] for name in sorted_layers]
+    #print(f'sorted lists are {sorted_discrepancies}')
+    sorted_sizes = [named_params[name].numel() for name in sorted_layers]
+
+    # Calculate cumulative values and adjust intervals
+    for idx, name in enumerate(sorted_layers):
+        cumulative_discrepancy += sorted_discrepancies[idx] * sorted_sizes[idx]
+        cumulative_size += sorted_sizes[idx]
+
+        delta_l = cumulative_discrepancy / total_discrepancy
+        lambda_l = cumulative_size / total_model_size
+        #print(f'Delta and Lambda are {delta_l} and {lambda_l}')
+
+        if delta_l < lambda_l:
+            #print(f'Increase the {name} exchange interval by 2.')
+            interval_list[name] = interval * increasing_factor
+        else:
+            #print(f'keep the {name} exchange interval originally.')
+            interval_list[name] = interval
+
+    return interval_list
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    # if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    if isinstance(v, str) and v.lower() in ('true', 'True'):
+        return True
+    elif isinstance(v, str) and v.lower() in ('false', 'False'):
+        return False
+    else:
+        return v
 
 def check_sign_conflicts_simplified(tensors):
     encode_sign = lambda x: 4 * (x > 0).long() + 2 * (x < 0).long() + (x == 0).long()
@@ -25,7 +100,7 @@ def check_sign_conflicts_simplified(tensors):
     no_conflict = (no_conflict.sum().float() / no_conflict.numel())
     return conflicts, all_zeros, no_conflict
 
-def aggregate_elected_sign_vector_and_disjoint_merge(tensors):
+def ties_avg(tensors):
     total_sum = sum(tensors)
     gamma_m = torch.sign(total_sum)
 
@@ -42,7 +117,7 @@ def aggregate_elected_sign_vector_and_disjoint_merge(tensors):
     
     return disjoint_mean
 
-def aggregate_elected_sign_vector_and_disjoint_max(tensors):
+def ties_max(tensors):
     total_sum = sum(tensors)
     gamma_m = torch.sign(total_sum)
     

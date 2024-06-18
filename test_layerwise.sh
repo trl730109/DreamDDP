@@ -12,9 +12,9 @@ nwpernode=4
 nstepsupdate=1
 overlap_scalar=2
 strategy='average'
-nsteps_localsgd=20
+nsteps_localsgd=10
 optimizer_name='SGD'
-alg='localsgd'
+alg='layerwise'
 PY=~/miniconda3/envs/DDP/bin/python3
 
 MPIPATH=~/miniconda3/envs/DDP/

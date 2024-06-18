@@ -22,13 +22,34 @@ def parse_metrics(log_file):
 
 
 # Directories containing experiment logs.
-log_directories = {
-    'SGD': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-14:06gwarmup-dc1-model-debug-SGD-average/gpu15-0.log',
-    #'gradient_compressed': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-20-17:01-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
-    #'gradient': '/home/yinyiming/DDP-Train-main/logs/resnet20/none/05-20-18:22gwarmup-dc1-model-debug/gpu15-0.log',
-    'Adam': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-13:50gwarmup-dc1-model-debug-Adam-average/gpu15-0.log',
-    'AdamW': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-14:21gwarmup-dc1-model-debug-AdamW-average/gpu15-0.log',
+# log_directories = {
+#     'SGD': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-14:06gwarmup-dc1-model-debug-SGD-average/gpu15-0.log',
+#     #'gradient_compressed': '/home/yinyiming/DDP-Train-main/logs/resnet20/topk/05-20-17:01-average-comp-topk-gwarmup-dc1-model-debug/gpu15-0.log',
+#     #'gradient': '/home/yinyiming/DDP-Train-main/logs/resnet20/none/05-20-18:22gwarmup-dc1-model-debug/gpu15-0.log',
+#     'Adam': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-13:50gwarmup-dc1-model-debug-Adam-average/gpu15-0.log',
+#     'AdamW': '/home/yinyiming/DDP-Train/logs/resnet20/none/05-30-14:21gwarmup-dc1-model-debug-AdamW-average/gpu15-0.log',
 
+# }
+
+# log_directories = {
+#     #'localsgd': '/home/comp/amelieczhou/DDP-Train/baselines/localsgd_logs/resnet20/none/06-12-09:33gwarmup-dc1-model-debug-desync-SGD-average-mu_1.0-std_0.5/gpu22-0.log',
+#     #'Layerwise': '/home/comp/amelieczhou/DDP-Train/test/layerwise/resnet20/none/06-13-16:21-layerwise-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     #'Sequential':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-16-17:23-seq-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     'localsgd-20': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/none/06-17-09:54-localsgd-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     'Seq-20':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-17-09:30-seq-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+#     #'Seq-20-ties_max':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-10:15-seq-SGD-ties_max-mu_0.0-std_0.01/gpu22-0.log',
+#     'Seq-20-ties':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-10:33-seq-SGD-ties-mu_0.0-std_0.01/gpu22-0.log',
+#     'Seq-2p-ties-fw':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-11:01-seq-SGD-ties-mu_0.0-std_0.01/gpu22-0.log',
+# }
+log_directories = {
+    #'localsgd': '/home/comp/amelieczhou/DDP-Train/baselines/localsgd_logs/resnet20/none/06-12-09:33gwarmup-dc1-model-debug-desync-SGD-average-mu_1.0-std_0.5/gpu22-0.log',
+    #'Layerwise': '/home/comp/amelieczhou/DDP-Train/test/layerwise/resnet20/none/06-13-16:21-layerwise-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+    #'Sequential':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-16-17:23-seq-SGD-average-mu_0.0-std_0.01/gpu22-0.log',
+    'localsgd-20': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/none/06-18-18:20-localsgd-SGD-average-mu_0.0-std_0.01/gpu23-0.log',
+    'Seq-20-fw':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-18:49-seq-SGD-average-mu_0.0-std_0.01/gpu23-0.log',
+    #'Seq-20-ties_max':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-10:15-seq-SGD-ties_max-mu_0.0-std_0.01/gpu22-0.log',
+    'Seq-20-ties':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-19:18-seq-SGD-ties-mu_0.0-std_0.01/gpu23-0.log',
+    #'Seq-2p-ties-fw':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-11:01-seq-SGD-ties-mu_0.0-std_0.01/gpu22-0.log',
 }
 
 # Plotting accuracies and losses for each experiment.
@@ -52,4 +73,4 @@ plt.ylabel('Loss')
 plt.legend()
 
 plt.tight_layout()
-plt.savefig('./plots/train_acc.pdf')
+plt.savefig('./plots/train_acc_comparison.pdf')
