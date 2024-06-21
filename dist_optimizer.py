@@ -1,34 +1,8 @@
-# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-
-from horovod.torch.mpi_ops import allreduce_async_
-from horovod.torch.mpi_ops import allgather_async
-from horovod.torch.mpi_ops import broadcast_async_
-from horovod.torch.mpi_ops import synchronize
-from horovod.torch.mpi_ops import size, local_size, rank, local_rank
-from horovod.torch.mpi_ops import init, broadcast
-
 import time
 import torch
 import numpy as np
 import utils
+import torch.distributed as dist
 from utils import *
 
 import collections
@@ -38,10 +12,6 @@ from draw_plot import *
 
 from profiling import CommunicationProfiler
 from sklearn.linear_model import LinearRegression
-
-
-#THRESHOLD = 163840 #4*8192 
-
 
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, add_noise, gaussian_mu, gaussian_std, strategy,overlap_scalar, params, named_parameters, compression, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
@@ -129,7 +99,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._requires_update = set()
         self.local = False
         self._hook_checked_idx = 0
-        if size() > 1:
+        if dist.get_world_size() > 1:
             self._register_hooks()
 
         #logger.info('layerwise compressors: %s', self._layerwise_compressors)
@@ -155,7 +125,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         beta_tensor = torch.ones(1) * beta 
         alpha_tensor = broadcast(alpha_tensor, root_rank=0)
         beta_tensor = broadcast(beta_tensor, root_rank=0)
-        if rank() != 0:
+        if dist.get_rank() != 0:
             self.alpha = float(alpha_tensor[0])
             self.beta = float(beta_tensor[0])
         logger.info('[rank:{}] Communication performance fitted with f(p)=a+b*p, where a={} and b={}'.format(rank(), self.alpha, self.beta))
@@ -233,7 +203,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return density
 
     def _generate_groups_mgwfbp(self):
-        num_of_workers = size()
+        num_of_workers = dist.get_world_size()
         p_alpha_beta_56Gbps = {
                 #16: (0.00010632079996292579, 1.5*3.2713239529771973e-10),
                 16: (0.00023583677659915685*3, 4.0594787739537565e-10),
@@ -284,7 +254,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for l in range(0,L-1)[::-1]:
             taob[l] = taob[l+1] + tb[l+1]
         taoc = __calculate_comm_start(tc, tb, taob, L)
-        if rank() == 0:
+        if dist.get_rank() == 0:
             #logger.debug('seq_layernames: %s', seq_layernames)
             #logger.debug('tb: %s', tb)
             #logger.debug('taob: %s', taob)
@@ -339,7 +309,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         if len(group) > 0:
             groups.append(group)
 
-        if rank() == 0:
+        if dist.get_rank() == 0:
             logger.info('Predicted non-overlapped time: %f', taoc[0]+tc[0]-(taob[0]+tb[0]))
             logger.info('Predicted tb+tc= %f', taoc[0]+tc[0])
             #logger.debug('seq_layernames: %s', seq_layernames)
@@ -353,7 +323,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return groups, key_groupidx_maps
 
     def _generate_groups_mgs(self):
-        P = size() # number of wokers
+        P = dist.get_world_size() # number of wokers
 
         def __calculate_sparse_and_backward_start(tb, sizes, L, start=0):
             taos = [start] * L 
@@ -454,7 +424,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._merged_parameter_offsets = {}
         self._layerwise_compressors = None
         self._layerwise_compressors = {}
-        num_of_workers = size()
+        num_of_workers = dist.get_world_size()
         for g in groups:
             sub_size = 0
             offsets = []
@@ -540,15 +510,15 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         #_, indexes = torch.topk(torch.abs(tensor.data), k=k)
         #tensor[indexes] = 0.0
 
-        if settings.LOGGING_GRADIENTS and rank() == 0 and self.train_iter % 200 == 0 and self.train_iter < 3000:
+        if settings.LOGGING_GRADIENTS and dist.get_rank() == 0 and self.train_iter % 200 == 0 and self.train_iter < 3000:
             grads = tensor.cpu().numpy()
             layer_idx = self._sequential_keys.index(name)
-            np.save('%s/r%d_gradients_iter_%d::%s::%d' % (self._gradient_path, rank(), self.train_iter, name, layer_idx), grads)
+            np.save('%s/r%d_gradients_iter_%d::%s::%d' % (self._gradient_path, dist.get_rank(), self.train_iter, name, layer_idx), grads)
         allreduce_name = name
         if len(name) > 200:
             allreduce_name = name[0:100]+'...'+name[-100:]
-        #logger.info('tensorname: %s', allreduce_name)
-        handle = allreduce_async_(tensor, average=True, name=allreduce_name)
+        #handle = allreduce_async_(tensor, average=True, name=allreduce_name)
+        handle = dist.all_reduce(tensor, op=dist.ReduceOp.SUM, async_op=True)
         return handle, None
     
     def _sparse_allreduce_async(self, p, name, density):
@@ -559,10 +529,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         logger.info('Compression ratio is %.2f', (density))
         #logger.info('Size of one worker tensor is %s', selected_values.size())
         #logger.info('tensor_compressed percentage: %.2f', (torch.count_nonzero(selected_values).float() / tensor.numel()))
-        if settings.LOGGING_GRADIENTS and rank() == 0 and self.train_iter % 200 == 0 and self.train_iter < 3000:
+        if settings.LOGGING_GRADIENTS and dist.get_rank() == 0 and self.train_iter % 200 == 0 and self.train_iter < 3000:
             grads = tensor.cpu().numpy()
             layer_idx = self._sequential_keys.index(name)
-            np.save('%s/r%d_gradients_iter_%d::%s::%d' % (self._gradient_path, rank(), self.train_iter, name, layer_idx), grads)
+            np.save('%s/r%d_gradients_iter_%d::%s::%d' % (self._gradient_path, dist.get_rank(), self.train_iter, name, layer_idx), grads)
         indexes = ctx
         #logger.info('whetehr indexes are non: %s', indexes is not None)
         if indexes is None:
@@ -622,121 +592,123 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return hook
 
     def synchronize(self):
-        num_of_workers = size()
+        num_of_workers = dist.get_world_size()
         for p, value in self._handles.items():
             name = self._merged_parameter_names.get(p)
             handle, ctx, density = value
             if self._sparse and density < 1:
-                stime = time.time()
-                handle_idx = None
-                all_indexes = None
-                if type(handle) is tuple:
-                    handle, handle_idx = handle[0], handle[1]
-                output = synchronize(handle)
-                #logger.info('output size: %s', output.size())
-                if handle_idx is not None:
-                    all_indexes = synchronize(handle_idx)
-                    #logger.info('output index size: %s', all_indexes.size())
+                pass
+                # stime = time.time()
+                # handle_idx = None
+                # all_indexes = None
+                # if type(handle) is tuple:
+                #     handle, handle_idx = handle[0], handle[1]
+                # output = synchronize(handle)
+                # #logger.info('output size: %s', output.size())
+                # if handle_idx is not None:
+                #     all_indexes = synchronize(handle_idx)
+                #     #logger.info('output index size: %s', all_indexes.size())
 
-                if self._profiling:
-                    utils.force_insert_item(self._allreduce_timers, name, time.time()-stime)
-                stime = time.time()
-                new_grad = p.data.view(-1)
-                new_grad.fill_(0.0)
+                # if self._profiling:
+                #     utils.force_insert_item(self._allreduce_timers, name, time.time()-stime)
+                # stime = time.time()
+                # new_grad = p.data.view(-1)
+                # new_grad.fill_(0.0)
 
-                numel = output.size(0)
-                real_num_values = numel//num_of_workers
-                index_overlap_store = torch.zeros_like(new_grad)
-                value_store = []
-                for i in range(num_of_workers):
-                    values_and_indexes = output.data[i*real_num_values:(i+1)*real_num_values]
-                    #logger.info('All_indexes is None: %s', all_indexes is None)
-                    if all_indexes is None:
-                        values = values_and_indexes
-                        indexes = None
-                        per_values = values
-                        per_values = self._compression.decompress(per_values, p.size())
-                        new_grad += per_values.view(-1)
-                    else:
-                        #logger.info("all_indexes is not None")
-                        values = values_and_indexes
-                        indexes = all_indexes.data[i*real_num_values:(i+1)*real_num_values].long()
-                        per_values = values[0:indexes.numel()]
-                        per_values = self._compression.decompress(per_values, p.size())
-                        #logger.info(f"The per_values is euqal to p {per_values.numel() == indexes.numel()}")
-                        value_store.append(self._compression.decompress_new(per_values, indexes, p.size()))
-                        new_grad[indexes[0:indexes.numel()]] += per_values
-                        index_overlap_store[indexes[0:indexes.numel()]] += 1
+                # numel = output.size(0)
+                # real_num_values = numel//num_of_workers
+                # index_overlap_store = torch.zeros_like(new_grad)
+                # value_store = []
+                # for i in range(num_of_workers):
+                #     values_and_indexes = output.data[i*real_num_values:(i+1)*real_num_values]
+                #     #logger.info('All_indexes is None: %s', all_indexes is None)
+                #     if all_indexes is None:
+                #         values = values_and_indexes
+                #         indexes = None
+                #         per_values = values
+                #         per_values = self._compression.decompress(per_values, p.size())
+                #         new_grad += per_values.view(-1)
+                #     else:
+                #         #logger.info("all_indexes is not None")
+                #         values = values_and_indexes
+                #         indexes = all_indexes.data[i*real_num_values:(i+1)*real_num_values].long()
+                #         per_values = values[0:indexes.numel()]
+                #         per_values = self._compression.decompress(per_values, p.size())
+                #         #logger.info(f"The per_values is euqal to p {per_values.numel() == indexes.numel()}")
+                #         value_store.append(self._compression.decompress_new(per_values, indexes, p.size()))
+                #         new_grad[indexes[0:indexes.numel()]] += per_values
+                #         index_overlap_store[indexes[0:indexes.numel()]] += 1
                 
-                #grad_ties = aggregate_elected_sign_vector_and_disjoint_max(value_store)
-                #logger.info(f'The cosine similarity of comrpessed gradients are {cal_similarity(value_store,"cosine")}')
-                #logger.info(f'The sign similarity of comrpessed gradients are {cal_similarity(value_store,"sign")}')
-                similarity, case4_percentage = multi_tensor_similarity(value_store)
-                logger.info(f'The gradients similarity is {similarity}')
-                logger.info(f'The case4 percentage is {case4_percentage}')
-                logger.info(f'The case4 composition percentages are {nonzero_distribution(value_store)}')
-                if(self.train_iter % 100 == 0):
-                    self.case4similarity.append(case4_percentage)
-                    self.similarity.append(similarity)
-                    self.coexist.append(nonzero_distribution(value_store))
+                # #grad_ties = aggregate_elected_sign_vector_and_disjoint_max(value_store)
+                # #logger.info(f'The cosine similarity of comrpessed gradients are {cal_similarity(value_store,"cosine")}')
+                # #logger.info(f'The sign similarity of comrpessed gradients are {cal_similarity(value_store,"sign")}')
+                # similarity, case4_percentage = multi_tensor_similarity(value_store)
+                # logger.info(f'The gradients similarity is {similarity}')
+                # logger.info(f'The case4 percentage is {case4_percentage}')
+                # logger.info(f'The case4 composition percentages are {nonzero_distribution(value_store)}')
+                # if(self.train_iter % 100 == 0):
+                #     self.case4similarity.append(case4_percentage)
+                #     self.similarity.append(similarity)
+                #     self.coexist.append(nonzero_distribution(value_store))
 
                 
-                conflicts, all_zeros, no_conflict = check_sign_conflicts_simplified(value_store)
-                logger.info(f'The sign conclicts are {(conflicts.item())}')
-                logger.info(f'The all zeros are {(all_zeros.item())}')
-                logger.info(f'The no conflicts are {(no_conflict.item())}')  
+                # conflicts, all_zeros, no_conflict = check_sign_conflicts_simplified(value_store)
+                # logger.info(f'The sign conclicts are {(conflicts.item())}')
+                # logger.info(f'The all zeros are {(all_zeros.item())}')
+                # logger.info(f'The no conflicts are {(no_conflict.item())}')  
 
-                if self.strategy == 'average':
-                    logger.info("Normal averaging is used.")
-                    new_grad /= num_of_workers
-                elif(self.strategy == 'ties'):
-                    logger.info("TIES averaging is used.")
-                    grad_ties = aggregate_elected_sign_vector_and_disjoint_merge(value_store)
-                    new_grad = grad_ties
-                elif (self.strategy == 'ties_max'):
-                    logger.info("TIES_MAX averaging is used.")
-                    grad_ties = aggregate_elected_sign_vector_and_disjoint_max(value_store)
-                    new_grad = grad_ties
-                elif (self.strategy == 'overlap'):
-                    logger.info('Overlap averaging is used')
-                    indices = find_single_nonzero_indices(value_store)
-                    new_grad[indices] *= self.overlap_scalar
-                    new_grad /= num_of_workers
-                elif (self.strategy == 'gtopk'):
-                    logger.info("G-TopK is used.")
-                    new_grad /= num_of_workers
-                    percentage = torch.count_nonzero(new_grad)/ new_grad.numel()
-                    logger.info(f'The non-zero gradient percentage is {percentage} in totally {new_grad.numel()} elements.')
-                    self._compression.clear()
-                    gtopk_comp_tensor, indexes, kept_values = self._compression.compress(new_grad, name, ratio=0.5)
-                    #tensor_compressed, ctx, selected_values = self._compression.compress(tensor, name, ratio=density)
-                    new_grad = self._compression.decompress_new(kept_values, indexes, new_grad.size())
-                if self._profiling:
-                    utils.force_insert_item(self._update_times, name, time.time()-stime)
+                # if self.strategy == 'average':
+                #     logger.info("Normal averaging is used.")
+                #     new_grad /= num_of_workers
+                # elif(self.strategy == 'ties'):
+                #     logger.info("TIES averaging is used.")
+                #     grad_ties = aggregate_elected_sign_vector_and_disjoint_merge(value_store)
+                #     new_grad = grad_ties
+                # elif (self.strategy == 'ties_max'):
+                #     logger.info("TIES_MAX averaging is used.")
+                #     grad_ties = aggregate_elected_sign_vector_and_disjoint_max(value_store)
+                #     new_grad = grad_ties
+                # elif (self.strategy == 'overlap'):
+                #     logger.info('Overlap averaging is used')
+                #     indices = find_single_nonzero_indices(value_store)
+                #     new_grad[indices] *= self.overlap_scalar
+                #     new_grad /= num_of_workers
+                # elif (self.strategy == 'gtopk'):
+                #     logger.info("G-TopK is used.")
+                #     new_grad /= num_of_workers
+                #     percentage = torch.count_nonzero(new_grad)/ new_grad.numel()
+                #     logger.info(f'The non-zero gradient percentage is {percentage} in totally {new_grad.numel()} elements.')
+                #     self._compression.clear()
+                #     gtopk_comp_tensor, indexes, kept_values = self._compression.compress(new_grad, name, ratio=0.5)
+                #     #tensor_compressed, ctx, selected_values = self._compression.compress(tensor, name, ratio=density)
+                #     new_grad = self._compression.decompress_new(kept_values, indexes, new_grad.size())
+                # if self._profiling:
+                #     utils.force_insert_item(self._update_times, name, time.time()-stime)
             else:
                 stime = time.time()
-                output = synchronize(handle)
-                # if(self.train_iter % 200 == 0 and self.train_iter < 1800):
-                #     plot_gradient_distribution_detailed(output, self.train_iter,compressed=False,overlap=False)
+                #output = synchronize(handle)
+                handle.wait()
+                p.data /= num_of_workers
+                
                 if self._profiling:
                     utils.force_insert_item(self._allreduce_timers, name, time.time()-stime)
                 stime = time.time()
 
                 if self._norm_clip is not None:
-                    norm_clip = np.sqrt(1.0/size()) * self._norm_clip
+                    norm_clip = np.sqrt(1.0 / num_of_workers) * self._norm_clip
                     norm_type = 2.0
-                    param_norm = output.norm(norm_type)
-                    total_norm = param_norm.item() 
+                    param_norm = p.data.norm(norm_type)
+                    total_norm = param_norm.item()
                     clip_coef = norm_clip / (total_norm + 1e-6)
                     if clip_coef < 1:
-                        output.mul_(clip_coef)
-                if self._compression:
-                    output = self._compression.decompress(output, p.size())
+                        p.data.mul_(clip_coef)
+
+                # if self._compression:
+                #     output = self._compression.decompress(output, p.size())
                 if (str2bool(self.add_noise)):
-                    gaussian_noise = torch.normal(mean=self.gaussian_mu, std=self.gaussian_std, size=output.size(), device=output.device)
-                    p.set_(output+gaussian_noise)
-                else:
-                    p.set_(output)
+                    gaussian_noise = torch.normal(mean=self.gaussian_mu, std=self.gaussian_std, size=p.data.size(), device=p.data.device)
+                    p.data.add_(gaussian_noise)
+
                 if self._profiling:
                     utils.force_insert_item(self._update_times, name, time.time()-stime)
         if len(self._groups) != len(self._sequential_keys):
@@ -755,11 +727,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
 
     def _print_profiling(self):
-        if self._profiling and rank() == 0 and len(self._allreduce_timers.keys()) > 0 and len(self._allreduce_timers.get(self._allreduce_timers.keys()[0], [])) ==  40:
+        if self._profiling and dist.get_rank() == 0 and len(self._allreduce_timers.keys()) > 0 and len(self._allreduce_timers.get(self._allreduce_timers.keys()[0], [])) ==  40:
             cps = self._compression_timers # compression
             ars = self._allreduce_timers # allreduce times
             ups = self._update_times # update times
-            r = rank()
+            r = dist.get_rank()
             #logger.info('[rank][name]: compression, allreduce, update')
             tcp = 0.0; tar = 0.0; tup = 0.0; total=0.0
             for k in cps:
@@ -835,7 +807,6 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return super(self.__class__, self).step(closure)
 
 
-
 def DistributedOptimizer(optimizer, add_noise, gaussian_mu, gaussian_std, strategy,overlap_scalar, named_parameters=None, compression=None, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
@@ -891,430 +862,3 @@ def DistributedOptimizer(optimizer, add_noise, gaussian_mu, gaussian_std, strate
         gradient_path=gradient_path,
         momentum_correction=momentum_correction
     )
-
-def broadcast_parameters(params, root_rank):
-    """
-    Broadcasts the parameters from root rank to all other processes.
-    Typical usage is to broadcast the `model.state_dict()`,
-    `model.named_parameters()`, or `model.parameters()`.
-
-    Arguments:
-        params: One of the following:
-            - list of parameters to broadcast
-            - dict of parameters to broadcast
-        root_rank: The rank of the process from which parameters will be
-                   broadcasted to all other processes.
-    """
-    if isinstance(params, dict):
-        params = sorted(params.items())
-    elif isinstance(params, list):
-        # support both named_parameters() and regular parameters()
-        params = [p if isinstance(p, tuple) else (None, p) for p in params]
-    else:
-        raise ValueError('invalid params of type: %s' % type(params))
-
-    # Run asynchronous broadcasts.
-    handles = []
-    for name, p in params:
-        handle = broadcast_async_(p, root_rank, name)
-        handles.append(handle)
-
-    # Wait for completion.
-    for handle in handles:
-        synchronize(handle)
-
-
-def broadcast_optimizer_state(optimizer, root_rank):
-    """
-    Broadcasts an optimizer state from root rank to all other processes.
-
-    Arguments:
-        optimizer: An optimizer.
-        root_rank: The rank of the process from which the optimizer will be
-                   broadcasted to all other processes.
-    """
-    if isinstance(optimizer, torch.optim.LBFGS):
-        # TODO(travis): L-BFGS cannot be easily supported without serializing
-        # the entire state_dict, as its structure is deeply nested and contains
-        # None type parameter values
-        raise ValueError('cannot broadcast torch.optim.LBFGS state')
-
-    state_dict = optimizer.state_dict()
-
-    # Newly created optimizers will not have their state initialized, so
-    # do that initialization here
-    if len(state_dict['state']) == 0:
-        for group in optimizer.param_groups:
-            for p in group['params']:
-                p.grad = p.data.new(p.size()).zero_()
-        # This function accepts a torch.optim.Optimizer or a DistributedOptimizer
-        # wrapped around a torch optimizer. Calling step() with a DistributedOptimizer
-        # forces allreduce on all model parameters, which will result in deadlock
-        # unless every rank calls step(). Therefore, to finish state initialization
-        # only call optimizer.step() with a torch.optim.Optimizer.
-        if optimizer.__module__ == DistributedOptimizer.__module__:
-            super(optimizer.__class__, optimizer).step()
-        else:
-            optimizer.step()
-        state_dict = optimizer.state_dict()
-
-    # If the state_dict is still empty after initialization, then
-    # the optimizer is stateless, and there is nothing to broadcast.
-    # Furthermore, attempting to access the state dict would result in
-    # an error.
-    if len(state_dict['state']) == 0:
-        return
-
-    params = []
-    callbacks = {}
-    occurrences = collections.defaultdict(int)
-
-    # Returns the full type structure of the possibly nested objects for recursive casting back
-    def _get_types(x):
-        if isinstance(x, collections.Iterable):
-            return type(x), [_get_types(xi) for xi in x]
-        else:
-            return type(x)
-
-    # Casts an object encoded in a tensor back into its original type and subtypes
-    def _recursive_cast(x, dtype):
-        if isinstance(dtype, tuple):
-            t, dtypes = dtype
-            x = t(x)
-            return t([_recursive_cast(x[i], dtypes[i]) for i in range(len(x))])
-        else:
-            return dtype(x)
-
-    # Some optimizer parameters may be represented as scalars instead of
-    # tensors.  In such cases, we need to wrap the scalar in a tensor, then
-    # broadcast, then update the appropriate value in the state_dict with the
-    # new unwrapped scalar value via a callback.
-    def _create_callback(pid, name, t, p):
-        def _from_tensor():
-            state_dict['state'][pid][name] = t(p.numpy()[0])
-        return _from_tensor
-
-    def _create_option_callback(index, option_key, option_tensor, dtypes):
-        def _from_tensor():
-            optimizer.param_groups[index][option_key] = _recursive_cast(option_tensor.numpy()[0], dtypes)
-        return _from_tensor
-
-    # Param groups are an ordered list, normally there is only one per model,
-    # but users can add additional param groups for example to train
-    # previously frozen layers
-    for index, group in enumerate(state_dict['param_groups']):
-        # Broadcast options like learning rate
-        for option_key, option_value in group.items():
-            if option_key == 'params':
-                continue
-
-            # Options like the learning rate are scalar, and need to be wrapped in tensors
-            key = '%s.%d' % (option_key, index)
-            dtypes = _get_types(option_value)
-            option_tensor = torch.Tensor([option_value])
-            callbacks[key] = _create_option_callback(index, option_key, option_tensor, dtypes)
-            params.append((key, option_tensor))
-
-        # The params list here is ordered by the layers in the model
-        for pid in group['params']:
-            param_state = state_dict['state'][pid]
-            for name, p in param_state.items():
-                # Some parameter names may appear more than once, in which
-                # case we ensure they have a unique identifier defined by
-                # their order
-                occurrences[name] += 1
-                key = '%s.%d' % (str(name), occurrences[name])
-
-                if not torch.is_tensor(p):
-                    # Wrap the scalar in a FloatTensor, and remember its type
-                    # so we can cast it back after unwrapping
-                    t = type(p)
-                    p = torch.Tensor([p])
-                    callbacks[key] = _create_callback(pid, name, t, p)
-
-                params.append((key, p))
-
-    # Synchronized broadcast of all parameters
-    broadcast_parameters(params, root_rank)
-
-    # Post-broadcast clenaup for non-tensor parameters
-    for key, p in params:
-        if key in callbacks:
-            callbacks[key]()
-
-def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar):
-    if isinstance(model, dict):
-        state_dict = model
-    else:
-        state_dict = model.state_dict()
-
-    params = []
-    callbacks = {}
-    occurrences = collections.defaultdict(int)
-
-    # Returns the full type structure of the possibly nested objects for recursive casting back
-    def _get_types(x):
-        if isinstance(x, collections.Iterable):
-            return type(x), [_get_types(xi) for xi in x]
-        else:
-            return type(x)
-
-    # Casts an object encoded in a tensor back into its original type and subtypes
-    def _recursive_cast(x, dtype):
-        if isinstance(dtype, tuple):
-            t, dtypes = dtype
-            x = t(x)
-            return t([_recursive_cast(x[i], dtypes[i]) for i in range(len(x))])
-        else:
-            return dtype(x)
-
-    # Some optimizer parameters may be represented as scalars instead of
-    # tensors.  In such cases, we need to wrap the scalar in a tensor, then
-    # broadcast, then update the appropriate value in the state_dict with the
-    # new unwrapped scalar value via a callback.
-    def _create_callback(name, t, p):
-        def _from_tensor():
-            state_dict[name] = t(p.numpy()[0])
-        return _from_tensor
-
-    # Param groups are an ordered list, normally there is only one per model,
-    # but users can add additional param groups for example to train
-    # previously frozen layers
-    untrainable_list = []
-    # The params list here is ordered by the layers in the model
-    for name, p in state_dict.items():
-        # Some parameter names may appear more than once, in which
-        # case we ensure they have a unique identifier defined by
-        # their order
-        
-        # if (name in trainable_list):
-        #     #logger.info(f'{name} is processed in the trainable list.')
-        #     occurrences[name] += 1
-        #     key = '%s.%d' % (str(name), occurrences[name])
-        #     if not torch.is_tensor(p):
-        #         #logger.info(f'p is {p}')
-        #         # Wrap the scalar in a FloatTensor, and remember its type
-        #         # so we can cast it back after unwrapping
-        #         t = type(p)
-        #         p = torch.Tensor([p])
-        #         callbacks[key] = _create_callback(name, t, p) #create the function that transfers the scalar back to the original type
-
-        #     params.append((key, p))
-        # else:
-        #     untrainable_list.append(name)
-        
-            #logger.info(f'{name} is processed in the trainable list.')
-        occurrences[name] += 1
-        key = '%s.%d' % (str(name), occurrences[name])
-        if not torch.is_tensor(p):
-            #logger.info(f'p is {p}')
-            # Wrap the scalar in a FloatTensor, and remember its type
-            # so we can cast it back after unwrapping
-            t = type(p)
-            p = torch.Tensor([p])
-            callbacks[key] = _create_callback(name, t, p) #create the function that transfers the scalar back to the original type
-
-        params.append((key, p))
-    
-    #logger.info(f'Untrainable list contains {untrainable_list}')
-    # Synchronized allreduce of all parameters
-    #print("Before allreduce:", [name for name, _ in params])
-    if (density < 1):
-        allgather_parameters_compressed(params, compressor, density, strategy, overlap_scalar)
-    else:
-        #allreduce_parameters(params)
-        allgather_parameters(params,strategy)
-    #print("After allreduce:", [name for name, _ in params])
-
-    # Post-broadcast clenaup for non-tensor parameters
-    for key, p in params:
-        #logger.info(f"p is {p}")
-        if key in callbacks:
-            callbacks[key]()
-    return params
-
-def allgather_layers(model, compressor, density,strategy, layer_name_list):
-    # if isinstance(model, dict):
-    #     state_dict = model
-    # else:
-    #     state_dict = model.state_dict()
-    state_dict = model
-    handles = []
-    for layer_name in layer_name_list:
-        p = state_dict[layer_name]
-        handle = allgather_async(p.data.view(-1).float(), name=layer_name)  # Ensure floating point operations
-        handles.append((handle, p, layer_name))
-    
-    for handle, p, layer_name in handles:
-        shape = p.shape
-        ty = p.dtype
-        gathered_tensors = synchronize(handle)
-        #logger.info(f'type is {gathered_tensors.dtype}')
-        real_num_values = gathered_tensors.numel() // size()
-        new_params = torch.zeros_like(p, dtype=torch.float32, device=gathered_tensors.device).view(-1)
-        # new_params = torch.zeros(p, dtype=torch.float32, device=gathered_tensors.device)
-        params_list = []
-        
-        for i in range(size()):
-            gather_tensor = gathered_tensors.data[i*real_num_values:(i+1)*real_num_values]
-            new_params += gather_tensor
-            params_list.append(gather_tensor)
-        
-        if (strategy == 'average'):
-            #logger.info("Normal averaging on local-SGD is used.")
-            new_params /= size()
-        elif (strategy == 'ties'):
-            #logger.info("TIES averaging on local-SGD is used.")
-            layer_ties = ties_avg(params_list)
-            new_params = layer_ties
-        elif (strategy == 'ties_max'):
-            params_ties_max = ties_max(params_list)
-            new_params = params_ties_max
-            
-        #p.data.copy_(new_params.view(shape))
-        state_dict[layer_name] = new_params.view(shape)
-    else:
-        pass
-    
-    return state_dict
-
-def allreduce_parameters(params):
-    """
-    allreduce the parameters from all other processes.
-    Typical usage is to broadcast the `model.state_dict()`,
-    `model.named_parameters()`, or `model.parameters()`.
-
-    Arguments:
-        params: One of the following:
-            - list of parameters to broadcast
-            - dict of parameters to broadcast
-        root_rank: The rank of the process from which parameters will be
-                   broadcasted to all other processes.
-    """
-    if isinstance(params, dict):
-        params = sorted(params.items())
-    elif isinstance(params, list):
-        # support both named_parameters() and regular parameters()
-        params = [p if isinstance(p, tuple) else (None, p) for p in params]
-    else:
-        raise ValueError('invalid params of type: %s' % type(params))
-
-    # Run asynchronous broadcasts.
-    handles = []
-    for name, p in params:
-        handle = allreduce_async_(p, average=True, name=name)
-        handles.append(handle)
-
-    # Wait for completion.
-    for handle in handles:
-        synchronize(handle)
-        
-def allgather_parameters_compressed(params, compressor, density, strategy, overlap_scalar):
-    if isinstance(params, dict):
-        params = sorted(params.items())
-    elif isinstance(params, list):
-        # support both named_parameters() and regular parameters()
-        params = [p if isinstance(p, tuple) else (None, p) for p in params]
-    else:
-        raise ValueError('invalid params of type: %s' % type(params))
-
-    # Run asynchronous broadcasts.
-    handles = []
-    compressor.clear()
-    for name, p in params:
-        #logger.info(f'p name is {name}')
-        flattern_tensor = compressor.flatten(p,name=name)
-        _, indexes, compressed_param = compressor.compress(flattern_tensor,name=name, ratio=density)
-        #handle_allR = allreduce_async_(p, average=True, name=name)
-        handle = allgather_async(compressed_param, name=name)
-        handle_idx = allgather_async(indexes.int(), name+'_indexes')
-        handles.append((handle, handle_idx, p, compressed_param, name))
-        #handles.append(handle)
-
-    # Wait for completion.
-    for handle, handle_idx, p,compressed_param, name in handles:
-        shape = p.shape
-        compressed_tensors = synchronize(handle)
-        index_tensors = synchronize(handle_idx)
-        
-        real_num_values = compressed_tensors.numel() // size()
-        new_params = torch.zeros_like(p).view(-1)
-        params_list = []
-        for i in range(size()):
-            values = compressed_tensors.data[i*real_num_values:(i+1)*real_num_values]
-            indexes = index_tensors.data[i*real_num_values:(i+1)*real_num_values].long()
-            # logger.info(f'Uncompressed tensor is {p}')
-            # logger.info(f'Compressed index is {indexes}')
-            new_params += compressor.decompress_new(values, indexes, shape=shape)
-            params_list.append(compressor.decompress_new(values, indexes, shape=shape))
-            
-        new_params = new_params.float() / size()
-        if (strategy == 'average'):
-            logger.info("Normal averaging on local-SGD is used.")
-            p.data.copy_(new_params.view(shape))
-        elif (strategy == 'ties'):
-            #logger.info("TIES averaging on local-SGD is used.")
-            params_ties = aggregate_elected_sign_vector_and_disjoint_merge(params_list)
-            p.data.copy_(params_ties.view(shape))
-        elif (strategy == 'ties_max'):
-            params_ties_max = aggregate_elected_sign_vector_and_disjoint_max(params_list)
-            logger.info(f'The shape of ties is {params_ties_max.shape}')
-            p.data.copy_(params_ties_max.view(shape))
-        elif(strategy == 'overlap'):
-            #logger.info('Overlap averaging is used')
-            indices = find_single_nonzero_indices(params_list)
-            new_params[indices] *= overlap_scalar
-            p.data.copy_(new_params.view(shape))
-            
-def allgather_parameters(params, strategy):
-    if isinstance(params, dict):
-        params = sorted(params.items())
-    elif isinstance(params, list):
-        params = [p if isinstance(p, tuple) else (None, p) for p in params]
-    else:
-        raise ValueError('invalid params of type: %s' % type(params))
-
-    handles = []
-    # non_trainable = [name for name, p in params if not p.requires_grad]
-    # print(f'Non-trainable params are {non_trainable}')
-    # trainable = [name for name, p in params if p.requires_grad]
-    # print(f'Trainable params are {trainable}')
-    for name, p in params:
-        # if p.dtype == torch.int64:
-        #     logger.info(f'The {name} parameters has int64 type.')
-        handle = allgather_async(p.data.view(-1).float(), name=name)  # Ensure floating point operations
-        handles.append((handle, p, name))
-        # else:
-        #     logger.info(f'Skipping non-trainable parameter: {name}')
-
-    
-    for handle, p, name in handles:
-        shape = p.shape
-        ty = p.dtype
-        gathered_tensors = synchronize(handle)
-        #logger.info(f'type is {gathered_tensors.dtype}')
-        real_num_values = gathered_tensors.numel() // size()
-        new_params = torch.zeros_like(p, dtype=torch.float32, device=gathered_tensors.device).view(-1)
-        # new_params = torch.zeros(p, dtype=torch.float32, device=gathered_tensors.device)
-        params_list = []
-        
-        for i in range(size()):
-            gather_tensor = gathered_tensors.data[i*real_num_values:(i+1)*real_num_values]
-            new_params += gather_tensor
-            params_list.append(gather_tensor)
-        
-        new_params /= size()
-        #logger.info(f'Types for p, new_params, gathered params are {ty},{new_params.dtype}, {gathered_tensors.dtype}')
-        
-
-        if (strategy == 'average'):
-            #logger.info("Normal averaging on uncompressed local-SGD is used.")
-            p.data.copy_(new_params.view(shape))
-        elif (strategy == 'ties'):
-            #logger.info("TIES averaging on uncompressed local-SGD is used.")
-            params_ties = aggregate_elected_sign_vector_and_disjoint_merge([t.view(shape) for t in params_list])
-            p.data.copy_(params_ties.view(shape))
-        elif (strategy == 'ties_max'):
-            #logger.info("TIES_MAX averaging on local-SGD is used.")
-            params_ties_max = aggregate_elected_sign_vector_and_disjoint_max([t.view(shape) for t in params_list])
-            p.data.copy_(params_ties_max.view(shape))

@@ -140,17 +140,6 @@ def allgather_parameters_compressed(params, compressor, density, strategy, overl
 
         averaged_param = sum(decompressed_params) / dist.get_world_size()
         param.data.copy_(averaged_param)
-        # elif strategy == 'ties':
-        #     params_ties = aggregate_elected_sign_vector_and_disjoint_merge(decompressed_params)
-        #     param.data.copy_(params_ties)
-        # elif strategy == 'ties_max':
-        #     params_ties_max = aggregate_elected_sign_vector_and_disjoint_max(decompressed_params)
-        #     param.data.copy_(params_ties_max)
-        # elif strategy == 'overlap':
-        #     indices = find_single_nonzero_indices(decompressed_params)
-        #     averaged_param = sum(decompressed_params) / dist.get_world_size()
-        #     averaged_param[indices] *= overlap_scalar
-        #     param.data.copy_(averaged_param)
 
 def allgather_parameters(params, strategy):
     if isinstance(params, dict):
@@ -161,8 +150,6 @@ def allgather_parameters(params, strategy):
         raise ValueError(f'Invalid params type: {type(params)}')
 
     handles = []
-    gathered_results = {}
-
     # Start asynchronous gathering of parameters
     for name, param in params:
         tensor_list = [torch.zeros(param.view(-1).shape, dtype=param.dtype, device=param.device) for _ in range(dist.get_world_size())]
@@ -177,3 +164,29 @@ def allgather_parameters(params, strategy):
             new_params += tensor
         new_params /= dist.get_world_size()
         param.data.copy_(new_params.view(param.shape))
+
+
+
+def allgather_layers(model, strategy, layer_name_list):
+    state_dict = model
+    handles = []
+    for name in layer_name_list:
+        p = state_dict[name]
+        tensor_list = [torch.zeros(p.view(-1).shape, dtype=p.dtype, device=p.device) for _ in range(dist.get_world_size())]
+        handle = dist.all_gather(tensor_list, p.data.view(-1), async_op=True)
+        handles.append((handle, p, tensor_list, name))
+
+    for handle, p, tensor_list, name in handles:
+        handle.wait()
+        #gathered_results[name] = (param, tensor_list)
+        new_params = torch.zeros_like(p, dtype=torch.float32, device=p.device).view(-1)
+        for tensor in tensor_list:
+            new_params += tensor
+        new_params /= dist.get_world_size()
+        #p.data.copy_(new_params.view(p.shape))
+
+        state_dict[name] = new_params.view(p.shape)
+    else:
+        pass
+    
+    return state_dict
