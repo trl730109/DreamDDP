@@ -51,9 +51,9 @@ def parse_metrics_val(log_file):
 #     'Seq-2p-ties-fw':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-11:01-seq-SGD-ties-mu_0.0-std_0.01/gpu22-0.log',
 # }
 log_directories = {
-    'localsgd': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/06-21-10:22-localsgd/gpu23-0.log',
-    'pipe': '/home/comp/amelieczhou/DDP-Train/test/pipeline/resnet20/06-21-18:06-pipe/gpu22-0.log',
-    'sgd':'/home/comp/amelieczhou/DDP-Train/test/sgd/resnet20/06-21-10:33-sgd/gpu23-0.log',
+    'localsgd': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/06-21-18:36-localsgd/gpu22-0.log',
+    'pipe': '/home/comp/amelieczhou/DDP-Train/test/pipeline/resnet20/06-21-18:46-pipe/gpu22-0.log',
+    'sgd':'/home/comp/amelieczhou/DDP-Train/test/sgd/resnet20/06-21-18:26-sgd/gpu22-0.log',
 
 }
 

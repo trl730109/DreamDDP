@@ -32,6 +32,10 @@ from utils import *
 comm = MPI.COMM_WORLD
 writer = None
 
+def is_root():
+    return dist.get_rank() == 0
+
+
 from settings import logger, formatter
 
 def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
@@ -107,10 +111,10 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            # for param in trainer.net.parameters():
-            #     if param.requires_grad:
-            #         dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-            #         param.grad.data /= dist.get_world_size()
+            for param in trainer.net.parameters():
+                if param.requires_grad:
+                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+                    param.grad.data /= dist.get_world_size()
             
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
@@ -434,6 +438,264 @@ def seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update
         if not settings.ORIGINAL_HOROVOD:
             trainer.train_epoch += 1
 
+
+
+
+
+
+def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1):
+    assert nsteps_localsgd > 1
+    rank = dist.get_rank()
+    logger.info('the rank of current process: %d', rank)
+    #print("The ssgd_with_horovod is called by rank: ", rank)
+    if compressor in ['randomksame', 'randomksameec']:
+        torch.manual_seed(3000)
+        torch.cuda.manual_seed_all(3000)
+
+    selected_gpu = rank % nwpernode
+    torch.cuda.set_device(selected_gpu)
+    if rank != 0:
+        pretrain = None
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name)
+
+    init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
+    init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
+    dist.broadcast(init_epoch, src=0)
+    dist.broadcast(init_iter, src=0)
+    trainer.set_train_epoch(int(init_epoch.item()))
+    trainer.set_train_iter(int(init_iter.item()))
+    
+    is_sparse = density < 1
+    if not is_sparse:
+        compressor = None
+
+    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
+        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
+        layerwise_times = comm.bcast(layerwise_times, root=0)
+        if rank == 0:
+            logger.info('layerwise backward times: %s', list(layerwise_times))
+            logger.info('layerwise backward sizes: %s', list(layerwise_sizes))
+        logger.info('Bencharmked backward time: %f', np.sum(layerwise_times))
+        logger.info('Model size: %d', np.sum(layerwise_sizes))
+    else:
+        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
+    logger.info('All the steps before broadcasting params are correct.')
+    logger.info('Broadcast parameters....')
+    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
+    logger.info('Broadcast parameters finished....')
+
+
+    norm_clip = None
+    if dnn in ['lstm', 'lstmwt2']:
+        norm_clip = 0.25
+    elif dnn == 'lstman4':
+        norm_clip = 400
+
+    optimizer = trainer.optimizer
+    iters_per_epoch = trainer.num_batches_per_epoch
+    #max_epochs=0
+
+    times = []
+    logger.info('max_epochs: %d', max_epochs)
+    display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+
+    total_iters = 0
+    layer_names = []
+    for name in trainer.net.state_dict().keys():
+        layer_names.append(name)
+    regrouped_layers = group_layers(layer_names)
+    layer_per_iter = int(len(regrouped_layers) / nsteps_localsgd)
+
+    _handles = {}
+    _buffer_params = {}
+    _parameter_names = {}
+
+    # def backward_hook_factory(begin_comm_iter, gap_iters, layer_index):
+    #     def hook(__module, grad_input, grad_output):
+    #         # 检查当前迭代ID是否在指定的通信步骤中
+    #         # if iter_id in communication_steps:
+    #         # if is_root():
+    #         #     logger.info(f"In backward hook, Iter: {__module.sgd_iters}, layer_index:{layer_index}, __module: {type(__module)}")
+    #         # if __module.sgd_iters % gap_iters == begin_comm_iter:
+    #         if is_communicate(__module, gap_iters, begin_comm_iter):
+    #             if is_root():
+    #                 logger.info(f"Cur iter: {__module.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
+    #                             f"layer_index:{layer_index}, __module: {type(__module)}")
+    #             for __param in __module.parameters():
+    #                 # tensor = __param.data
+    #                 # handle = dist.all_reduce(tensor, op=dist.ReduceOp.AVG, async_op=True)
+    #                 # handle = dist.all_reduce(tensor, op=dist.ReduceOp.SUM, async_op=True)
+    #                 handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
+    #                 # tensor += 1.0
+    #                 # dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+    #                 # tensor /= dist.get_world_size()
+    #                 _handles[__param] = (handle, None, 1)
+    #                 if is_root():
+    #                     if __param.requires_grad:
+    #                         logger.info(f"__param. has grad :{__param.grad.data.shape}, norm: {__param.grad.data.norm()}")
+
+    #                 # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
+    #                 # _handles[__param] = (handle, None, 1)
+    #         else:
+    #             # if is_root():
+    #             #     logger.info(f"Cur iter: {__module.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, not communicated")
+    #             pass
+
+    #     return hook
+
+    def is_communicate(__module, gap_iters, begin_comm_iter):
+        return __module.sgd_iters % gap_iters == begin_comm_iter
+
+    import copy
+    def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
+        def hook(*ignore):
+            # assert not p.grad.requires_grad
+            # name = _parameter_names.get(p)
+            # d_p = p.grad.data
+            #handle = allreduce_async_(tensor, average=True, name=allreduce_name)
+            # logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
+            #             f"layer_index:{layer_index}, __module: {type(__module)}")
+            # if is_root():
+            #     logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter},  "
+            #                 f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
+            if is_communicate(__param, gap_iters, begin_comm_iter):
+                if is_root():
+                    logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
+                                f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
+                # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
+                # # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
+                # _handles[__param] = (handle, None, 1)
+
+                buffer_param = copy.deepcopy(__param.data)
+                handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
+                # handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.AVG, async_op=True)
+                _handles[__param] = (handle, None, 1)
+                _buffer_params[__param] = buffer_param
+
+                # if is_root():
+                #     if __param.requires_grad:
+                #         logger.info(f"__param. layer:{name}/{layer_index}-th has grad :{__param.grad.data.shape}, norm: {__param.grad.data.norm()}")
+            else:
+                # if is_root():
+                #     logger.info(f"Cur iter: {__param.sgd_iters} communicated fail "
+                #                 f"layer_index:{layer_index}")
+                pass
+        return hook
+
+
+    named_modules = dict(trainer.net.named_modules())
+    # for name, module in named_modules.items():
+    #     logger.info(f"name: {name}, module: {id(module)}")
+
+    layer_per_iter = int(len(named_modules) / nsteps_localsgd) + 1
+    logger.info(f"nsteps_localsgd:{nsteps_localsgd} \n len(modules): {len(named_modules)} "
+                f"\n layer_per_iter:{layer_per_iter}")
+    # hook = backward_hook_factory(layer_index // layer_per_iter, gap_iters=layer_per_iter, layer_index=layer_index)
+    # hook = backward_hook_factory(layer_index // layer_per_iter, gap_iters=nsteps_localsgd, layer_index=layer_index)
+    # module.register_backward_hook(hook)
+    # module.register_full_backward_hook(hook)
+    # for layer_index, (name, module) in enumerate(named_modules.items()):
+    grad_accs = []
+    for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
+        if is_root():
+            logger.info(f"name: {name}, module id: {id(module)}")
+        # logger.info(f"name: {name}, module id: {id(module)}")
+        for param in module.parameters():
+            p_tmp = param.expand_as(param)
+            grad_acc = p_tmp.grad_fn.next_functions[0][0]
+            grad_acc.register_hook(_make_hook(module, param, layer_index // layer_per_iter, gap_iters=nsteps_localsgd, name=name, layer_index=layer_index))
+            grad_accs.append(grad_acc)
+
+    # for grad_acc in grad_accs:
+    #     logger.info(f"grad_acc: {id(grad_acc)}")
+
+
+    def update_model_sgd_iters(model, sgd_iters):
+        for module in model.modules():
+            module.sgd_iters = sgd_iters
+            for param in module.parameters():
+                param.sgd_iters = sgd_iters
+
+
+    def synchronize_all_reduced_models():
+        # for layer_index, module in enumerate(modules):
+        #     layer_index // layer_per_iter, gap_iters=nsteps_localsgd, layer_index=layer_index
+
+        for tensor, value in _handles.items():
+            handle, ctx, density = value
+            handle.wait()
+            # tensor.data -= 1.0
+            # tensor.data = tensor.data * dist.get_world_size()
+            # tensor /= dist.get_world_size()
+            # tensor = _buffer_params[tensor]
+            tensor = _buffer_params[tensor] / dist.get_world_size()
+            # tensor.data = tensor.data / dist.get_world_size()
+            # tensor.data.set_(tensor.data / dist.get_world_size())
+
+        _handles.clear()
+
+
+    for epoch in range(max_epochs):
+        logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
+        hidden = None
+
+        if dnn in ['lstm', 'lstmwt2']:
+            hidden = trainer.net.init_hidden()
+        for i in range(iters_per_epoch//nsteps_update):
+            update_model_sgd_iters(trainer.net, i)
+            comm_layer_list = []
+            s = time.time()
+            optimizer.zero_grad()
+            
+            for j in range(nsteps_update):
+                if dnn in ['lstm', 'lstmwt2']:
+                    _, hidden = trainer.train(1, hidden=hidden)
+                else:
+                    trainer.train(1)
+            if dnn in ['lstm', 'lstmwt2']:
+                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            elif dnn == 'lstman4':
+                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+
+            synchronize_all_reduced_models()
+
+            trainer.update_model()
+            times.append(time.time()-s)
+            if i % display == 0 and i > 0: 
+                time_per_iter = np.mean(times)
+                # logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                times = []
+
+            #logger.info(f'The comm layers for this iteration are {comm_layer_list}')
+
+            if len(comm_layer_list) != 0:
+                params = trainer.net.state_dict()
+                layerwise_params = allgather_layers(params, strategy, comm_layer_list)
+                trainer.net.load_state_dict(dict(layerwise_params))
+            else:
+                pass
+
+            total_iters += 1
+
+        val_acc = trainer.test(epoch)
+        if not settings.ORIGINAL_HOROVOD:
+            trainer.train_epoch += 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
     #torch.multiprocessing.set_start_method('spawn')
     parser = argparse.ArgumentParser(description="AllReduce trainer")
@@ -499,6 +761,8 @@ if __name__ == '__main__':
         directory_path = os.path.join('./test/sequential', args.dnn)
     elif(args.alg == 'pipe'):
         directory_path = os.path.join('./test/pipeline', args.dnn)
+    elif(args.alg == 'pipe_seq_localsgd'):
+        directory_path = os.path.join('./test/pipe_seq_localsgd', args.dnn)
     relative_path = os.path.join(directory_path, logdir)
 
     print(relative_path)
@@ -541,4 +805,10 @@ if __name__ == '__main__':
     elif (args.alg == 'pipe'):
         logger.info("Alg used: pipelined seq.")
         ssgd_with_pipe(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
+    elif (args.alg == 'pipe_seq_localsgd'):
+        logger.info("Alg used: pipe_seq_localsgd.")
+        pipe_seq_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
+
+
+
     #local_sgd_with_dist(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
