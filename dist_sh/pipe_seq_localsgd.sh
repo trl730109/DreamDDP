@@ -11,7 +11,7 @@ echo "launch dir: $directory"
 #export HOROVOD_WITH_MPI=1
 #export HOROVOD_WITH_GLOO=1
 total_host=1
-hosts=('gpu23')
+hosts=('gpu22')
 # Model and training configurations
 dnn="${dnn:-resnet20}"
 source exp_configs/$dnn.conf
@@ -39,6 +39,7 @@ overlap_scalar=2
 strategy='average'
 nsteps_localsgd=20
 optimizer_name='SGD'
+sync='avg'
 alg='pipe_seq_localsgd'
 PY=~/miniconda3/envs/DDP/bin/python3
 GRADSPATH=./logs/tzc
@@ -70,7 +71,8 @@ do
         --compressor $compressor \
         --threshold $threshold \
         --saved-dir $GRADSPATH \
-        --momentum-correction $momentum_correction"
+        --momentum-correction $momentum_correction \
+        --sync $sync"
     echo "$host: $args"
     cmd="cd $directory; $args"
     if [ $(expr $i + 1) -eq $node_count ]; then

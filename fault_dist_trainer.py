@@ -211,10 +211,10 @@ def ssgd_with_pipe(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            # for param in trainer.net.parameters():
-            #     if param.requires_grad:
-            #         dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-            #         param.grad.data /= dist.get_world_size()
+            for param in trainer.net.parameters():
+                if param.requires_grad:
+                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+                    param.grad.data /= dist.get_world_size()
             
             # if dnn in ['lstm', 'lstmwt2']:
             #     optimizer.synchronize()
@@ -699,7 +699,6 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
 
 if __name__ == '__main__':
     #torch.multiprocessing.set_start_method('spawn')
-    set_seed(3000)
     parser = argparse.ArgumentParser(description="AllReduce trainer")
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--nsteps-update', type=int, default=1)
