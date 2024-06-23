@@ -1,0 +1,361 @@
+{
+    "os": "Linux-5.4.17-2136.332.5.2.el8uek.x86_64-x86_64-with-glibc2.10",
+    "python": "3.8.18",
+    "heartbeatAt": "2024-06-23T17:21:40.154752",
+    "startedAt": "2024-06-23T17:21:39.442968",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--alg",
+        "sgd",
+        "--exp_name",
+        "sgd-noiTrue-std0.001-resnet20-SGD-lr0.1",
+        "--optimizer_name",
+        "SGD",
+        "--nsteps_localsgd",
+        "20",
+        "--strategy",
+        "average",
+        "--overlap_scalar",
+        "2",
+        "--dnn",
+        "resnet20",
+        "--dataset",
+        "cifar10",
+        "--max-epochs",
+        "181",
+        "--batch-size",
+        "128",
+        "--nworkers",
+        "4",
+        "--data-dir",
+        "/home/comp/amelieczhou/datasets/cifar10/",
+        "--lr",
+        "0.1",
+        "--nsteps-update",
+        "1",
+        "--nwpernode",
+        "4",
+        "--density",
+        "1.0",
+        "--compressor",
+        "none",
+        "--threshold",
+        "524288000",
+        "--saved-dir",
+        "./logs/tzc",
+        "--momentum-correction",
+        "0",
+        "--sync",
+        "avg",
+        "--add_noise",
+        "True",
+        "--gaussian_mu",
+        "0.0",
+        "--gaussian_std",
+        "0.001",
+        "--wandb_entity",
+        "hpml-hkbu",
+        "--project_name",
+        "DDP-Train",
+        "--enable_wandb",
+        "True",
+        "--wandb_offline",
+        "False",
+        "--wandb_key",
+        "5edd8acc594b95a0b4f58e39b2243143f03c65a0",
+        "--exp_name",
+        "sgd-noiTrue-std0.001-resnet20-SGD-lr0.1"
+    ],
+    "state": "running",
+    "program": "fault_dist_trainer.py",
+    "codePathLocal": "fault_dist_trainer.py",
+    "codePath": "fault_dist_trainer.py",
+    "git": {
+        "remote": "https://github.com/wizard1203/DDP-Train.git",
+        "commit": "ca14f7c4e8d606eabf7a9bc4ab1606f8ad6373c5"
+    },
+    "email": "956234606@qq.com",
+    "root": "/home/comp/amelieczhou/DDP-Train",
+    "host": "gpu23",
+    "username": "amelieczhou",
+    "executable": "/home/comp/amelieczhou/miniconda3/envs/DDP/bin/python3",
+    "cpu_count": 24,
+    "cpu_count_logical": 48,
+    "cpu_freq": {
+        "current": 3285.7705833333334,
+        "min": 3700.0,
+        "max": 3700.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 3112.481,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2978.964,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3496.902,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3499.265,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3497.544,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2937.347,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3065.214,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2808.016,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3466.316,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2807.617,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2614.016,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2804.443,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3497.569,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3504.921,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3160.947,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3033.924,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3497.239,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3327.645,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3457.214,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2814.063,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3500.007,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3500.0,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3499.701,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3293.992,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3136.051,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2962.561,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3491.274,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3500.0,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3499.738,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3487.769,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3490.338,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3485.436,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3499.991,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3485.297,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2722.655,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3483.993,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3430.759,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3499.999,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2993.662,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3179.1,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3499.965,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3484.656,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3321.465,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3487.103,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3502.276,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3498.694,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 3499.999,
+            "min": 3700.0,
+            "max": 3700.0
+        },
+        {
+            "current": 2898.86,
+            "min": 3700.0,
+            "max": 3700.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 414.6148376464844,
+            "used": 91.15303802490234
+        }
+    },
+    "gpu": "Tesla V100S-PCIE-32GB",
+    "gpu_count": 4,
+    "gpu_devices": [
+        {
+            "name": "Tesla V100S-PCIE-32GB",
+            "memory_total": 34359738368
+        },
+        {
+            "name": "Tesla V100S-PCIE-32GB",
+            "memory_total": 34359738368
+        },
+        {
+            "name": "Tesla V100S-PCIE-32GB",
+            "memory_total": 34359738368
+        },
+        {
+            "name": "Tesla V100S-PCIE-32GB",
+            "memory_total": 34359738368
+        }
+    ],
+    "memory": {
+        "total": 1007.5677032470703
+    }
+}

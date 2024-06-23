@@ -589,6 +589,24 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
                     _buffer_params[__param] = buffer_param
 
             return hook
+    elif args.sync == 'sync_avg':
+        def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
+            def hook(*ignore):
+                if is_communicate(__param, gap_iters, begin_comm_iter):
+                    if is_root():
+                        logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
+                                    f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
+                    # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
+                    # # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
+                    # _handles[__param] = (handle, None, 1)
+                    
+                    #buffer_param = copy.deepcopy(__param.data)
+                    #handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
+                    dist.all_reduce(buffer_param, op=dist.ReduceOp.AVG, async_op=False)
+                    # _handles[__param] = (handle, None, 1)
+                    _buffer_params[__param] = buffer_param
+
+            return hook
 
 
     named_modules = dict(trainer.net.named_modules())

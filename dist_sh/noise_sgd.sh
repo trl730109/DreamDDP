@@ -3,7 +3,7 @@
 # Set Python and script environment
 #source ../configs/envs.conf
 directory=`pwd`
-script="${script:-dist_trainer.py}"  # Assuming this is the PyTorch distributed training script
+script="${script:-fault_dist_trainer.py}"  # Assuming this is the PyTorch distributed training script
 params="${params:-}"
 echo "launch dir: $directory"
 
@@ -11,7 +11,7 @@ echo "launch dir: $directory"
 #export HOROVOD_WITH_MPI=1
 #export HOROVOD_WITH_GLOO=1
 total_host=1
-hosts=('gpu22')
+# hosts=('gpu23')
 # Model and training configurations
 dnn="${dnn:-resnet20}"
 source exp_configs/$dnn.conf
@@ -37,18 +37,22 @@ nwpernode=4
 nstepsupdate=1
 overlap_scalar=2
 strategy='average'
-nsteps_localsgd=1
-optimizer_name='SGD'
-alg='sgd'
+nsteps_localsgd=20
+optimizer_name="${optimizer_name:-SGD}"
+sync='avg'
+alg="${alg:-sgd}"
 PY=~/miniconda3/envs/DDP/bin/python3
 GRADSPATH=./logs/tzc
+
+dataset=cifar10
+data_dir=/home/comp/amelieczhou/datasets/cifar10
 
 # Loop to launch training on each node
 i=0
 while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
-    args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=12345 $script \
+    args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=23456 $script \
         --alg $alg \
         --optimizer_name $optimizer_name \
         --nsteps_localsgd $nsteps_localsgd \
@@ -67,7 +71,11 @@ do
         --compressor $compressor \
         --threshold $threshold \
         --saved-dir $GRADSPATH \
-        --momentum-correction $momentum_correction"
+        --momentum-correction $momentum_correction \
+        --sync $sync \
+        --add_noise $add_noise \
+        --gaussian_mu $gaussian_mu \
+        --gaussian_std $gaussian_std "
     echo "$host: $args"
     cmd="cd $directory; $args"
     if [ $(expr $i + 1) -eq $node_count ]; then
@@ -78,3 +86,12 @@ do
     node_rank=$(expr $node_rank + 1)
     i=$(expr $i + 1)
 done
+
+
+
+
+
+
+
+
+
