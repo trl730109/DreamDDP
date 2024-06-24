@@ -44,9 +44,11 @@ def parse_metrics(log_file):
 log_directories = {
     'localsgd': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/06-23-17:17-localsgd/gpu23-0.log',
     #'pipe': '/home/comp/amelieczhou/DDP-Train/test/pipeline/resnet20/06-21-18:46-pipe/gpu22-0.log',
-    'sgd':'/home/comp/amelieczhou/DDP-Train/test/sgd/resnet20/06-21-18:26-sgd/gpu22-0.log',
+    'sgd':'/home/comp/amelieczhou/DDP-Train/test/sgd/resnet20/06-23-20:17-sgd/gpu22-0.log',
     'pipe_seq_localsgd_sum':'/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/sum/06-23-16:39-pipe_seq_localsgd/gpu22-0.log',
-    'pipe_seq_locasgd_avg': '/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/avg/06-23-16:59-pipe_seq_localsgd/gpu22-0.log'
+    'pipe_seq_locasgd_avg': '/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/avg/06-23-16:59-pipe_seq_localsgd/gpu22-0.log',
+    'pipe_seq_localsgd_sync_avg':'/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/sync_avg/06-23-23:17-pipe_seq_localsgd/gpu22-0.log',
+    
 }
 
 # Plotting accuracies and losses for each experiment.

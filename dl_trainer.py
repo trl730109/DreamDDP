@@ -102,7 +102,7 @@ class MnistNet(nn.Module):
 def get_available_gpu_device_ids(ngpus):
     return range(0, ngpus)
 
-def create_net(num_classes, dnn='resnet20', **kwargs):
+def create_net(num_classes, dnn='resnet20', dataset='cifar10', **kwargs):
     ext = None
     if dnn in ['resnet20', 'resnet56', 'resnet110']:
         net = models.__dict__[dnn](num_classes=num_classes)
@@ -112,14 +112,34 @@ def create_net(num_classes, dnn='resnet20', **kwargs):
         net = torchvision.models.alexnet()
     elif dnn == 'alexnetbn':
         net = models.AlexNetBN()
-    elif dnn == 'resnet18':
+    # elif dnn == 'resnet18':
+    #     net = torchvision.models.resnet18(num_classes=num_classes)
+    # elif dnn == 'resnet50':
+    #     net = torchvision.models.resnet50(num_classes=num_classes)
+    # elif dnn == 'resnet101':
+    #     net = torchvision.models.resnet101(num_classes=num_classes)
+    # elif dnn == 'resnet152':
+    #     net = torchvision.models.resnet152(num_classes=num_classes)
+    # """
+    #     For cifar10
+    # """
+    elif dnn == 'resnet18' and dataset == "cifar10":
+        net = models.cifar_resnet18(num_classes=num_classes)
+    elif dnn == 'resnet50' and dataset == "cifar10":
+        net = models.cifar_resnet50(num_classes=num_classes)
+    elif dnn == 'resnet101' and dataset == "cifar10":
+        net = models.cifar_resnet101(num_classes=num_classes)
+    elif dnn == 'resnet152' and dataset == "cifar10":
+        net = models.cifar_resnet152(num_classes=num_classes)
+    elif dnn == 'resnet18' and dataset == "imagenet":
         net = torchvision.models.resnet18(num_classes=num_classes)
-    elif dnn == 'resnet50':
+    elif dnn == 'resnet50' and dataset == "imagenet":
         net = torchvision.models.resnet50(num_classes=num_classes)
-    elif dnn == 'resnet101':
+    elif dnn == 'resnet101' and dataset == "imagenet":
         net = torchvision.models.resnet101(num_classes=num_classes)
-    elif dnn == 'resnet152':
+    elif dnn == 'resnet152' and dataset == "imagenet":
         net = torchvision.models.resnet152(num_classes=num_classes)
+
     elif dnn == 'densenet121':
         net = torchvision.models.densenet121(num_classes=num_classes)
     elif dnn == 'densenet161':
@@ -212,15 +232,16 @@ class DLTrainer:
             if self.dnn in ['lstm', 'lstmwt2']:
                 if data_dir is not None:
                     self.data_prepare()
-                self.net, self.ext = create_net(self.num_classes, self.dnn, vocab_size=self.vocab_size, batch_size=self.batch_size)
+                self.net, self.ext = create_net(self.num_classes, self.dnn, self.dataset, vocab_size=self.vocab_size, batch_size=self.batch_size)
             elif self.dnn == 'lstman4':
-                self.net, self.ext = create_net(self.num_classes, self.dnn, datapath=self.data_dir)
+                self.net, self.ext = create_net(self.num_classes, self.dnn, self.dataset, datapath=self.data_dir)
                 if data_dir is not None:
                     self.data_prepare()
             elif self.dnn == 'transformer':
                 if data_dir is not None:
                     self.data_prepare()
                 self.net, self.ext = create_net(self.num_classes, self.dnn, 
+                        self.dataset, 
                         datapath=self.data_dir,
                         src_vocab_size=self.src_vocab_size,
                         tgt_vocab_size=self.tgt_vocab_size,
@@ -228,7 +249,7 @@ class DLTrainer:
             else:
                 if data_dir is not None:
                     self.data_prepare()
-                self.net, self.ext = create_net(self.num_classes, self.dnn)
+                self.net, self.ext = create_net(self.num_classes, self.dnn, self.dataset)
         self.lr = lr
         self.base_lr = self.lr
         self.is_cuda = self.ngpus > 0
@@ -959,6 +980,7 @@ class DLTrainer:
                 self.communication_sizes = []
                 self.train_acc_top1 = []
                 self.epochs_info.append(self.avg_loss_per_epoch/self.num_batches_per_epoch)
+                # self.avg_loss_per_epoch = self.avg_loss_per_epoch/self.num_batches_per_epoch
                 self.avg_loss_per_epoch = 0.0
                 #self.data_iterator = iter(self.trainloader)
                 #if self.train_iter > 0 and self.train_iter % 100 == 0:

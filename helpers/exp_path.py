@@ -28,7 +28,7 @@ def check_by(method_name):
         def wrapper(cls, *args, **kwargs):
             method = getattr(cls, method_name)
             method_result = method()
-            print(f"Result from {method_name}: {method_result}")
+            # print(f"Result from {method_name}: {method_result}")
             if method_result:
                 return func(cls, *args, **kwargs)
         return wrapper

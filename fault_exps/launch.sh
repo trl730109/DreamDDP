@@ -13,8 +13,8 @@ echo "launch dir: $directory"
 total_host=1
 # hosts=('gpu23')
 # Model and training configurations
-dnn="${dnn:-resnet20}"
-source fault_exps/model_configs/$dnn.conf
+dnn="${dnn:-resnet18}"
+# source fault_exps/model_configs/$dnn.conf
 
 cluster_name="${cluster_name:-localhost}"
 source fault_exps/env_configs/$cluster_name.sh
@@ -37,8 +37,15 @@ if [ $(expr $node_rank + $node_count) -gt $total_host ] || [ $node_rank -lt 0 ];
 fi
 master_host=${hosts[$node_rank]}
 
+dnn="${dnn:-resnet18}"
+lr="${lr:-0.1}"
+batch_size="${batch_size:-128}"
+
+max_epochs="${max_epochs:-181}"
+
+
 # Training settings
-nwpernode=4
+nwpernode="${nwpernode:-$ngpu_per_node}"
 nstepsupdate=1
 overlap_scalar=2
 strategy='average'
@@ -52,12 +59,18 @@ GRADSPATH=./logs/tzc
 dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 
-exp_name="${exp_name:-default}"
+# exp_name="${exp_name:-default}"
 
 # Loop to launch training on each node
 i=0
 
 project_name=DDP-Train
+
+nworkers=$(expr $nwpernode \* $node_count)
+
+
+exp_name=${alg}-noi${add_noise}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}
+echo "exp name is $exp_name !"
 
 while [ $i -lt $node_count ]
 do

@@ -49,10 +49,6 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
-    if compressor in ['randomksame', 'randomksameec']:
-        torch.manual_seed(3000)
-        torch.cuda.manual_seed_all(3000)
-    #torch.manual_seed(rank)
     #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
         
     selected_gpu = rank%nwpernode
@@ -143,9 +139,6 @@ def ssgd_with_pipe(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
-    if compressor in ['randomksame', 'randomksameec']:
-        torch.manual_seed(3000)
-        torch.cuda.manual_seed_all(3000)
     #torch.manual_seed(rank)
     #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
         
@@ -237,9 +230,6 @@ def local_sgd_with_dist(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
-    if compressor in ['randomksame', 'randomksameec']:
-        torch.manual_seed(3000)
-        torch.cuda.manual_seed_all(3000)
 
     selected_gpu = rank % nwpernode
     torch.cuda.set_device(selected_gpu)
@@ -338,10 +328,6 @@ def seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
-    #print("The ssgd_with_horovod is called by rank: ", rank)
-    if compressor in ['randomksame', 'randomksameec']:
-        torch.manual_seed(3000)
-        torch.cuda.manual_seed_all(3000)
 
     selected_gpu = rank % nwpernode
     torch.cuda.set_device(selected_gpu)
@@ -454,10 +440,6 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
-    #print("The ssgd_with_horovod is called by rank: ", rank)
-    if compressor in ['randomksame', 'randomksameec']:
-        torch.manual_seed(3000)
-        torch.cuda.manual_seed_all(3000)
 
     selected_gpu = rank % nwpernode
     torch.cuda.set_device(selected_gpu)

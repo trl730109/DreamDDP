@@ -7,6 +7,11 @@ script="${script:-dist_trainer.py}"  # Assuming this is the PyTorch distributed 
 params="${params:-}"
 echo "launch dir: $directory"
 
+# Horovod-specific configurations commented out, adjust or remove if unnecessary for PyTorch
+#export HOROVOD_WITH_MPI=1
+#export HOROVOD_WITH_GLOO=1
+total_host=1
+hosts=('gpu22')
 # Model and training configurations
 dnn="${dnn:-resnet20}"
 source exp_configs/$dnn.conf
@@ -18,10 +23,14 @@ momentum_correction="${momentum_correction:-0}"
 
 # PyTorch Distributed settings
 ngpu_per_node="${ngpu_per_node:-4}"
-node_count=1  # Total number of nodes to use
-hosts=('gpu22')  # Hosts available for training
-total_host=${#hosts[@]}
-master_host=${hosts[0]}  # First host as the master host
+node_count="${node_count:-1}"
+node_rank="${node_rank:-1}"
+node_rank=$(expr $node_rank - 1)  # Adjust for zero-based indexing
+if [ $(expr $node_rank + $node_count) -gt $total_host ] || [ $node_rank -lt 0 ]; then
+    echo "Required nodes are out of the range: from gpu1 to gpu$total_host"
+    exit 0
+fi
+master_host=${hosts[$node_rank]}
 
 # Training settings
 nwpernode=4
@@ -30,20 +39,22 @@ overlap_scalar=2
 strategy='average'
 nsteps_localsgd=20
 optimizer_name='SGD'
-algorithms=('sgd' 'localsgd' 'pipe')
+alg='pipe_seq_localsgd'
 PY=~/miniconda3/envs/DDP/bin/python3
 GRADSPATH=./logs/tzc
 
-# Loop to launch training on each node for each algorithm
-for alg in "${algorithms[@]}"; do
-    for node_rank in $(seq 0 $(($node_count - 1))); do
-        if [ $node_rank -ge $total_host ]; then
-            echo "Required nodes are out of the range: from gpu1 to gpu${total_host}"
-            exit 0
-        fi
+dataset=cifar10
+data_dir=/home/comp/amelieczhou/datasets/cifar10
+
+# Sync options
+sync_options=('avg' 'sum' 'sync_avg')
+
+# Loop over sync options
+for sync in "${sync_options[@]}"; do
+    i=0
+    while [ $i -lt $node_count ]; do
         host=${hosts[$node_rank]}
-        echo "Launching training on $host for algorithm $alg"
-        args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$node_rank --master_addr=$master_host --master_port=12345 $script \
+        args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=12345 $script \
             --alg $alg \
             --optimizer_name $optimizer_name \
             --nsteps_localsgd $nsteps_localsgd \
@@ -62,10 +73,16 @@ for alg in "${algorithms[@]}"; do
             --compressor $compressor \
             --threshold $threshold \
             --saved-dir $GRADSPATH \
-            --momentum-correction $momentum_correction"
+            --momentum-correction $momentum_correction \
+            --sync $sync"
+        echo "$host: $args"
         cmd="cd $directory; $args"
-        ssh $host "$cmd" &
+        if [ $(expr $i + 1) -eq $node_count ]; then
+            ssh $host $cmd   # return until finished or interrupted
+        else
+            ssh $host $cmd & # return immediately
+        fi
+        node_rank=$(expr $node_rank + 1)
+        i=$(expr $i + 1)
     done
-    wait  # Wait for all nodes to finish before starting next algorithm
 done
-echo "All training processes have completed."

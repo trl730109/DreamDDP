@@ -50,12 +50,6 @@ from settings import logger, formatter
 def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
-    #print("The ssgd_with_horovod is called by rank: ", rank)
-    if compressor in ['randomksame', 'randomksameec']:
-        torch.manual_seed(3000)
-        torch.cuda.manual_seed_all(3000)
-    #torch.manual_seed(rank)
-    #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
         
     selected_gpu = rank%nwpernode
     torch.cuda.set_device(selected_gpu)
@@ -104,13 +98,18 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     times = []
     logger.info('max_epochs: %d', max_epochs)
     display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+    global_iters = 0
     for epoch in range(max_epochs):
         hidden = None
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
 
         result_dict = {}
+        train_epoch_loss = 0.0
+        train_epoch_acc = 0.0
         for i in range(iters_per_epoch//nsteps_update):
+            global_iters += 1
+            result_dict = {}
             s = time.time()
             optimizer.zero_grad()
             for j in range(nsteps_update):
@@ -140,10 +139,10 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
 
-            train_loss = trainer.avg_loss_per_epoch/trainer.num_batches_per_epoch
+            train_loss = trainer.loss
             train_acc = np.mean(trainer.train_acc_top1)
-            result_dict["train_loss"] = train_loss
-            result_dict["train_acc"] = train_acc
+            train_epoch_loss += train_loss
+            train_epoch_acc += train_acc
 
             trainer.update_model()
             times.append(time.time()-s)
@@ -154,10 +153,18 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                 times = []
                 result_dict["time_per_iter"] = time_per_iter
                 result_dict["samples_per_seconds"] = samples_per_seconds
+            ExpTool.record(result_dict)
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                        "train_acc": train_acc})
+            ExpTool.upload()
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_acc = trainer.test(epoch)
         result_dict["val_acc"] = val_acc
+        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+
         ExpTool.record(result_dict)
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
 
 
@@ -166,12 +173,6 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
 def ssgd_with_pipe(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
-    #print("The ssgd_with_horovod is called by rank: ", rank)
-    if compressor in ['randomksame', 'randomksameec']:
-        torch.manual_seed(3000)
-        torch.cuda.manual_seed_all(3000)
-    #torch.manual_seed(rank)
-    #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
         
     selected_gpu = rank%nwpernode
     torch.cuda.set_device(selected_gpu)
@@ -266,12 +267,6 @@ def ssgd_with_pipe(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
 def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
-    #print("The ssgd_with_horovod is called by rank: ", rank)
-    if compressor in ['randomksame', 'randomksameec']:
-        torch.manual_seed(3000)
-        torch.cuda.manual_seed_all(3000)
-    #torch.manual_seed(rank)
-    #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
         
     selected_gpu = rank%nwpernode
     torch.cuda.set_device(selected_gpu)
@@ -425,6 +420,8 @@ if __name__ == '__main__':
     parser.add_argument("--enable_wandb", type=str, default="False")
     args = parser.parse_args()
     arg_str2bool(args)
+
+    set_seed(seed=3000)
 
     # logger.info(torch.distributed.is_nccl_available()) # 判断nccl是否可用
     # logger.info(torch.distributed.is_mpi_available())  # 判断mpi是否可用
