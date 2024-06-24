@@ -21,22 +21,26 @@ wandb_key=5edd8acc594b95a0b4f58e39b2243143f03c65a0
 exp_name=$exp_name
 cluster_name=gpuhome
 
-hosts=('gpu23')
+hosts=('gpu24')
 source fault_exps/launch.sh
 
 
 gaussian_std=0.0001
+extra_name="nstd$gaussian_std"
 source fault_exps/launch.sh
 
 gaussian_std=0.01
+extra_name="nstd$gaussian_std"
 source fault_exps/launch.sh
 
 
 gaussian_std=0.1
+extra_name="nstd$gaussian_std"
 source fault_exps/launch.sh
 
 
 gaussian_std=1.0
+extra_name="nstd$gaussian_std"
 source fault_exps/launch.sh
 
 

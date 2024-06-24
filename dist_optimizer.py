@@ -807,6 +807,63 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return super(self.__class__, self).step(closure)
 
 
+def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar):
+    if isinstance(model, dict):
+        state_dict = model
+    else:
+        state_dict = model.state_dict()
+
+    params = []
+    callbacks = {}
+    occurrences = collections.defaultdict(int)
+
+    # Returns the full type structure of the possibly nested objects for recursive casting back
+    def _get_types(x):
+        if isinstance(x, collections.Iterable):
+            return type(x), [_get_types(xi) for xi in x]
+        else:
+            return type(x)
+
+    # Casts an object encoded in a tensor back into its original type and subtypes
+    def _recursive_cast(x, dtype):
+        if isinstance(dtype, tuple):
+            t, dtypes = dtype
+            x = t(x)
+            return t([_recursive_cast(x[i], dtypes[i]) for i in range(len(x))])
+        else:
+            return dtype(x)
+
+    def _create_callback(name, t, p):
+        def _from_tensor():
+            state_dict[name] = t(p.numpy()[0])
+        return _from_tensor
+    untrainable_list = []
+    for name, p in state_dict.items():
+
+        occurrences[name] += 1
+        key = '%s.%d' % (str(name), occurrences[name])
+        if not torch.is_tensor(p):
+            #logger.info(f'p is {p}')
+            # Wrap the scalar in a FloatTensor, and remember its type
+            # so we can cast it back after unwrapping
+            t = type(p)
+            p = torch.Tensor([p])
+            callbacks[key] = _create_callback(name, t, p) #create the function that transfers the scalar back to the original type
+
+        params.append((key, p))
+    
+    allgather_parameters(params,strategy)
+    #print("After allreduce:", [name for name, _ in params])
+
+    # Post-broadcast clenaup for non-tensor parameters
+    for key, p in params:
+        #logger.info(f"p is {p}")
+        if key in callbacks:
+            callbacks[key]()
+    return params
+
+
+
 def DistributedOptimizer(optimizer, add_noise, gaussian_mu, gaussian_std, strategy,overlap_scalar, named_parameters=None, compression=None, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to

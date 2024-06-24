@@ -123,8 +123,8 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                     trainer.train(1)
             for param in trainer.net.parameters():
                 if param.requires_grad:
-                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-                    param.grad.data /= dist.get_world_size()
+                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
+                    # param.grad.data /= dist.get_world_size()
                     if (str2bool(add_noise)):
                         shape = param.grad.data.size()
                         # gaussian_mu, gaussian_std
@@ -168,103 +168,29 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
         ExpTool.upload()
 
 
-
-
-def ssgd_with_pipe(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
-    rank = dist.get_rank()
-    logger.info('the rank of current process: %d', rank)
-        
-    selected_gpu = rank%nwpernode
-    torch.cuda.set_device(selected_gpu)
-    if rank != 0:
-        pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer)
-    
-    init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
-    init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
-    dist.broadcast(init_epoch, src=0)
-    dist.broadcast(init_iter, src=0)
-    trainer.set_train_epoch(int(init_epoch.item()))
-    trainer.set_train_iter(int(init_iter.item()))
-    
-    is_sparse = density < 1
-    if not is_sparse:
-        compressor = None
-
-    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
-        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
-        if rank == 0:
-            logger.info('layerwise backward times: %s', list(layerwise_times))
-            logger.info('layerwise backward sizes: %s', list(layerwise_sizes))
-        logger.info('Bencharmked backward time: %f', np.sum(layerwise_times))
-        logger.info('Model size: %d', np.sum(layerwise_sizes))
+def allreduce_model_weights(model):
+    if isinstance(model, dict):
+        state_dict = model
     else:
-        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
+        state_dict = model.state_dict()
+    # params = []
+    handles = []
+    for name, p in state_dict.items():
+        # t = type(p)
+        # p = torch.Tensor([p])
+        # params.append((name, p))
+        # dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
+        handle = dist.all_reduce(p, op=dist.ReduceOp.AVG, async_op=True)
+        handles.append(handle)
 
-    logger.info('Broadcast parameters....')
-    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
-    logger.info('Broadcast parameters finished....')
-
-
-    norm_clip = None
-    if dnn in ['lstm', 'lstmwt2']:
-        norm_clip = 0.25
-    elif dnn == 'lstman4':
-        norm_clip = 400
-        
-    optimizer = dist_optim.DistributedOptimizer(trainer.optimizer, add_noise = add_noise, gaussian_mu = gaussian_mu, gaussian_std = gaussian_std, strategy=strategy,overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
-    trainer.update_optimizer(optimizer)
-    iters_per_epoch = trainer.num_batches_per_epoch
-
-    times = []
-    logger.info('max_epochs: %d', max_epochs)
-    display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
-    for epoch in range(max_epochs):
-        hidden = None
-        if dnn in ['lstm', 'lstmwt2']:
-            hidden = trainer.net.init_hidden()
-        for i in range(iters_per_epoch//nsteps_update):
-            s = time.time()
-            optimizer.zero_grad()
-            for j in range(nsteps_update):
-                if j < nsteps_update - 1 and nsteps_update > 1:
-                    optimizer.local = True
-                else:
-                    optimizer.local = False
-                if dnn in ['lstm', 'lstmwt2']:
-                    _, hidden = trainer.train(1, hidden=hidden)
-                else:
-                    trainer.train(1)
-            for param in trainer.net.parameters():
-                if param.requires_grad:
-                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-                    param.grad.data /= dist.get_world_size()
-            
-            # if dnn in ['lstm', 'lstmwt2']:
-            #     optimizer.synchronize()
-            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            # elif dnn == 'lstman4':
-            #     optimizer.synchronize()
-            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
-            
-            trainer.update_model()
-            times.append(time.time()-s)
-            if i % display == 0 and i > 0: 
-                time_per_iter = np.mean(times)
-                logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
-                times = []
-        logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-        val_acc = trainer.test(epoch)
+    for handle in handles:
+        handle.wait()
+    return state_dict
 
 
 
-
-
-
-
-
-def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
+def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
+                         nsteps_param_sync=1):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
         
@@ -315,11 +241,18 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
     times = []
     logger.info('max_epochs: %d', max_epochs)
     display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+    global_iters = 0
     for epoch in range(max_epochs):
         hidden = None
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
+
+        result_dict = {}
+        train_epoch_loss = 0.0
+        train_epoch_acc = 0.0
         for i in range(iters_per_epoch//nsteps_update):
+            global_iters += 1
+            result_dict = {}
             s = time.time()
             optimizer.zero_grad()
             for j in range(nsteps_update):
@@ -339,7 +272,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                         shape = param.grad.data.size()
                         # gaussian_mu, gaussian_std
                         # gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*gaussian_noise, size=shape, device=param.grad.data.device)
-                        gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*gaussian_noise, device=param.grad.data.device)
+                        gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*param.grad.data.abs())
                         param.grad.data += gaussian_noise
 
             if dnn in ['lstm', 'lstmwt2']:
@@ -348,16 +281,41 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             elif dnn == 'lstman4':
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
-            
+
+            train_loss = trainer.loss
+            train_acc = np.mean(trainer.train_acc_top1)
+            train_epoch_loss += train_loss
+            train_epoch_acc += train_acc
+
             trainer.update_model()
             times.append(time.time()-s)
             if i % display == 0 and i > 0: 
                 time_per_iter = np.mean(times)
                 logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                samples_per_seconds = batch_size * nsteps_update / time_per_iter
                 times = []
+                result_dict["time_per_iter"] = time_per_iter
+                result_dict["samples_per_seconds"] = samples_per_seconds
+            ExpTool.record(result_dict)
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                        "train_acc": train_acc})
+            ExpTool.upload()
+            if (global_iters % nsteps_param_sync == nsteps_param_sync - 1):
+                logger.info(f'Params averaged using Allreduce at specific iterations.')
+                avg_params = allreduce_model_weights(trainer.net)
+                # corrected_avg_params = {'.'.join(name.split('.')[:-1]): value for name, value in avg_params}
+                trainer.net.load_state_dict(dict(avg_params))
+
 
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_acc = trainer.test(epoch)
+        result_dict["val_acc"] = val_acc
+        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+
+        ExpTool.record(result_dict)
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+        ExpTool.upload()
 
 
 
@@ -403,6 +361,8 @@ if __name__ == '__main__':
     parser.add_argument('--alg', type=str,default='localsgd',help='Algorithms including desync, sgd, localsgd, layerwise.')
     parser.add_argument('--local_rank', type=int, default=0,help='local rank for distributed training')
     parser.add_argument('--sync',type=str,default='sum',help='synchronization ways, sum or avg')
+
+    parser.add_argument('--nsteps_param_sync', type=int, default=20)
 
     # wandb, exp record related
     parser.add_argument("--wandb_offline", type=str, default="True")
@@ -502,12 +462,13 @@ if __name__ == '__main__':
     elif (args.alg == 'sgd'):
         logger.info("Alg used: sgd.")
         ssgd_with_dist(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
-    elif (args.alg == 'pipe'):
-        logger.info("Alg used: pipelined seq.")
-        ssgd_with_pipe(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
+    # elif (args.alg == 'pipe'):
+    #     logger.info("Alg used: pipelined seq.")
+    #     ssgd_with_pipe(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
     elif (args.alg == 'sgd_with_sync'):
         logger.info("Alg used: pipe_seq_localsgd.")
-        ssgd_with_param_sync(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
+        ssgd_with_param_sync(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
+                             args.nsteps_param_sync)
 
     ExpTool.finish(args)
 
