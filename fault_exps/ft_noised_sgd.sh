@@ -1,6 +1,6 @@
 
 
-
+master_port=22222
 
 alg=sgd
 gaussian_mu=0.0
@@ -8,12 +8,11 @@ gaussian_std=0.001
 optimizer_name=SGD
 dnn=resnet18
 lr=0.1
+batch_size=128
+
 max_epochs=181
 
 add_noise=True
-
-exp_name=${alg}-noi${add_noise}-std${gaussian_std}-${dnn}-${optimizer_name}-lr${lr}
-
 
 enable_wandb=True
 wandb_offline=False
@@ -26,12 +25,19 @@ hosts=('gpu23')
 source fault_exps/launch.sh
 
 
-
-
-lr=0.01
-
+gaussian_std=0.0001
 source fault_exps/launch.sh
 
+gaussian_std=0.01
+source fault_exps/launch.sh
+
+
+gaussian_std=0.1
+source fault_exps/launch.sh
+
+
+gaussian_std=1.0
+source fault_exps/launch.sh
 
 
 # hosts=('gpu23') alg=$alg add_noise=$add_noise gaussian_std=$gaussian_std  

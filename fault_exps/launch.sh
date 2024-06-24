@@ -68,14 +68,19 @@ project_name=DDP-Train
 
 nworkers=$(expr $nwpernode \* $node_count)
 
+extra_name="${extra_name:- }"
 
-exp_name=${alg}-noi${add_noise}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}
+exp_name=${alg}-noi${add_noise}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}-${extra_name}
 echo "exp name is $exp_name !"
+
+
+master_port=${master_port:-23456}
+
 
 while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
-    args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=23456 $script \
+    args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
