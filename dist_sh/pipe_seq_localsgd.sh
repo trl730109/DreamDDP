@@ -11,7 +11,7 @@ echo "launch dir: $directory"
 #export HOROVOD_WITH_MPI=1
 #export HOROVOD_WITH_GLOO=1
 total_host=1
-hosts=('gpu22')
+hosts=('gpu15')
 # Model and training configurations
 dnn="${dnn:-resnet20}"
 source exp_configs/$dnn.conf
@@ -41,11 +41,12 @@ nsteps_localsgd=20
 optimizer_name='SGD'
 sync='avg'
 alg='pipe_seq_localsgd'
-PY=~/miniconda3/envs/DDP/bin/python3
+# PY=~/miniconda3/envs/DDP/bin/python3
+PY=/home/yinyiming/miniconda3/envs/ddp/bin/python3
 GRADSPATH=./logs/tzc
 
 dataset=cifar10
-data_dir=/home/comp/amelieczhou/datasets/cifar10
+data_dir=/home/yinyiming/datasets/cifar10
 
 # Loop to launch training on each node
 i=0

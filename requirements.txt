@@ -8,3 +8,8 @@ dahuffman
 py-lz4framed
 psutil
 scipy
+pytz
+scikit-learn
+matplotlib
+mpi4py
+

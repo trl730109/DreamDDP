@@ -4,11 +4,21 @@ import os
 import numpy as np
 import scipy.stats as stats
 import torch
-from horovod.torch.mpi_ops import allreduce_async_
-from horovod.torch.mpi_ops import synchronize
+#from horovod.torch.mpi_ops import allreduce_async_
+#from horovod.torch.mpi_ops import synchronize
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str) and v.lower() in ('true', 'True'):
+        return True
+    elif isinstance(v, str) and v.lower() in ('false', 'False'):
+        return False
+    else:
+        return v
 
 def group_layers(layer_names):
     layers_dict = defaultdict(list)
@@ -71,17 +81,6 @@ def adjust_interval(named_params, interval_list, score_list, increasing_factor, 
 
     return interval_list
 
-
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    # if v.lower() in ('yes', 'true', 't', 'y', '1'):
-    if isinstance(v, str) and v.lower() in ('true', 'True'):
-        return True
-    elif isinstance(v, str) and v.lower() in ('false', 'False'):
-        return False
-    else:
-        return v
 
 def check_sign_conflicts_simplified(tensors):
     encode_sign = lambda x: 4 * (x > 0).long() + 2 * (x < 0).long() + (x == 0).long()
