@@ -4,8 +4,8 @@ import os
 import numpy as np
 import scipy.stats as stats
 import torch
-#from horovod.torch.mpi_ops import allreduce_async_
-#from horovod.torch.mpi_ops import synchronize
+# from horovod.torch.mpi_ops import allreduce_async_
+# from horovod.torch.mpi_ops import synchronize
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -36,13 +36,13 @@ def group_layers(layer_names):
     # Convert dictionary to list of lists
     return list(layers_dict.values())
 
-def AllReduce_L2(score_dict, comm_layer_list):
-    handles = []
-    for name in comm_layer_list:
-        handle = allreduce_async_(score_dict[name], average=True, name=name)
-        handles.append(handle)
-    for handle in handles:
-        synchronize(handle)
+# def AllReduce_L2(score_dict, comm_layer_list):
+#     handles = []
+#     for name in comm_layer_list:
+#         handle = allreduce_async_(score_dict[name], average=True, name=name)
+#         handles.append(handle)
+#     for handle in handles:
+#         synchronize(handle)
 
 def adjust_interval(named_params, interval_list, score_list, increasing_factor, interval):
     # Calculate total model size and total model discrepancy

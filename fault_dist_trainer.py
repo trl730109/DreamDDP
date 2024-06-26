@@ -7,7 +7,6 @@ import torch
 import numpy as np
 import argparse, os
 import settings
-import utils
 import pytz
 import logging
 from multiprocessing import set_start_method
@@ -28,7 +27,7 @@ from tensorboardX import SummaryWriter
 from compression import compressors
 from profiling import benchmark
 from mpi4py import MPI
-from utils import *
+# from utils import *
 
 from helpers.exp_path import ExpTool
 
@@ -37,6 +36,18 @@ writer = None
 
 def is_root():
     return dist.get_rank() == 0
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    # if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    if isinstance(v, str) and v.lower() in ('true', 'True'):
+        return True
+    elif isinstance(v, str) and v.lower() in ('false', 'False'):
+        return False
+    else:
+        return v
 
 def set_seed(seed=3000):
     np.random.seed(seed)
@@ -123,13 +134,13 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                     trainer.train(1)
             for param in trainer.net.parameters():
                 if param.requires_grad:
-                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
-                    # param.grad.data /= dist.get_world_size()
+                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+                    param.grad.data /= dist.get_world_size()
                     if (str2bool(add_noise)):
                         shape = param.grad.data.size()
                         # gaussian_mu, gaussian_std
                         # gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*gaussian_noise, size=shape, device=param.grad.data.device)
-                        gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*param.grad.data.abs())
+                        gaussian_noise = torch.normal(mean=gaussian_mu, std=torch.min(gaussian_std*param.grad.data.abs(), torch.tensor(0.0001)))
                         param.grad.data += gaussian_noise
 
             if dnn in ['lstm', 'lstmwt2']:
@@ -180,11 +191,14 @@ def allreduce_model_weights(model):
         # p = torch.Tensor([p])
         # params.append((name, p))
         # dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
-        handle = dist.all_reduce(p, op=dist.ReduceOp.AVG, async_op=True)
+        handle = dist.all_reduce(p, op=dist.ReduceOp.SUM, async_op=True)
         handles.append(handle)
 
     for handle in handles:
         handle.wait()
+    for name, p in state_dict.items():
+        state_dict[name] = state_dict[name] / dist.get_world_size()
+
     return state_dict
 
 

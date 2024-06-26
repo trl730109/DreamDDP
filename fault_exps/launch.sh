@@ -68,7 +68,7 @@ project_name=DDP-Train
 
 nworkers=$(expr $nwpernode \* $node_count)
 
-extra_name="${extra_name:- }"
+extra_name="${extra_name:-}"
 
 exp_name=${alg}-noi${add_noise}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}-${extra_name}
 echo "exp name is $exp_name !"
@@ -107,7 +107,7 @@ do
         --add_noise $add_noise \
         --gaussian_mu $gaussian_mu \
         --gaussian_std $gaussian_std \
-        -nsteps_param_sync $nsteps_param_sync \
+        --nsteps_param_sync $nsteps_param_sync \
         --wandb_entity $wandb_entity --project_name $project_name --enable_wandb $enable_wandb --wandb_offline $wandb_offline \
         --wandb_key $wandb_key \
         --exp_name $exp_name "
