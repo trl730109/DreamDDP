@@ -73,7 +73,7 @@ extra_name="${extra_name:-}"
 exp_name=${alg}-noi${add_noise}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}-${extra_name}
 echo "exp name is $exp_name !"
 
-nsteps_param_sync=20
+nsteps_param_sync=${nsteps_param_sync:-20}
 
 
 master_port=${master_port:-23456}
