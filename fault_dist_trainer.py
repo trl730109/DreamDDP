@@ -58,6 +58,14 @@ def set_seed(seed=3000):
 from settings import logger, formatter
 
 
+def add_nose_to_param_grad(param, gaussian_mu, gaussian_std):
+    # shape = param.grad.data.size()
+    # gaussian_mu, gaussian_std
+    # gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*gaussian_noise, size=shape, device=param.grad.data.device)
+    gaussian_noise = torch.normal(mean=gaussian_mu, std=torch.max(gaussian_std*param.grad.data.abs(), torch.tensor(0.0001)))
+    param.grad.data += gaussian_noise
+
+
 def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -137,11 +145,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                     param.grad.data /= dist.get_world_size()
                     if (str2bool(add_noise)):
-                        shape = param.grad.data.size()
-                        # gaussian_mu, gaussian_std
-                        # gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*gaussian_noise, size=shape, device=param.grad.data.device)
-                        gaussian_noise = torch.normal(mean=gaussian_mu, std=torch.min(gaussian_std*param.grad.data.abs(), torch.tensor(0.0001)))
-                        param.grad.data += gaussian_noise
+                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
 
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
@@ -283,11 +287,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                     param.grad.data /= dist.get_world_size()
                     if (str2bool(add_noise)):
-                        shape = param.grad.data.size()
-                        # gaussian_mu, gaussian_std
-                        # gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*gaussian_noise, size=shape, device=param.grad.data.device)
-                        gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*param.grad.data.abs())
-                        param.grad.data += gaussian_noise
+                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
 
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()

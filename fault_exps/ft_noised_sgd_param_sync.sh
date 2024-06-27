@@ -28,26 +28,28 @@ hosts=('scigpu14')
 nsteps_param_sync=100
 
 
-# source fault_exps/launch.sh
-
-
 # gaussian_std=0.0001
 # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
 # source fault_exps/launch.sh
 
-# gaussian_std=0.01
+# gaussian_std=0.001
 # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
 # source fault_exps/launch.sh
 
 
-# gaussian_std=0.1
-# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-# source fault_exps/launch.sh
+gaussian_std=0.01
+extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+source fault_exps/launch.sh
 
 
-# gaussian_std=1.0
-# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-# source fault_exps/launch.sh
+gaussian_std=0.1
+extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+source fault_exps/launch.sh
+
+
+gaussian_std=1.0
+extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+source fault_exps/launch.sh
 
 gaussian_std=10.0
 extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
