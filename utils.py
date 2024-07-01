@@ -4,8 +4,8 @@ import os
 import numpy as np
 import scipy.stats as stats
 import torch
-# from horovod.torch.mpi_ops import allreduce_async_
-# from horovod.torch.mpi_ops import synchronize
+#from horovod.torch.mpi_ops import allreduce_async_
+#from horovod.torch.mpi_ops import synchronize
 from collections import defaultdict
 
 import matplotlib.pyplot as plt

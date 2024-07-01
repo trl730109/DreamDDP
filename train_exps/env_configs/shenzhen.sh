@@ -3,7 +3,7 @@ PY="${PY:-/home/yinyiming/miniconda3/envs/ddp/bin/python3}"
 
 cluster_name=${cluster_name:-localhost}
 dataset=${dataset:-cifar10}
-echo "cluster_name: $cluster_name"
+#echo "cluster_name: $cluster_name"
 case "$cluster_name" in
     "localhost")
         case "$dataset" in

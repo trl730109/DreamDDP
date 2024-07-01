@@ -3,7 +3,7 @@
 
 lr=0.1
 batch_size=128
-alg='localsgd'
+alg='pipe_seq_localsgd'
 #pipe_seq_localsgd
 # alg=test
 # gaussian_mu=0.0
@@ -14,7 +14,7 @@ lr=0.1
 max_epochs=181
 sync='avg'
 # add_noise=True
-extra_name='626test'
+extra_name='TEST'
 # if [ "$alg" = "pipe_seq_localsgd" ]; then
 #     exp_name="${extra_name}-${alg}-${sync}-${dnn}-${optimizer_name}"
 # else
@@ -30,7 +30,7 @@ exp_name=$exp_name
 cluster_name=shenzhen
 
 # hosts=('gpu9' 'gpu3' 'gpu11' 'gpu12')
-hosts=('gpu3')
+hosts=('gpu10')
 node_count=${#hosts[@]}
 # sync='avg'
 # source train_exps/launch.sh
@@ -41,15 +41,15 @@ node_count=${#hosts[@]}
 # sync='avg'
 # source train_exps/launch.sh
 
-nsteps_localsgd=800
+nsteps_localsgd=20
 source train_exps/launch.sh
 
 
-nsteps_localsgd=1600
-source train_exps/launch.sh
+# nsteps_localsgd=1600
+# source train_exps/launch.sh
 
-nsteps_localsgd=2000
-source train_exps/launch.sh
+# nsteps_localsgd=2000
+# source train_exps/launch.sh
 
 # nsteps_localsgd=400
 # source train_exps/launch.sh

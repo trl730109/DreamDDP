@@ -344,6 +344,9 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
     display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
 
     global_iters = 0
+    train_time_acc = 0
+    comm_time_acc = 0
+    iteration_time_acc = 0
     for epoch in range(max_epochs):
         logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
         hidden = None
@@ -378,7 +381,10 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
             train_epoch_acc += train_acc
             
             trainer.update_model()
-            times.append(time.time()-s)
+            train_time = time.time()-s
+            times.append(train_time)
+            train_time_acc += train_time
+            
             if i % display == 0 and i > 0: 
                 time_per_iter = np.mean(times)
                 logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
@@ -392,11 +398,16 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
             ExpTool.upload()
             
             if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
+                start = time.time()
                 avg_pseudo_gradients = allreduce_model_weights(trainer.net, compressors[compressor](), density, strategy, overlap_scalar)
                 corrected_avg_pseudo_gradients = {'.'.join(name.split('.')[:-1]): value for name, value in avg_pseudo_gradients}
                 trainer.net.load_state_dict(dict(corrected_avg_pseudo_gradients))
+                comm_time_acc += (time.time() - start)
             else:
                 pass
+            iteration_time_acc += (time.time() - s)
+            ExpTool.record({"global_iters": global_iters, "iteration time": iteration_time_acc, "total train time": train_time_acc,
+                        "total comm time": comm_time_acc})
 
         val_acc = trainer.test(epoch)
         result_dict["val_acc"] = val_acc
@@ -571,13 +582,6 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
     logger.info('max_epochs: %d', max_epochs)
     display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
 
-    total_iters = 0
-    layer_names = []
-    for name in trainer.net.state_dict().keys():
-        layer_names.append(name)
-    regrouped_layers = group_layers(layer_names)
-    layer_per_iter = int(len(regrouped_layers) / nsteps_localsgd)
-
     _handles = {}
     _buffer_params = {}
     _parameter_names = {}
@@ -620,55 +624,55 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
 
     import copy
 
-    if sync == "sum":
-        def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
-            def hook(*ignore):
-                if is_communicate(__param, gap_iters, begin_comm_iter):
-                    if is_root():
-                        logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
-                                    f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
-                    # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
-                    # # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
-                    # _handles[__param] = (handle, None, 1)
-                    #buffer_param = copy.deepcopy(__param.data)
-                    handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
-                    # handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.AVG, async_op=True)
-                    _handles[__param] = (handle, None, 1)
-                    # _buffer_params[__param] = buffer_param
+    # if sync == "sum":
+    #     def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
+    #         def hook(*ignore):
+    #             if is_communicate(__param, gap_iters, begin_comm_iter):
+    #                 if is_root():
+    #                     logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
+    #                                 f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
+    #                 # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
+    #                 # # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
+    #                 # _handles[__param] = (handle, None, 1)
+    #                 buffer_param = copy.deepcopy(__param.data)
+    #                 handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
+    #                 # handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.AVG, async_op=True)
+    #                 _handles[__param] = (handle, None, 1)
+    #                 _buffer_params[__param] = buffer_param
 
-            return hook
-    elif sync == 'avg':
-        def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
-            def hook(*ignore):
-                if is_communicate(__param, gap_iters, begin_comm_iter):
-                    if is_root():
-                        logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
-                                    f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
+    #         return hook
+    # elif sync == 'avg':
+    def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
+        def hook(*ignore):
+            if is_communicate(__param, gap_iters, begin_comm_iter):
+                if is_root():
+                    logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
+                                f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
 
-                    #buffer_param = copy.deepcopy(__param.data)
-                    #handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
-                    handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
-                    _handles[__param] = (handle, None, 1)
+                #buffer_param = copy.deepcopy(__param.data)
+                #handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
+                handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
+                _handles[__param] = (handle, None, 1)
 
-            return hook
-    elif sync == 'sync_avg':
-        def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
-            def hook(*ignore):
-                if is_communicate(__param, gap_iters, begin_comm_iter):
-                    if is_root():
-                        logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
-                                    f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
-                    # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
-                    # # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
-                    # _handles[__param] = (handle, None, 1)
+        return hook
+    # elif sync == 'sync_avg':
+    #     def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
+    #         def hook(*ignore):
+    #             if is_communicate(__param, gap_iters, begin_comm_iter):
+    #                 if is_root():
+    #                     logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
+    #                                 f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
+    #                 # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.SUM, async_op=True)
+    #                 # # handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
+    #                 # _handles[__param] = (handle, None, 1)
                     
-                    buffer_param = copy.deepcopy(__param.data)
-                    #handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
-                    dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=False)
-                    # _handles[__param] = (handle, None, 1)
-                    #_buffer_params[__param] = buffer_param
+    #                 buffer_param = copy.deepcopy(__param.data)
+    #                 #handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
+    #                 dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=False)
+    #                 # _handles[__param] = (handle, None, 1)
+    #                 #_buffer_params[__param] = buffer_param
 
-            return hook
+    #         return hook
 
 
     named_modules = dict(trainer.net.named_modules())
@@ -716,13 +720,15 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
             # tensor = _buffer_params[tensor]
             if sync == 'sum':
                 #logger.info(f'Tensor {tensor} divided tensor{}')
-                tensor = tensor / dist.get_world_size()
+                _buffer_params[tensor] = _buffer_params[tensor] / dist.get_world_size()
+                tensor = _buffer_params[tensor]
             # elif sync == 'avg':
             #     tensor = _buffer_params[tensor] 
             # tensor.data = tensor.data / dist.get_world_size()
             # tensor.data.set_(tensor.data / dist.get_world_size())
 
         _handles.clear()
+        _buffer_params.clear()
 
     global_iters = 0
     for epoch in range(max_epochs):
@@ -736,6 +742,189 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
         for i in range(iters_per_epoch//nsteps_update):
+            #_buffer_params = {}
+            global_iters += 1
+            result_dict = {}
+            
+            update_model_sgd_iters(trainer.net, i)
+            s = time.time()
+            optimizer.zero_grad()
+            
+            for j in range(nsteps_update):
+                if dnn in ['lstm', 'lstmwt2']:
+                    _, hidden = trainer.train(1, hidden=hidden)
+                else:
+                    trainer.train(1)
+            if dnn in ['lstm', 'lstmwt2']:
+                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            elif dnn == 'lstman4':
+                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+
+            if (sync != 'sync_avg'):
+                synchronize_all_reduced_models()
+                # if(sync == 'sum'):
+                #     for tensor, buffer in _buffer_params.items():
+                #         tensor = _buffer_params[tensor]
+
+            train_loss = trainer.loss
+            train_acc = np.mean(trainer.train_acc_top1)
+            train_epoch_loss += train_loss
+            train_epoch_acc += train_acc
+            
+            trainer.update_model()
+            times.append(time.time()-s)
+            if i % display == 0 and i > 0: 
+                time_per_iter = np.mean(times)
+                # logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                samples_per_seconds = batch_size * nsteps_update / time_per_iter
+                times = []
+                result_dict["time_per_iter"] = time_per_iter
+                result_dict["samples_per_seconds"] = samples_per_seconds
+            ExpTool.record(result_dict)
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                        "train_acc": train_acc})
+            ExpTool.upload()  
+
+        val_acc = trainer.test(epoch)
+        result_dict["val_acc"] = val_acc
+        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+
+        ExpTool.record(result_dict)
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+        ExpTool.upload()
+
+
+def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, sync='sum'):
+    assert nsteps_localsgd > 1
+    rank = dist.get_rank()
+    logger.info('the rank of current process: %d', rank)
+
+    selected_gpu = rank % nwpernode
+    torch.cuda.set_device(selected_gpu)
+    if rank != 0:
+        pretrain = None
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name)
+
+    init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
+    init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
+    dist.broadcast(init_epoch, src=0)
+    dist.broadcast(init_iter, src=0)
+    trainer.set_train_epoch(int(init_epoch.item()))
+    trainer.set_train_iter(int(init_iter.item()))
+    
+    is_sparse = density < 1
+    if not is_sparse:
+        compressor = None
+
+    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
+        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
+        layerwise_times = comm.bcast(layerwise_times, root=0)
+        if rank == 0:
+            logger.info('layerwise backward times: %s', list(layerwise_times))
+            logger.info('layerwise backward sizes: %s', list(layerwise_sizes))
+        logger.info('Bencharmked backward time: %f', np.sum(layerwise_times))
+        logger.info('Model size: %d', np.sum(layerwise_sizes))
+    else:
+        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
+    logger.info('All the steps before broadcasting params are correct.')
+    logger.info('Broadcast parameters....')
+    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
+    logger.info('Broadcast parameters finished....')
+
+
+    norm_clip = None
+    if dnn in ['lstm', 'lstmwt2']:
+        norm_clip = 0.25
+    elif dnn == 'lstman4':
+        norm_clip = 400
+
+    optimizer = trainer.optimizer
+    iters_per_epoch = trainer.num_batches_per_epoch
+    #max_epochs=0
+
+    times = []
+    logger.info('max_epochs: %d', max_epochs)
+    display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+
+    _handles = {}
+    _buffer_params = {}
+    _parameter_names = {}
+
+    def is_communicate(__module, gap_iters, begin_comm_iter):
+        return __module.sgd_iters % gap_iters == begin_comm_iter
+
+    import copy
+
+    def _make_hook(__module, __param, begin_comm_iter, gap_iters, name, layer_index):
+        def hook(*ignore):
+            if is_communicate(__param, gap_iters, begin_comm_iter):
+                if is_root():
+                    logger.info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter:{begin_comm_iter}, communicated successfully "
+                                f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
+
+                #buffer_param = copy.deepcopy(__param.data)
+                #handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
+                handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
+                _handles[__param] = (handle, None, 1)
+
+        return hook
+
+    named_modules = dict(trainer.net.named_modules())
+
+    layer_per_iter = len(named_modules) // nsteps_localsgd
+    fewer_iters = nsteps_localsgd - len(named_modules) % nsteps_localsgd
+    division_index = layer_per_iter * fewer_iters
+
+    logger.info(f"nsteps_localsgd:{nsteps_localsgd} \n len(modules): {len(named_modules)} "
+                f"\n layer_per_iter:{layer_per_iter}")
+
+    grad_accs = []
+    for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
+        if is_root():
+            logger.info(f"name: {name}, module id: {id(module)}")
+        # logger.info(f"name: {name}, module id: {id(module)}")
+        for param in module.parameters():
+            p_tmp = param.expand_as(param)
+            grad_acc = p_tmp.grad_fn.next_functions[0][0]
+            if(layer_index < division_index):
+                grad_acc.register_hook(_make_hook(module, param, layer_index // layer_per_iter, gap_iters=nsteps_localsgd, name=name, layer_index=layer_index))
+            else:
+                grad_acc.register_hook(_make_hook(module, param, fewer_iters + (layer_index-division_index) // (layer_per_iter+1), gap_iters=nsteps_localsgd, name=name, layer_index=layer_index))
+            grad_accs.append(grad_acc)
+
+    def update_model_sgd_iters(model, sgd_iters):
+        for module in model.modules():
+            module.sgd_iters = sgd_iters
+            for param in module.parameters():
+                param.sgd_iters = sgd_iters
+
+    def synchronize_all_reduced_models():
+
+        for tensor, value in _handles.items():
+            handle, ctx, density = value
+            handle.wait()
+            if sync == 'sum':
+                #logger.info(f'Tensor {tensor} divided tensor{}')
+                _buffer_params[tensor] = _buffer_params[tensor] / dist.get_world_size()
+                tensor = _buffer_params[tensor]
+
+        _handles.clear()
+        _buffer_params.clear()
+
+    global_iters = 0
+    for epoch in range(max_epochs):
+        logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
+        hidden = None
+        
+        result_dict = {}
+        train_epoch_loss = 0.0
+        train_epoch_acc = 0.0
+        
+        if dnn in ['lstm', 'lstmwt2']:
+            hidden = trainer.net.init_hidden()
+        for i in range(iters_per_epoch//nsteps_update):
+            #_buffer_params = {}
             global_iters += 1
             result_dict = {}
             
@@ -774,7 +963,6 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
             ExpTool.upload()  
-
 
         val_acc = trainer.test(epoch)
         result_dict["val_acc"] = val_acc
@@ -875,6 +1063,8 @@ if __name__ == '__main__':
         directory_path = os.path.join('./test/pipeline', args.dnn)
     elif(args.alg == 'pipe_seq_localsgd'):
         directory_path = os.path.join('./test/pipe_seq_localsgd', args.dnn, args.sync)
+    elif(args.alg == 'test'):
+        directory_path = os.path.join('./test/testing', args.dnn, args.sync)
     relative_path = os.path.join(directory_path, logdir)
 
     print(relative_path)
@@ -922,6 +1112,10 @@ if __name__ == '__main__':
     elif (args.alg == 'pipe_seq_localsgd'):
         logger.info("Alg used: pipe_seq_localsgd.")
         pipe_seq_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.sync)
+    elif (args.alg == 'test'):
+        logger.info("Alg used: test.")
+        test(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.sync)
+    
     ExpTool.finish(args)
 
     #local_sgd_with_dist(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)

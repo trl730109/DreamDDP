@@ -10,16 +10,16 @@ echo "launch dir: $directory"
 # Horovod-specific configurations commented out, adjust or remove if unnecessary for PyTorch
 #export HOROVOD_WITH_MPI=1
 #export HOROVOD_WITH_GLOO=1
-total_host=1
+total_host=${#hosts[@]}
 # hosts=('gpu23')
 # Model and training configurations
 dnn="${dnn:-resnet18}"
 #source train_exps/model_configs/$dnn.conf
 
 cluster_name="${cluster_name:-localhost}"
-echo "launch dir: $cluster_name"
+#echo "launch dir: $cluster_name"
 source train_exps/env_configs/$cluster_name.sh
-echo "launch dir: $cluster_name"
+#echo "launch dir: $cluster_name"
 echo "dataset dir: $data_dir"
 
 nworkers="${nworkers:-4}"
@@ -32,6 +32,7 @@ momentum_correction="${momentum_correction:-0}"
 ngpu_per_node="${ngpu_per_node:-4}"
 node_count="${node_count:-1}"
 node_rank="${node_rank:-1}"
+echo "node_count: $node_count"
 node_rank=$(expr $node_rank - 1)  # Adjust for zero-based indexing
 if [ $(expr $node_rank + $node_count) -gt $total_host ] || [ $node_rank -lt 0 ]; then
     echo "Required nodes are out of the range: from gpu1 to gpu$total_host"
@@ -57,9 +58,12 @@ data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
 if [ "$alg" = "pipe_seq_localsgd" ]; then
-    exp_name="${extra_name}-${alg}-${sync}-${dnn}-${optimizer_name}"
+    exp_name="${extra_name}-${alg}-${sync}-${dnn}-${nsteps_localsgd}"
+elif [ "$alg" = "localsgd" ]; then
+    # Add your code for the 'localsgd' case here
+    exp_name="${extra_name}-${alg}-${dnn}-${nsteps_localsgd}"  # Modify as needed
 else
-    exp_name="${extra_name}-${alg}-${dnn}-${optimizer_name}"
+    exp_name="${extra_name}-${alg}-${dnn}-nstepsudpate${nstepsupdate}"
 fi
 # Loop to launch training on each node
 i=0
@@ -69,6 +73,7 @@ project_name=DDP-Train
 while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
+    echo "Entering node: $host"
     args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=23456 $script \
         --alg $alg \
         --exp_name $exp_name \
@@ -99,7 +104,8 @@ do
     if [ $(expr $i + 1) -eq $node_count ]; then
         ssh $host $cmd   # return until finished or interrupted
     else
-        ssh $host $cmd & # return immediately
+        ssh $host $cmd &
+        exit # return immediately
     fi
     node_rank=$(expr $node_rank + 1)
     i=$(expr $i + 1)
