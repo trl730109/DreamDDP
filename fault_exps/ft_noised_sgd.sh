@@ -25,8 +25,6 @@ cluster_name=scigpu
 hosts=('localhost')
 
 
-
-
 # source fault_exps/launch.sh
 
 
@@ -34,9 +32,9 @@ hosts=('localhost')
 # extra_name="nstd$gaussian_std"
 # source fault_exps/launch.sh
 
-# gaussian_std=0.001
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+gaussian_std=0.001
+extra_name="nstd$gaussian_std"
+source fault_exps/launch.sh
 
 gaussian_std=0.01
 extra_name="nstd$gaussian_std"

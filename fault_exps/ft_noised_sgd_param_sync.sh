@@ -32,9 +32,9 @@ nsteps_param_sync=100
 # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
 # source fault_exps/launch.sh
 
-# gaussian_std=0.001
-# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-# source fault_exps/launch.sh
+gaussian_std=0.001
+extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+source fault_exps/launch.sh
 
 
 gaussian_std=0.01
