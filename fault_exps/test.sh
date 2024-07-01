@@ -14,20 +14,24 @@ max_epochs=181
 
 add_noise=True
 
-enable_wandb=True
+enable_wandb=False
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=5edd8acc594b95a0b4f58e39b2243143f03c65a0
 exp_name=$exp_name
 # cluster_name=gpuhome
-cluster_name=scigpu
+# cluster_name=scigpu
+# hosts=('scigpu11')
 
-hosts=('scigpu11')
+cluster_name=esetstore
+hosts=('gpu3')
 
-nsteps_param_sync, nsteps_check_param_diversity, nsteps_display_param_diversity, param_sync
 
+alg=sgd_with_sync
 
-# source fault_exps/launch.sh
+# alg=sgd
+
+source fault_exps/launch.sh
 
 
 # gaussian_std=0.0001

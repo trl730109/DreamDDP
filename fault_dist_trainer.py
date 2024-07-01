@@ -11,6 +11,7 @@ import pytz
 import logging
 from multiprocessing import set_start_method
 from collections import defaultdict
+import math
 
 from copy import deepcopy
 
@@ -61,35 +62,81 @@ from settings import logger, formatter
 
 
 def add_nose_to_param_grad(param, gaussian_mu, gaussian_std):
-    # shape = param.grad.data.size()
+    shape = param.grad.data.size()
     # gaussian_mu, gaussian_std
     # gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*gaussian_noise, size=shape, device=param.grad.data.device)
-    gaussian_noise = torch.normal(mean=gaussian_mu, std=torch.max(gaussian_std*param.grad.data.abs(), torch.tensor(0.0001)))
+    # gaussian_noise = torch.normal(mean=gaussian_mu, std=torch.max(gaussian_std*param.grad.data.abs(), torch.tensor(0.0001)))
+    gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.grad.data.device)
     param.grad.data += gaussian_noise
 
+def check_model_diff(model1, model2):
+    pass
+
+
 def check_param_diversity(model):
-    avg_params = deepcopy(model.state_dict())
+    if isinstance(model, dict):
+        avg_params = deepcopy(model)
+    else:
+        avg_params = deepcopy(model.state_dict())
+
     # for name, module in model.name_modules():
     # for name, param in model.name_parameters():
     for name, param in avg_params.items():
         if "weight" in name:
-            dist.all_reduce(param, op=dist.ReduceOp.SUM)
+            # dist.all_reduce(param, op=dist.ReduceOp.SUM)
             # param.float() /= dist.get_world_size()
-            param = torch.true_divide(param, dist.get_world_size())
+            dist.all_reduce(param, op=dist.ReduceOp.AVG)
 
     if is_root():
         named_diversitys = {}
         total_diversity = 0.0
-        for name, param in model.state_dict().items():
-            if "weight" in name:
-                diff = (avg_params[name] - param)
-                if param.dtype == torch.long:
-                    diff = diff.float()
-                named_diversitys[f"diver/{name}"] = diff.norm()
-                total_diversity += named_diversitys[f"diver/{name}"].item()
-        return named_diversitys, total_diversity
+        if isinstance(model, dict):
+            for name, param in model.items():
+                if "weight" in name:
+                    diff = (avg_params[name] - param.data)
+                    if param.dtype == torch.long:
+                        diff = diff.float()
+                    named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[f"diver/{name}"] = diff.norm()
+                    total_diversity += named_diversitys[f"diver/{name}"].item()
+            return named_diversitys, total_diversity
+        else:
+            for name, param in model.state_dict().items():
+                if "weight" in name:
+                    diff = (avg_params[name] - param.data)
+                    if param.dtype == torch.long:
+                        diff = diff.float()
+                    named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[f"diver/{name}"] = diff.norm()
+                    total_diversity += named_diversitys[f"diver/{name}"].item()
+            return named_diversitys, total_diversity
     else:
         return None, None
+
+
+def allreduce_model_weights(model):
+    if isinstance(model, dict):
+        state_dict = model
+    else:
+        state_dict = model.state_dict()
+    # params = []
+    handles = []
+    for name, p in state_dict.items():
+        # t = type(p)
+        # p = torch.Tensor([p])
+        # params.append((name, p))
+        # dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
+        # handle = dist.all_reduce(p, op=dist.ReduceOp.SUM, async_op=True)
+        # handle = dist.all_reduce(state_dict[name], op=dist.ReduceOp.SUM, async_op=True)
+        # handle = dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG, async_op=True)
+        # handles.append(handle)
+        dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG)
+    # for handle in handles:
+    #     handle.wait()
+    # for name, p in state_dict.items():
+    #     state_dict[name] = state_dict[name] / dist.get_world_size()
+
+    return state_dict
 
 
 def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
@@ -137,8 +184,6 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
         norm_clip = 400
         
     optimizer = trainer.optimizer
-    # optimizer = dist_optim.DistributedOptimizer(trainer.optimizer, add_noise = add_noise, gaussian_mu = gaussian_mu, gaussian_std = gaussian_std, strategy=strategy,overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
-    # trainer.update_optimizer(optimizer)
     iters_per_epoch = trainer.num_batches_per_epoch
 
     times = []
@@ -203,6 +248,8 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                 if is_root():
                     ExpTool.record(named_diversitys)
                     ExpTool.record({"total_diversity": total_diversity})
+                    logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
+
             ExpTool.upload()
 
 
@@ -217,27 +264,6 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
         ExpTool.upload()
 
 
-def allreduce_model_weights(model):
-    if isinstance(model, dict):
-        state_dict = model
-    else:
-        state_dict = model.state_dict()
-    # params = []
-    handles = []
-    for name, p in state_dict.items():
-        # t = type(p)
-        # p = torch.Tensor([p])
-        # params.append((name, p))
-        # dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
-        handle = dist.all_reduce(p, op=dist.ReduceOp.SUM, async_op=True)
-        handles.append(handle)
-
-    for handle in handles:
-        handle.wait()
-    for name, p in state_dict.items():
-        state_dict[name] = state_dict[name] / dist.get_world_size()
-
-    return state_dict
 
 
 
@@ -292,7 +318,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
 
     times = []
     logger.info('max_epochs: %d', max_epochs)
-    display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+    display = 10 if iters_per_epoch > 40 else iters_per_epoch-1
     global_iters = 0
     for epoch in range(max_epochs):
         hidden = None
@@ -352,12 +378,15 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 if is_root():
                     ExpTool.record(named_diversitys)
                     ExpTool.record({"total_diversity": total_diversity})
+                    logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
             ExpTool.upload()
-            if (global_iters % nsteps_param_sync == nsteps_param_sync - 1):
+            if (global_iters % nsteps_param_sync == 0):
                 logger.info(f'Params averaged using Allreduce at specific iterations.')
                 avg_params = allreduce_model_weights(trainer.net)
-                # corrected_avg_params = {'.'.join(name.split('.')[:-1]): value for name, value in avg_params}
                 trainer.net.load_state_dict(dict(avg_params))
+                named_diversitys, total_diversity = check_param_diversity(trainer.net)
+                if is_root():
+                    logger.info(f'Params have diversity: {total_diversity} after sync params !!!!!!!!.')
 
 
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
@@ -437,8 +466,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     arg_str2bool(args)
 
-    set_seed(seed=3000)
-
     # logger.info(torch.distributed.is_nccl_available()) # 判断nccl是否可用
     # logger.info(torch.distributed.is_mpi_available())  # 判断mpi是否可用
     # logger.info(torch.distributed.is_gloo_available()) # 判断gloo是否可用
@@ -502,6 +529,8 @@ if __name__ == '__main__':
     if rank == 0:
         tb_runs = './runs/%s'%logdir
         writer = None #SummaryWriter(tb_runs)
+
+    set_seed(seed=3000+rank)
 
     ExpTool.init(args, dist)
 

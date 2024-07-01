@@ -119,9 +119,9 @@ do
     echo "$host: $args"
     cmd="cd $directory; $args"
     if [ $(expr $i + 1) -eq $node_count ]; then
-        ssh $host $cmd   # return until finished or interrupted
+        ssh $host $cmd # return until finished or interrupted
     else
-        ssh $host $cmd & # return immediately
+        ssh $host $cmd >> /dev/null & # return immediately
     fi
     node_rank=$(expr $node_rank + 1)
     i=$(expr $i + 1)

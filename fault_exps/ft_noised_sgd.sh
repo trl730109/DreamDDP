@@ -20,17 +20,20 @@ wandb_entity=hpml-hkbu
 wandb_key=5edd8acc594b95a0b4f58e39b2243143f03c65a0
 exp_name=$exp_name
 # cluster_name=gpuhome
-cluster_name=scigpu
+# cluster_name=scigpu
+# hosts=('localhost')
 
-hosts=('localhost')
+cluster_name=esetstore
+hosts=('gpu6')
+
 
 
 # source fault_exps/launch.sh
 
 
-# gaussian_std=0.0001
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+gaussian_std=0.0001
+extra_name="nstd$gaussian_std"
+source fault_exps/launch.sh
 
 gaussian_std=0.001
 extra_name="nstd$gaussian_std"
@@ -60,9 +63,9 @@ extra_name="nstd$gaussian_std"
 source fault_exps/launch.sh
 
 
-gaussian_std=1000.0
-extra_name="nstd$gaussian_std"
-source fault_exps/launch.sh
+# gaussian_std=1000.0
+# extra_name="nstd$gaussian_std"
+# source fault_exps/launch.sh
 
 
 
