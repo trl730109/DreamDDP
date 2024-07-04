@@ -346,6 +346,7 @@ class DLTrainer:
         self.timer = 0.0
         self.forwardtime = 0.0
         self.backwardtime = 0.0
+        self.backwardtime_tmp = 0.0
         self.iotime = 0.0
         self.epochs_info = []
         self.distributions = {}
@@ -1065,6 +1066,7 @@ class DLTrainer:
                 loss.backward()
             loss_value = loss.item()
             self.backwardtime += (time.time() - sbackward)
+            self.backwardtime_tmp = time.time() - sbackward
             # logger.info statistics
             self.loss += loss_value 
 

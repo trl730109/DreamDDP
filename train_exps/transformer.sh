@@ -3,13 +3,14 @@
 
 lr=0.1
 batch_size=128
-alg='localsgd'
+alg='transformer_localsgd'
 #pipe_seq_localsgd
 # alg=test
 # gaussian_mu=0.0
 # gaussian_std=0.001
-optimizer_name=SGD
-dnn=resnet18
+optimizer_name=Adam
+dnn=gpt2
+dataset=wikitext2
 lr=0.1
 max_epochs=91
 sync='avg'
@@ -44,24 +45,17 @@ node_count=${#hosts[@]}
 nsteps_localsgd=20
 source train_exps/launch.sh
 
-# nsteps_localsgd=40
-# source train_exps/launch.sh
-
-# nsteps_localsgd=100
-# source train_exps/launch.sh
-
-# nsteps_localsgd=200
-# source train_exps/launch.sh
-
-# nsteps_localsgd=400
-# source train_exps/launch.sh
-
-# nsteps_localsgd=800
-# source train_exps/launch.sh
 
 # nsteps_localsgd=1600
 # source train_exps/launch.sh
 
+# nsteps_localsgd=2000
+# source train_exps/launch.sh
+
+# nsteps_localsgd=400
+# source train_exps/launch.sh
+# alg='sgd'
+# source train_exps/launch.sh
 
 
 
