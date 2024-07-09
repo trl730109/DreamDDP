@@ -31,11 +31,13 @@ def parse_metrics(log_file):
 
 # Directories containing experiment logs.
 log_directories = {
-    'localsgd': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/06-23-17:17-localsgd/gpu23-0.log',
+    'localsgd-lr0.01': '/home/yinyiming/DDP-Train/test/localsgd/resnet18/07-04-20:22-localsgd-lr_decay_None/gpu12-0.log',
     #'pipe': '/home/comp/amelieczhou/DDP-Train/test/pipeline/resnet20/06-21-18:46-pipe/gpu22-0.log',
-    'sgd':'/home/comp/amelieczhou/DDP-Train/test/sgd/resnet20/06-21-18:26-sgd/gpu22-0.log',
-    'pipe_seq_localsgd_sum':'/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/sum/06-23-16:39-pipe_seq_localsgd/gpu22-0.log',
-    'pipe_seq_locasgd_avg': '/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/avg/06-23-16:59-pipe_seq_localsgd/gpu22-0.log'
+    # 'localsgd-lr0.1-cosine':'/home/yinyiming/DDP-Train/test/localsgd/resnet18/07-04-20:27-localsgd-lr_decay_cosine/gpu12-0.log',
+    # 'localsgd-lr0.1-step' : '/home/yinyiming/DDP-Train/test/localsgd/resnet18/07-04-20:32-localsgd-lr_decay_step/gpu12-0.log',
+    'partial-seq-localsgd': '/home/yinyiming/DDP-Train/test/testing/resnet18/07-04-20:05-test-lr_decay_None/gpu12-0.log',
+    'pipe-seq-localsgd': '/home/yinyiming/DDP-Train/test/pipe_seq_localsgd/resnet18/07-04-21:12-pipe_seq_localsgd-lr_decay_None/gpu12-0.log',
+    
 }
 
 # Plotting accuracies and losses for each experiment.

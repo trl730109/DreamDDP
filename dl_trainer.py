@@ -187,7 +187,7 @@ class DLTrainer:
 
     def __init__(self, rank, size, master='gpu10', localsgd=False, dist=True, ngpus=1, batch_size=32, 
         is_weak_scaling=True, data_dir='./data', dataset='cifar10', dnn='resnet20', 
-        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='SGD'):
+        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='SGD', lr_decay='step'):
 
         self.size = size
         self.rank = rank
@@ -200,6 +200,9 @@ class DLTrainer:
         self.amp_handle = amp_handle
         self.optimizer_name = optimizer_name
         self.localsgd = localsgd
+        self.lr_decay = lr_decay
+        self.layer_backward_dict = {}
+        self.time_measure = True
         if settings.EFFICIENT_IO:
             self.cached_index_images = CachedIndexImages()
         else:
@@ -772,56 +775,166 @@ class DLTrainer:
         return self.lr 
 
     def _adjust_learning_rate_general(self, progress, optimizer):
-        warmup = 5
-        if settings.WARMUP and progress < warmup:
-            warmup_total_iters = self.num_batches_per_epoch * warmup
-            min_lr = self.base_lr / warmup_total_iters 
-            lr_interval = (self.base_lr - min_lr) / warmup_total_iters
-            self.lr = min_lr + lr_interval * self.train_iter
+        # warmup = 5
+        # if settings.WARMUP and progress < warmup:
+        #     warmup_total_iters = self.num_batches_per_epoch * warmup
+        #     min_lr = self.base_lr / warmup_total_iters 
+        #     lr_interval = (self.base_lr - min_lr) / warmup_total_iters
+        #     self.lr = min_lr + lr_interval * self.train_iter
+        #     for param_group in optimizer.param_groups:
+        #         param_group['lr'] = self.lr
+        #     return self.lr
+        if self.lr_decay == 'cosine':
+            #logger.info(f'Use the cosine learning rate decay.')
+            total_epochs = 181  # Assuming you have total_epochs defined
+            self.lr = self.base_lr  * 0.5 * (1 + np.cos(np.pi * progress / total_epochs))
             for param_group in optimizer.param_groups:
                 param_group['lr'] = self.lr
-            return self.lr
-        first = 81
-        second = first + 41
-        third = second+33
-        if self.dataset == 'imagenet':
-            first = 30
-            second = 60
-            third = 80
-        elif self.dataset == 'ptb':
-            first = 24
-            second = 60
-            third = 80
-        if progress < first: #40:  30 for ResNet-50, 40 for ResNet-20
-            #interval_iters = first * self.num_batches_per_epoch+2
-            #lr_interval = (self.base_lr-self.base_lr*0.1)/interval_iters
-            #lr = self.base_lr - (self.train_iter % interval_iters) * lr_interval
-            lr = self.base_lr
-        elif progress < second: #80: 70 for ResNet-50, 80 for ResNet-20
-            #interval_iters = (second-first) * self.num_batches_per_epoch+2
-            #lr_interval = (self.base_lr*0.1-self.base_lr*0.01)/interval_iters
-            #lr = self.base_lr *0.1 - (self.train_iter % interval_iters) * lr_interval
-            lr = self.base_lr * 0.1
-        elif progress < third:
-            #interval_iters = (third-second) * self.num_batches_per_epoch+2
-            #lr_interval = (self.base_lr*0.01-self.base_lr*0.001)/interval_iters
-            #lr = self.base_lr *0.01 - (self.train_iter % interval_iters) * lr_interval
-            lr = self.base_lr * 0.01
-        else:
-            lr = self.base_lr *0.001
-        #if self.train_iter % self.num_batches_per_epoch != 0:
-        #    lr = lr - lr/(self.train_iter % self.num_batches_per_epoch+1)
-        self.lr = lr
-        if settings.ZHU:
-            k = (self.train_iter+1)#*self.nworkers
-            lr = 1.0/(np.sqrt(k) * np.log(k))
-            max_lr = self.base_lr
-            if lr > max_lr:
-                lr = max_lr
+        elif self.lr_decay == 'linear':
+            #logger.info(f'Use the step learning rate decay.')
+            first = 61
+            second = 81
+            third= 181
+            #third = second+33
+            if self.dataset == 'imagenet':
+                first = 30
+                second = 60
+                third = 80
+            elif self.dataset == 'ptb':
+                first = 24
+                second = 60
+                third = 80
+            if progress < first: #40:  30 for ResNet-50, 40 for ResNet-20
+                #interval_iters = first * self.num_batches_per_epoch+2
+                #lr_interval = (self.base_lr-self.base_lr*0.1)/interval_iters
+                #lr = self.base_lr - (self.train_iter % interval_iters) * lr_interval
+                lr = self.base_lr
+            elif progress < second: #80: 70 for ResNet-50, 80 for ResNet-20
+                #interval_iters = (second-first) * self.num_batches_per_epoch+2
+                #lr_interval = (self.base_lr*0.1-self.base_lr*0.01)/interval_iters
+                #lr = self.base_lr *0.1 - (self.train_iter % interval_iters) * lr_interval
+                lr = 0.03
+            elif progress < third:
+                lr = 0.01
+                #interval_iters = (third-second) * self.num_batches_per_epoch+2
+                #lr_interval = (self.base_lr*0.01-self.base_lr*0.001)/interval_iters
+                #lr = self.base_lr *0.01 - (self.train_iter % interval_iters) * lr_interval
+            #     lr = self.base_lr * 0.01
+            # else:
+            #     lr = self.base_lr *0.001
+            #if self.train_iter % self.num_batches_per_epoch != 0:
+            #    lr = lr - lr/(self.train_iter % self.num_batches_per_epoch+1)
             self.lr = lr
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = self.lr
+            if settings.ZHU:
+                k = (self.train_iter+1)#*self.nworkers
+                lr = 1.0/(np.sqrt(k) * np.log(k))
+                max_lr = self.base_lr
+                if lr > max_lr:
+                    lr = max_lr
+                self.lr = lr
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = self.lr
+        elif self.lr_decay == 'general':
+            warmup = 5
+            if settings.WARMUP and progress < warmup:
+                warmup_total_iters = self.num_batches_per_epoch * warmup
+                min_lr = self.base_lr / warmup_total_iters 
+                lr_interval = (self.base_lr - min_lr) / warmup_total_iters
+                self.lr = min_lr + lr_interval * self.train_iter
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = self.lr
+                return self.lr
+            first = 81
+            second = first + 41
+            third = second+33
+            if self.dataset == 'imagenet':
+                first = 30
+                second = 60
+                third = 80
+            elif self.dataset == 'ptb':
+                first = 24
+                second = 60
+                third = 80
+            if progress < first: #40:  30 for ResNet-50, 40 for ResNet-20
+                #interval_iters = first * self.num_batches_per_epoch+2
+                #lr_interval = (self.base_lr-self.base_lr*0.1)/interval_iters
+                #lr = self.base_lr - (self.train_iter % interval_iters) * lr_interval
+                lr = self.base_lr
+            elif progress < second: #80: 70 for ResNet-50, 80 for ResNet-20
+                #interval_iters = (second-first) * self.num_batches_per_epoch+2
+                #lr_interval = (self.base_lr*0.1-self.base_lr*0.01)/interval_iters
+                #lr = self.base_lr *0.1 - (self.train_iter % interval_iters) * lr_interval
+                lr = self.base_lr * 0.1
+            elif progress < third:
+                #interval_iters = (third-second) * self.num_batches_per_epoch+2
+                #lr_interval = (self.base_lr*0.01-self.base_lr*0.001)/interval_iters
+                #lr = self.base_lr *0.01 - (self.train_iter % interval_iters) * lr_interval
+                lr = self.base_lr * 0.01
+            else:
+                lr = self.base_lr *0.001
+            #if self.train_iter % self.num_batches_per_epoch != 0:
+            #    lr = lr - lr/(self.train_iter % self.num_batches_per_epoch+1)
+            self.lr = lr
+            if settings.ZHU:
+                k = (self.train_iter+1)#*self.nworkers
+                lr = 1.0/(np.sqrt(k) * np.log(k))
+                max_lr = self.base_lr
+                if lr > max_lr:
+                    lr = max_lr
+                self.lr = lr
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = self.lr
         return self.lr 
+        # warmup = 5
+        # if settings.WARMUP and progress < warmup:
+        #     warmup_total_iters = self.num_batches_per_epoch * warmup
+        #     min_lr = self.base_lr / warmup_total_iters 
+        #     lr_interval = (self.base_lr - min_lr) / warmup_total_iters
+        #     self.lr = min_lr + lr_interval * self.train_iter
+        #     for param_group in optimizer.param_groups:
+        #         param_group['lr'] = self.lr
+        #     return self.lr
+        # first = 81
+        # second = first + 41
+        # third = second+33
+        # if self.dataset == 'imagenet':
+        #     first = 30
+        #     second = 60
+        #     third = 80
+        # elif self.dataset == 'ptb':
+        #     first = 24
+        #     second = 60
+        #     third = 80
+        # if progress < first: #40:  30 for ResNet-50, 40 for ResNet-20
+        #     #interval_iters = first * self.num_batches_per_epoch+2
+        #     #lr_interval = (self.base_lr-self.base_lr*0.1)/interval_iters
+        #     #lr = self.base_lr - (self.train_iter % interval_iters) * lr_interval
+        #     lr = self.base_lr
+        # elif progress < second: #80: 70 for ResNet-50, 80 for ResNet-20
+        #     #interval_iters = (second-first) * self.num_batches_per_epoch+2
+        #     #lr_interval = (self.base_lr*0.1-self.base_lr*0.01)/interval_iters
+        #     #lr = self.base_lr *0.1 - (self.train_iter % interval_iters) * lr_interval
+        #     lr = self.base_lr * 0.1
+        # elif progress < third:
+        #     #interval_iters = (third-second) * self.num_batches_per_epoch+2
+        #     #lr_interval = (self.base_lr*0.01-self.base_lr*0.001)/interval_iters
+        #     #lr = self.base_lr *0.01 - (self.train_iter % interval_iters) * lr_interval
+        #     lr = self.base_lr * 0.01
+        # else:
+        #     lr = self.base_lr *0.001
+        # #if self.train_iter % self.num_batches_per_epoch != 0:
+        # #    lr = lr - lr/(self.train_iter % self.num_batches_per_epoch+1)
+        # self.lr = lr
+        # if settings.ZHU:
+        #     k = (self.train_iter+1)#*self.nworkers
+        #     lr = 1.0/(np.sqrt(k) * np.log(k))
+        #     max_lr = self.base_lr
+        #     if lr > max_lr:
+        #         lr = max_lr
+        #     self.lr = lr
+        # for param_group in optimizer.param_groups:
+        #     param_group['lr'] = self.lr
+        # return self.lr 
 
     def _adjust_learning_rate_vgg16(self, progress, optimizer):
         if progress > 0 and progress % 25 == 0:
@@ -959,7 +1072,10 @@ class DLTrainer:
         for i in range(num_of_iters):
             # if(not self.localsgd):
             #     logger.info('Adaptively adjust the learning rate.')
-            self.adjust_learning_rate(self.train_epoch, self.optimizer)
+            if(self.lr_decay == None):
+                logger.info(f'Not learning rate decay at all.')
+            if(self.lr_decay != None):
+                self.adjust_learning_rate(self.train_epoch, self.optimizer)
             if self.train_iter % self.num_batches_per_epoch == 0 and self.train_iter > 0:
                 self.train_epoch += 1
                 logger.info('train iter: %d, num_batches_per_epoch: %d', self.train_iter, self.num_batches_per_epoch)
@@ -1057,6 +1173,24 @@ class DLTrainer:
                 outputs = self.net(inputs)
                 loss = self.criterion(outputs, labels)
                 self.forwardtime += (time.time() - sforward)
+                
+            # if (self.time_measure and self.train_epoch == 0):
+            #     self.layer_backward_dict = {}
+            #     for name, _ in self.net.named_modules():
+            #         self.layer_backward_dict[name] = 0
+                
+            #     tmp_times = {}
+            #     def _make_hook(name):
+            #         def hook(module, grad_input, grad_output):
+            #             logger.info(f'Hook is called')
+            #             elapsed_time = time.time()
+            #             tmp_times[name] = elapsed_time
+            #         return hook
+                
+            #     for name, module in self.net.named_modules():
+            #         module.register_backward_hook(_make_hook(name))
+            #     tmp_times['start'] = time.time()
+                
             sbackward = time.time()
             if self.amp_handle is not None:
                 with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
@@ -1064,6 +1198,18 @@ class DLTrainer:
                     loss = scaled_loss
             else:
                 loss.backward()
+                
+            # if (self.time_measure and self.train_epoch == 0):
+            #     logger.info(f'Time stamp for each layers is {tmp_times}')
+            #     keys = list(tmp_times.keys())  # Convert keys to list
+            #     times = list(tmp_times.values()) 
+            #     logger.info(f'The moduesl num: {len(dict(self.net.named_modules()))} and keys num:{len(keys)}')
+            #     for i in range(len(keys)):
+            #         layer_name = keys[i+1]
+            #         time_stamp = times[i+1]
+            #         self.layer_backward_dict[layer_name] = time_stamp - times[i]
+            #     logger.info(f'Each layer backward time is {self.layer_backward_dict}')
+                
             loss_value = loss.item()
             self.backwardtime += (time.time() - sbackward)
             self.backwardtime_tmp = time.time() - sbackward

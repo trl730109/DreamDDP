@@ -1,26 +1,14 @@
-
-
-
 lr=0.1
 batch_size=128
 alg='localsgd'
 #pipe_seq_localsgd
-# alg=test
-# gaussian_mu=0.0
-# gaussian_std=0.001
+
 optimizer_name=SGD
 dnn=resnet18
 lr=0.1
 max_epochs=91
-sync='avg'
 # add_noise=True
 extra_name='localsgd-Convergence'
-# if [ "$alg" = "pipe_seq_localsgd" ]; then
-#     exp_name="${extra_name}-${alg}-${sync}-${dnn}-${optimizer_name}"
-# else
-#     exp_name="${extra_name}-${alg}-${dnn}-${optimizer_name}"
-# fi
-
 
 enable_wandb=True
 wandb_offline=False
@@ -32,66 +20,7 @@ cluster_name=shenzhen
 # hosts=('gpu9' 'gpu3' 'gpu11' 'gpu12')
 hosts=('gpu11')
 node_count=${#hosts[@]}
-# sync='avg'
-# source train_exps/launch.sh
 
-# sync='avg'
-# source train_exps/launch.sh
-
-# sync='avg'
-# source train_exps/launch.sh
 
 nsteps_localsgd=20
 source train_exps/launch.sh
-
-# nsteps_localsgd=40
-# source train_exps/launch.sh
-
-# nsteps_localsgd=100
-# source train_exps/launch.sh
-
-# nsteps_localsgd=200
-# source train_exps/launch.sh
-
-# nsteps_localsgd=400
-# source train_exps/launch.sh
-
-# nsteps_localsgd=800
-# source train_exps/launch.sh
-
-# nsteps_localsgd=1600
-# source train_exps/launch.sh
-
-
-
-
-# hosts=('gpu23') alg=$alg add_noise=$add_noise gaussian_std=$gaussian_std  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -14,7 +14,7 @@ from profiling import CommunicationProfiler
 from sklearn.linear_model import LinearRegression
 
 class _DistributedOptimizer(torch.optim.Optimizer):
-    def __init__(self, add_noise, gaussian_mu, gaussian_std, strategy,overlap_scalar, params, named_parameters, compression, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
+    def __init__(self, strategy,overlap_scalar, params, named_parameters, compression, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
         super(self.__class__, self).__init__(params)
         self.similarity =  []
         self.case4similarity = []
@@ -34,9 +34,8 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self.overlap_scalar = overlap_scalar
         self.alpha = None
         self.beta = None
-        self.gaussian_mu = gaussian_mu
-        self.gaussian_std = gaussian_std
-        self.add_noise = add_noise
+        # self.gaussian_mu = gaussian_mu
+        # self.gaussian_std = gaussian_std
         if self._layerwise_times is not None and self._seq_layernames is not None:
             self._original_layerwise_times_kv = dict(zip(self._seq_layernames, self._layerwise_times))
         self._compression_timers = {} # compression
@@ -703,11 +702,6 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     if clip_coef < 1:
                         p.data.mul_(clip_coef)
 
-                # if self._compression:
-                #     output = self._compression.decompress(output, p.size())
-                if (str2bool(self.add_noise)):
-                    gaussian_noise = torch.normal(mean=self.gaussian_mu, std=self.gaussian_std, size=p.data.size(), device=p.data.device)
-                    p.data.add_(gaussian_noise)
 
                 if self._profiling:
                     utils.force_insert_item(self._update_times, name, time.time()-stime)
@@ -864,7 +858,7 @@ def allreduce_model_weights(model, compressor, density, strategy, overlap_scalar
 
 
 
-def DistributedOptimizer(optimizer, add_noise, gaussian_mu, gaussian_std, strategy,overlap_scalar, named_parameters=None, compression=None, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
+def DistributedOptimizer(optimizer, strategy,overlap_scalar, named_parameters=None, compression=None, is_sparse=False, density=0.001, seq_layernames=None, layerwise_times=None, norm_clip=None, threshold=0, writer=None, gradient_path=None, momentum_correction=False):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -901,9 +895,6 @@ def DistributedOptimizer(optimizer, add_noise, gaussian_mu, gaussian_std, strate
                dict(_DistributedOptimizer.__dict__))
 
     return cls(
-        add_noise=add_noise,
-        gaussian_mu=gaussian_mu,
-        gaussian_std=gaussian_std,
         strategy=strategy,
         overlap_scalar=overlap_scalar,
         params=optimizer.param_groups,  # assuming this is correct substitution for 'params'

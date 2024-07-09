@@ -60,6 +60,7 @@ import transformer.Constants as Constants
 import ptb_reader
 import models.lstm as lstmpy
 from torch.autograd import Variable
+from itertools import chain
 
 #from data_sampler import CachedIndexImages, CachedSampler, CachedImageFolder
 
@@ -313,12 +314,38 @@ class LLMTrainer:
         tokenizer = AutoTokenizer.from_pretrained(gpt_path)
         dataset = load_from_disk(wikitext_path)
         
-        def tokenize(example):
-            return tokenizer(example['text'], truncation=True, padding='max_length', max_length=512)
+        # def tokenize(example):
+        #     return tokenizer(example['text'], truncation=True, padding='max_length', max_length=512)
 
-        # Apply the encoding to the dataset
-        encoded_dataset = dataset.map(tokenize, batched=True)
-        encoded_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask'])
+        # # Apply the encoding to the dataset
+        # encoded_dataset = dataset.map(tokenize, batched=True)
+        # encoded_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask'])
+
+        column_names = dataset["train"].column_names
+        text_column_name = "text" if "text" in column_names else column_names[0]
+        def tokenize_function(examples):
+            return tokenizer(examples[text_column_name])
+
+        tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=column_names)
+
+        block_size = min(1024, tokenizer.model_max_length)
+    
+        def group_texts(examples):
+            # Concatenate all texts.
+            concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+            total_length = len(concatenated_examples[list(examples.keys())[0]])
+            # We drop the small remainder, and if the total_length < block_size  we exclude this batch and return an empty dict.
+            # We could add padding if the model supported it instead of this drop, you can customize this part to your needs.
+            total_length = (total_length // block_size) * block_size
+            # Split by chunks of max_len.
+            result = {
+                k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+                for k, t in concatenated_examples.items()
+            }
+            result["labels"] = result["input_ids"].copy()
+            return result
+
+        encoded_dataset = tokenized_dataset.map(group_texts, batched=True)
 
         trainset = encoded_dataset['train']
         valset = encoded_dataset['validation']
@@ -388,16 +415,27 @@ class LLMTrainer:
         self.nworkers = nworkers
         self.num_batches_per_epoch = (self.get_num_of_training_samples()+self.batch_size*self.nworkers-1)//(self.batch_size*self.nworkers)
 
+    # def data_iter(self):
+    #     try:
+    #         #d = self.data_iterator.next()
+    #         d = next(self.data_iterator)
+    #     except:
+    #         self.data_iterator = iter(self.trainloader)
+    #         d = next(self.data_iterator)
+    #     if self.dnn in ['lstm', 'lstmwt2'] and d[0].size()[0] != self.batch_size:
+    #         return self.data_iter()
+    #     return d
+
     def data_iter(self):
         try:
             #d = self.data_iterator.next()
-            d = next(self.data_iterator)
+            batch = next(self.data_iterator)
         except:
             self.data_iterator = iter(self.trainloader)
-            d = next(self.data_iterator)
-        if self.dnn in ['lstm', 'lstmwt2'] and d[0].size()[0] != self.batch_size:
+            batch = next(self.data_iterator)
+        if self.dnn in ['lstm', 'lstmwt2'] and batch[0].size()[0] != self.batch_size:
             return self.data_iter()
-        return d
+        return batch
 
     def _adjust_learning_rate_lstman4(self, progress, optimizer):
         #if settings.WARMUP and progress< 5:
@@ -626,6 +664,7 @@ class LLMTrainer:
     def train(self, num_of_iters=1, data=None, hidden=None):
         self.loss = 0.0
         s = time.time()
+        self.net.train()
         for i in range(num_of_iters):
             self.adjust_learning_rate(self.train_epoch, self.optimizer)
             if self.train_iter % self.num_batches_per_epoch == 0 and self.train_iter > 0:
@@ -647,19 +686,27 @@ class LLMTrainer:
                     self.train_sampler.set_epoch(self.train_epoch)
 
             ss = time.time()
-            data = self.data_iter()
+            batch = self.data_iter()
+            if self.is_cuda: 
+                keys = list(batch.keys())
+                device_batch = {
+                    k: v.cuda(non_blocking=True)
+                    for k, v in batch.items()
+                    if k in keys  # Add more keywords here if needed
+                }
 
-            inputs, labels_cpu = data
-            if self.is_cuda:
-                inputs, labels = inputs.cuda(non_blocking=True), labels_cpu.cuda(non_blocking=True)
-            else:
-                labels = labels_cpu
+            # inputs, labels_cpu = data
+            # if self.is_cuda:
+            #     inputs, labels = inputs.cuda(non_blocking=True), labels_cpu.cuda(non_blocking=True)
+            # else:
+            #     labels = labels_cpu
                     
             self.iotime += (time.time() - ss)
                 
             sforward = time.time()
-            outputs = self.net(inputs)
-            loss = self.criterion(outputs, labels)
+            outputs = self.net(device_batch)
+            # loss = self.criterion(outputs, labels)
+            loss = outputs.loss
             self.forwardtime += (time.time() - sforward)
             
             sbackward = time.time()
@@ -675,8 +722,9 @@ class LLMTrainer:
             self.loss += loss_value 
             self.avg_loss_per_epoch += loss_value
 
-            acc1, = self.cal_accuracy(outputs, labels, topk=(1,))
-            self.train_acc_top1.append(float(acc1))
+            # acc1, = self.cal_accuracy(outputs, labels, topk=(1,))
+            # self.train_acc_top1.append(float(acc1))
+            ppl = torch.exp(torch.stack(nlls)
                     
             self.train_iter += 1
             self.num_of_updates_during_comm += 1

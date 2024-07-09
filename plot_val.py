@@ -51,12 +51,12 @@ def parse_metrics_val(log_file):
 #     'Seq-2p-ties-fw':'/home/comp/amelieczhou/DDP-Train/test/sequential/resnet20/none/06-18-11:01-seq-SGD-ties-mu_0.0-std_0.01/gpu22-0.log',
 # }
 log_directories = {
-    'localsgd': '/home/comp/amelieczhou/DDP-Train/test/localsgd/resnet20/06-23-17:17-localsgd/gpu23-0.log',
+    'localsgd-lr0.01': '/home/yinyiming/DDP-Train/test/localsgd/resnet18/07-04-20:22-localsgd-lr_decay_None/gpu12-0.log',
     #'pipe': '/home/comp/amelieczhou/DDP-Train/test/pipeline/resnet20/06-21-18:46-pipe/gpu22-0.log',
-    'sgd':'/home/comp/amelieczhou/DDP-Train/test/sgd/resnet20/06-23-20:17-sgd/gpu22-0.log',
-    'pipe_seq_localsgd_sum':'/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/sum/06-23-16:39-pipe_seq_localsgd/gpu22-0.log',
-    'pipe_seq_locasgd_avg': '/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/avg/06-23-16:59-pipe_seq_localsgd/gpu22-0.log',
-    'pipe_seq_localsgd_sync_avg':'/home/comp/amelieczhou/DDP-Train/test/pipe_seq_localsgd/resnet20/sync_avg/06-23-23:17-pipe_seq_localsgd/gpu22-0.log',
+    # 'localsgd-lr0.1-cosine':'/home/yinyiming/DDP-Train/test/localsgd/resnet18/07-04-20:27-localsgd-lr_decay_cosine/gpu12-0.log',
+    # 'localsgd-lr0.1-step' : '/home/yinyiming/DDP-Train/test/localsgd/resnet18/07-04-20:32-localsgd-lr_decay_step/gpu12-0.log',
+    'partial-seq-localsgd': '/home/yinyiming/DDP-Train/test/testing/resnet18/07-04-20:05-test-lr_decay_None/gpu12-0.log',
+    'pipe-seq-localsgd': '/home/yinyiming/DDP-Train/test/pipe_seq_localsgd/resnet18/07-04-21:12-pipe_seq_localsgd-lr_decay_None/gpu12-0.log',
     
 }
 
@@ -89,7 +89,7 @@ plt.subplot(1, 2, 1)
 for experiment_name, log_file_path in log_directories.items():
     epochs, accuracies, _ = parse_metrics_val(log_file_path)
     smoothed_accuracies = gaussian_filter1d(accuracies, sigma=4)
-    plt.plot(epochs, accuracies, label=experiment_name)
+    plt.plot(epochs, smoothed_accuracies, label=experiment_name)
 plt.title('Validation Accuracy vs. Epoch')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
@@ -100,7 +100,7 @@ plt.subplot(1, 2, 2)
 for experiment_name, log_file_path in log_directories.items():
     epochs, _, losses = parse_metrics_val(log_file_path)
     smoothed_losses = gaussian_filter1d(losses, sigma=4)
-    plt.plot(epochs, losses, label=experiment_name)
+    plt.plot(epochs, smoothed_losses, label=experiment_name)
 plt.title('Validation Loss vs. Epoch')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
