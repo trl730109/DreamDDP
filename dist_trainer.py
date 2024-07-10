@@ -3,6 +3,7 @@ from __future__ import print_function
 import time
 import datetime
 import torch
+
 import numpy as np
 import argparse
 import os
@@ -19,8 +20,9 @@ from datasets import load_dataset
 
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.profiler import profile, record_function, ProfilerActivity
 from dl_trainer import DLTrainer, _support_datasets, _support_dnns
-# from llm_trainer import LLMTrainer, _support_datasets, _support_dnns
+from llm_trainer import LLMTrainer, _support_datasets, _support_dnns
 from dist_utils import *
 import dist_optimizer as dist_optim
 
@@ -140,6 +142,7 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
                     trainer.train(1)
             
             backward_time_acc += trainer.backwardtime_tmp
+            logger.info(f'Global iteration: {global_iters} backward time: {trainer.backwardtime_tmp} train time: {train_time} \n wait time: {wait_time} total wait time: {wait_time_acc}')
             train_time_acc += (time.time() - s)
             comm_s = time.time()
             for param in trainer.net.parameters():
@@ -510,99 +513,108 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
     comm_time_acc = 0
     iteration_time_acc = 0
     
-    for epoch in range(max_epochs):
-        logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
-        hidden = None
-        if dnn in ['lstm', 'lstmwt2']:
-            hidden = trainer.net.init_hidden()
-        
-        result_dict = {}
-        train_epoch_loss = 0.0
-        train_epoch_acc = 0.0    
-        comm_list = {name : [] for (name,module) in trainer.net.named_modules()}
-        backward_list = []
-        total_comm_list = []
-        for i in range(iters_per_epoch//nsteps_update):
-            global_iters += 1
-            result_dict = {}
-            s = time.time()
-            optimizer.zero_grad()
-            
-            for j in range(nsteps_update):
-                if dnn in ['lstm', 'lstmwt2']:
-                    _, hidden = trainer.train(1, hidden=hidden)
-                else:
-                    trainer.train(1)
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], 
+                 schedule=torch.profiler.schedule(wait=2, warmup=1, active=7),
+                 on_trace_ready=torch.profiler.tensorboard_trace_handler('./logs/profiler'),
+                 record_shapes=True,
+                 with_stack=True) as prof:
+        for epoch in range(max_epochs):
+            logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
+            hidden = None
             if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
-                
-            train_loss = trainer.loss
-            train_acc = np.mean(trainer.train_acc_top1)
-            train_epoch_loss += train_loss
-            train_epoch_acc += train_acc
+                hidden = trainer.net.init_hidden()
             
-            trainer.update_model()
-            train_time = time.time()-s
-            times.append(train_time)
-            train_time_acc += train_time
-            backward_time_acc += trainer.backwardtime_tmp
-            backward_list.append(trainer.backwardtime_tmp)
-            # if(trainer.backwardtime_tmp > 0.5):
-            #     logger.info(f'The backward time is abnormal.')
-            #     logger.info(f'iteration No.{global_iters} out of total {iters_per_epoch} iterations. Backward Time: {trainer.backwardtime_tmp}')
-            trainer.backwardtime_tmp = 0.0
-            
-            if i % display == 0 and i > 0: 
-                time_per_iter = np.mean(times)
-                logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
-                times = []
-                result_dict["time_per_iter"] = time_per_iter
-                result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
-                
-            ExpTool.record(result_dict)
-            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc, "Backward_time": trainer.backwardtime_tmp})
-            ExpTool.upload()
-            
-            if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
-                logger.info(f'at Iteration {global_iters} do communication.')
-                start = time.time()
-                for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
-                    ls = time.time()
-                    for param in module.parameters():
-                        dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
-                    layer_time = time.time() - ls
-                    comm_list[name].append(layer_time)
-                comm_time = time.time() - start
-                comm_time_acc += comm_time
-                total_comm_list.append(comm_time)
-            else:
-                pass
-            iteration_time_acc += (time.time() - s)
-            ExpTool.record({"global_iters": global_iters, "iteration time": iteration_time_acc, "total train time": train_time_acc,
-                        "total comm time": comm_time_acc, "avg backward time": (backward_time_acc / global_iters), "total backward time": backward_time_acc})
-
-        val_acc = trainer.test(epoch)
-        result_dict["val_acc"] = val_acc
-        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-        
-        if trainer.train_epoch < 3:
-            for name in comm_list.keys():
-                mean_time = np.mean(comm_list[name])
-                comm_list[name] = mean_time
-            logger.info(f'The averaged layerwise communication time are {comm_list}')
-            logger.info(f'Sum of all layers comm time is {np.sum(comm_list.values())}')
-            logger.info(f'The backward time list is {backward_list}')
-            logger.info(f"The averaged epoch backward time is {np.mean(backward_list)}")
-            logger.info(f'The averaged total communication time is {np.mean(total_comm_list)}')
-            logger.info(f'The communcation in the first round is {total_comm_list}')
+            result_dict = {}
+            train_epoch_loss = 0.0
+            train_epoch_acc = 0.0    
+            comm_list = {name : [] for (name,module) in trainer.net.named_modules()}
             backward_list = []
-        ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-        ExpTool.upload()
+            total_comm_list = []
+            for i in range(iters_per_epoch//nsteps_update):
+                global_iters += 1
+                result_dict = {}
+                s = time.time()
+                optimizer.zero_grad()
+                
+                for j in range(nsteps_update):
+                    if dnn in ['lstm', 'lstmwt2']:
+                        _, hidden = trainer.train(1, hidden=hidden)
+                    else:
+                        trainer.train(1)
+                if dnn in ['lstm', 'lstmwt2']:
+                    torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+                elif dnn == 'lstman4':
+                    torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+                    
+                train_loss = trainer.loss
+                train_acc = np.mean(trainer.train_acc_top1)
+                train_epoch_loss += train_loss
+                train_epoch_acc += train_acc
+                
+                trainer.update_model()
+                train_time = time.time()-s
+                times.append(train_time)
+                train_time_acc += train_time
+                backward_time_acc += trainer.backwardtime_tmp
+                backward_list.append(trainer.backwardtime_tmp)
+                # if(trainer.backwardtime_tmp > 0.5):
+                #     logger.info(f'The backward time is abnormal.')
+                #     logger.info(f'iteration No.{global_iters} out of total {iters_per_epoch} iterations. Backward Time: {trainer.backwardtime_tmp}')
+                trainer.backwardtime_tmp = 0.0
+                
+                if i % display == 0 and i > 0: 
+                    time_per_iter = np.mean(times)
+                    logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                    times = []
+                    result_dict["time_per_iter"] = time_per_iter
+                    result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
+                    
+                ExpTool.record(result_dict)
+                ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                            "train_acc": train_acc, "Backward_time": trainer.backwardtime_tmp})
+                ExpTool.upload()
+                
+                with record_function("communication"):
+                    if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
+                        logger.info(f'at Iteration {global_iters} do communication.')
+                        start = time.time()
+                        for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
+                            ls = time.time()
+                            for param in module.parameters():
+                                dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
+                            layer_time = time.time() - ls
+                            comm_list[name].append(layer_time)
+                        comm_time = time.time() - start
+                        comm_time_acc += comm_time
+                        total_comm_list.append(comm_time)
+                    else:
+                        pass
+                iteration_time_acc += (time.time() - s)
+                ExpTool.record({"global_iters": global_iters, "iteration time": iteration_time_acc, "total train time": train_time_acc,
+                            "total comm time": comm_time_acc, "avg backward time": (backward_time_acc / global_iters), "total backward time": backward_time_acc})
+                prof.step()  # Update profiler for each iteration
+
+                
+                
+            val_acc = trainer.test(epoch)
+            result_dict["val_acc"] = val_acc
+            result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+            result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+            
+            if trainer.train_epoch < 3:
+                for name in comm_list.keys():
+                    mean_time = np.mean(comm_list[name])
+                    comm_list[name] = mean_time
+                logger.info(f'The averaged layerwise communication time are {comm_list}')
+                logger.info(f'Sum of all layers comm time is {np.sum(comm_list.values())}')
+                logger.info(f'The backward time list is {backward_list}')
+                logger.info(f"The averaged epoch backward time is {np.mean(backward_list)}")
+                logger.info(f'The averaged total communication time is {np.mean(total_comm_list)}')
+                logger.info(f'The communcation in the first round is {total_comm_list}')
+                backward_list = []
+            ExpTool.record(result_dict)
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+            ExpTool.upload()
 
 
 def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None):
@@ -979,7 +991,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     selected_gpu = rank % nwpernode
     torch.cuda.set_device(selected_gpu)
     times = []
-    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=num_steps, tb_writer=writer,optimizer_name="Adam")
+    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name="Adam")
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
     dist.broadcast(init_epoch, src=0)

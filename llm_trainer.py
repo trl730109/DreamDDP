@@ -93,9 +93,10 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'gpt2', 'bert']
 
 
-gpt_path = "/home/yinyiming/DDP-Train/gpt2/gpt2"
+gpt_path = "/home/yinyiming/gpt2"
 shakespeare_path = "/home/esetstore/dataset/shakespeare"
 wikitext_path = '/home/yinyiming/datasets/wikitext2'
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 def init_processes(rank, size, backend='tcp', master='gpu10'):
     """ Initialize the distributed environment. """
@@ -150,6 +151,7 @@ class LLMTrainer:
         self.amp_handle = amp_handle
         self.optimizer_name = optimizer_name
         self.localsgd = localsgd
+        self.train_loss = []
         if settings.EFFICIENT_IO:
             self.cached_index_images = CachedIndexImages()
         else:
@@ -186,6 +188,7 @@ class LLMTrainer:
             elif self.dnn == 'bert':
                 pass
   
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.lr = lr
         self.base_lr = self.lr
         self.is_cuda = self.ngpus > 0
@@ -263,6 +266,7 @@ class LLMTrainer:
         self.delays = []
         self.num_of_updates_during_comm = 0 
         self.train_acc_top1 = []
+        
         if apex is not None:
             self.init_fp16()
         logger.info('num_batches_per_epoch: %d'% self.num_batches_per_epoch)
@@ -365,14 +369,14 @@ class LLMTrainer:
         self.train_sampler = train_sampler
 
         self.trainloader = torch.utils.data.DataLoader(
-            trainset,
+            trainset, collate_fn=default_data_collator, 
             batch_size=self.batch_size, shuffle=shuffle,
             num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
         
 
         self.testset = valset
         self.testloader = torch.utils.data.DataLoader(
-            valset,
+            valset, collate_fn=default_data_collator, 
             batch_size=self.batch_size, shuffle=False,
             num_workers=8, pin_memory=True)
 
@@ -436,6 +440,24 @@ class LLMTrainer:
         if self.dnn in ['lstm', 'lstmwt2'] and batch[0].size()[0] != self.batch_size:
             return self.data_iter()
         return batch
+
+    def to_device(self, batch):
+        """Move batch of data into device memory."""
+        if type(batch) == dict: 
+            keys = list(batch.keys())
+            device_batch = {
+                k: v.to(device=self.device, dtype=torch.long if k == "input_ids" else None, non_blocking=True)
+                for k, v in batch.items()
+                if k in keys  # Add more keywords here if needed
+            }
+        elif type(batch) == list:
+            device_batch = [
+                v.to(device=self.device, non_blocking=True)
+                for v in batch
+            ]
+        else:
+            raise RuntimeError
+        return device_batch
 
     def _adjust_learning_rate_lstman4(self, progress, optimizer):
         #if settings.WARMUP and progress< 5:
@@ -685,47 +707,54 @@ class LLMTrainer:
                 if self.train_sampler and (self.nworkers > 1):
                     self.train_sampler.set_epoch(self.train_epoch)
 
-            ss = time.time()
-            batch = self.data_iter()
-            if self.is_cuda: 
-                keys = list(batch.keys())
-                device_batch = {
-                    k: v.cuda(non_blocking=True)
-                    for k, v in batch.items()
-                    if k in keys  # Add more keywords here if needed
-                }
+            
+            # batch = self.data_iter()
+            # if self.is_cuda: 
+            #     keys = list(batch.keys())
+            #     device_batch = {
+            #         k: v.cuda(non_blocking=True)
+            #         for k, v in batch.items()
+            #         if k in keys  # Add more keywords here if needed
+            #     }
 
             # inputs, labels_cpu = data
             # if self.is_cuda:
             #     inputs, labels = inputs.cuda(non_blocking=True), labels_cpu.cuda(non_blocking=True)
             # else:
             #     labels = labels_cpu
-                    
-            self.iotime += (time.time() - ss)
-                
-            sforward = time.time()
-            outputs = self.net(device_batch)
-            # loss = self.criterion(outputs, labels)
-            loss = outputs.loss
-            self.forwardtime += (time.time() - sforward)
-            
-            sbackward = time.time()
-            if self.amp_handle is not None:
-                with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-                    loss = scaled_loss
-            else:
-                loss.backward()
-            loss_value = loss.item()
-            self.backwardtime += (time.time() - sbackward)
-            
-            self.loss += loss_value 
-            self.avg_loss_per_epoch += loss_value
 
-            # acc1, = self.cal_accuracy(outputs, labels, topk=(1,))
-            # self.train_acc_top1.append(float(acc1))
-            ppl = torch.exp(torch.stack(nlls)
-                    
+
+            ss = time.time()
+            self.iotime += (time.time() - ss)
+            
+            # outputs = self.net(device_batch)
+            # # loss = self.criterion(outputs, labels)
+            # loss = outputs.loss
+            for step, batch in enumerate(self.trainloader):
+                device_batch = self.to_device(batch)
+                sforward = time.time()
+                outputs = self.net(**device_batch)
+                loss = outputs.loss
+                self.forwardtime += (time.time() - sforward)
+            
+                sbackward = time.time()
+                if self.amp_handle is not None:
+                    with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                        loss = scaled_loss
+                else:
+                    loss.backward()
+                loss_value = loss.item()
+                self.backwardtime += (time.time() - sbackward)
+            
+                self.loss += loss_value 
+                self.avg_loss_per_epoch += loss_value
+
+                # acc1, = self.cal_accuracy(outputs, labels, topk=(1,))
+                # self.train_acc_top1.append(float(acc1))
+                self.train_loss.append(loss)
+            
+            ppl = torch.exp(torch.stack(self.train_loss).mean())
             self.train_iter += 1
             self.num_of_updates_during_comm += 1
             self.loss /= num_of_iters 
@@ -752,23 +781,27 @@ class LLMTrainer:
         total_iters = 0
 
         with torch.no_grad():
-            for batch_idx, data in enumerate(self.testloader):
-                inputs, labels_cpu = data
-                if self.is_cuda:
-                    inputs, labels = inputs.cuda(non_blocking=True), labels_cpu.cuda(non_blocking=True)
-                else:
-                    labels = labels_cpu
+            # for batch_idx, data in enumerate(self.testloader):
+            for step, batch in enumerate(self.testloader):
+                device_batch = self.to_device(batch)
+                # inputs, labels_cpu = data
+                # if self.is_cuda:
+                #     inputs, labels = inputs.cuda(non_blocking=True), labels_cpu.cuda(non_blocking=True)
+                # else:
+                #     labels = labels_cpu
 
-                outputs = self.net(inputs)
-                loss = self.criterion(outputs, labels)
+                # outputs = self.net(inputs)
+                # loss = self.criterion(outputs, labels)
+                outputs = self.net(**device_batch)
+                loss = outputs.loss
 
-                acc1, acc5 = self.cal_accuracy(outputs, labels, topk=(1, 5))
-                batch_size = labels.size(0)
+                acc1, acc5 = self.cal_accuracy(outputs, device_batch["labels"], topk=(1, 5))
+                batch_size = device_batch["labels"].size(0)
                 correct_top1 += float(acc1) * batch_size
                 correct_top5 += float(acc5) * batch_size
 
                 test_loss += loss.data.item()
-                total += labels.size(0)
+                total += device_batch["labels"].size(0)
                 total_iters += 1
 
         test_loss /= total_iters
@@ -781,6 +814,9 @@ class LLMTrainer:
 
     def update_model(self):
         self.optimizer.step()
+
+    def zero_grad(self):
+        self.optimizer.zero_grad()
 
     def encode_param(self, param, name=None):
         if not settings.SPARSE:

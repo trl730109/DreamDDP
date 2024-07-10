@@ -1,6 +1,7 @@
 lr=0.01
-batch_size=128
+batch_size=1
 alg='transformer_localsgd'
+dataset='wikitext2'
 #pipe_seq_localsgd
 # 127.0.0.1 localhost
 # 127.0.1.1 gpu9
@@ -22,21 +23,21 @@ alg='transformer_localsgd'
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
 optimizer_name=SGD
-dnn=resnet18
+dnn=gpt2
 max_epochs=91
 # add_noise=True
 extra_name='localsgd-Convergence'
 
-enable_wandb=True
-wandb_offline=False
+enable_wandb=False
+wandb_offline=True
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 
 exp_name=$exp_name
 cluster_name=shenzhen
 
-hosts=('10.0.0.20')
-#hosts=('10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
+# hosts=('10.0.0.20')
+hosts=('10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
 #
 
 node_count=${#hosts[@]}

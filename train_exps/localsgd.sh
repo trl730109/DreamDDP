@@ -24,11 +24,11 @@ alg='localsgd'
 interface=ens5f0
 optimizer_name=SGD
 dnn=resnet18
-max_epochs=181
+max_epochs=11
 # add_noise=True
 extra_name='8Nodes'
 
-enable_wandb=True
+enable_wandb=False
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
@@ -36,9 +36,9 @@ wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 exp_name=$exp_name
 cluster_name=shenzhen
 
-#hosts=('10.0.0.22')
+hosts=('10.0.0.14' '10.0.0.18')
 # hosts=('10.0.0.19' '10.0.0.23' '10.0.0.24' '10.0.0.25')
-hosts=('10.0.0.20' '10.0.0.17' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' ''10.0.0.26'')
+# hosts=('10.0.0.20' '10.0.0.17' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' ''10.0.0.26'')
 #
 
 node_count=${#hosts[@]}
