@@ -1,6 +1,7 @@
 lr=0.1
 batch_size=128
-alg='time_measure'
+# alg='time_measure'
+alg='localsgd'
 #pipe_seq_localsgd
 # 127.0.0.1 localhost
 # 127.0.1.1 gpu9
@@ -24,7 +25,7 @@ alg='time_measure'
 interface=eno0
 optimizer_name=SGD
 dnn=resnet50
-max_epochs=2
+max_epochs=1
 # add_noise=True
 extra_name='707'
 
@@ -37,13 +38,13 @@ exp_name=$exp_name
 cluster_name=shenzhen
 
 #hosts=('10.0.0.22')
-hosts=('10.0.0.20' '10.0.0.23' '10.0.0.24' '10.0.0.25')
+hosts=('10.0.0.21')
 #
 interface=eno0
 node_count=${#hosts[@]}
 nworkers=$((4 * node_count))
 
-nsteps_localsgd=10
+nsteps_localsgd=20
 
 
 

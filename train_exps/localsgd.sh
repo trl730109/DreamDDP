@@ -24,11 +24,11 @@ alg='localsgd'
 interface=ens5f0
 optimizer_name=SGD
 dnn=resnet18
-max_epochs=11
+max_epochs=181
 # add_noise=True
-extra_name='8Nodes'
+extra_name='lrtest'
 
-enable_wandb=False
+enable_wandb=True
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
@@ -36,7 +36,7 @@ wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 exp_name=$exp_name
 cluster_name=shenzhen
 
-hosts=('10.0.0.14' '10.0.0.18')
+hosts=('10.0.0.19' '10.0.0.16' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
 # hosts=('10.0.0.19' '10.0.0.23' '10.0.0.24' '10.0.0.25')
 # hosts=('10.0.0.20' '10.0.0.17' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' ''10.0.0.26'')
 #
@@ -48,12 +48,31 @@ nsteps_localsgd=20
 
 scalar=2
 
+# lr_decay='general'
+# lr=0.1
+# lr=$(echo "$lr * sqrt($scalar)" | bc -l)
+
+# source train_exps/launch_mul.sh
+
+node_rank=1
 lr_decay='general'
-lr=0.1
+lr=0.2
+source train_exps/launch_mul.sh
+
+node_rank=1
+lr_decay='general'
+lr=0.2
 lr=$(echo "$lr * sqrt($scalar)" | bc -l)
 
 source train_exps/launch_mul.sh
 
+node_rank=1
+lr_decay='general'
+lr=0.4
+
+source train_exps/launch_mul.sh
+# lr=0.2
+# source train_exps/launch_mul.sh
 # interface=ens5f0
 # node_rank=1
 # source train_exps/launch_mul.sh

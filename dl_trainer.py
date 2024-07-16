@@ -1193,6 +1193,7 @@ class DLTrainer:
             #     tmp_times['start'] = time.time()
             with record_function("backward_pass"):
                 sbackward = time.time()
+                self.backward_stamp = sbackward
                 if self.amp_handle is not None:
                     with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
                         scaled_loss.backward()
@@ -1261,70 +1262,71 @@ class DLTrainer:
         costs = 0.0
         total_iters = 0
         total_wer = 0
-        for batch_idx, data in enumerate(self.testloader):
+        with torch.no_grad():
+            for batch_idx, data in enumerate(self.testloader):
 
-            if self.dataset == 'an4':
-                inputs, labels_cpu, input_percentages, target_sizes = data
-                input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
-            else:
-                inputs, labels_cpu = data
-            if self.is_cuda:
-                if self.dnn in ['lstm', 'lstmwt2']:
-                    inputs = Variable(inputs.transpose(0, 1).contiguous()).cuda()
-                    labels = Variable(labels_cpu.transpose(0, 1).contiguous()).cuda()
+                if self.dataset == 'an4':
+                    inputs, labels_cpu, input_percentages, target_sizes = data
+                    input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
                 else:
-                    inputs, labels = inputs.cuda(non_blocking=True), labels_cpu.cuda(non_blocking=True)
-            else:
-                labels = labels_cpu
+                    inputs, labels_cpu = data
+                if self.is_cuda:
+                    if self.dnn in ['lstm', 'lstmwt2']:
+                        inputs = Variable(inputs.transpose(0, 1).contiguous()).cuda()
+                        labels = Variable(labels_cpu.transpose(0, 1).contiguous()).cuda()
+                    else:
+                        inputs, labels = inputs.cuda(non_blocking=True), labels_cpu.cuda(non_blocking=True)
+                else:
+                    labels = labels_cpu
 
-            if self.dnn in ['lstm', 'lstmwt2']:
-                hidden = self.net.init_hidden()
-                hidden = lstmpy.repackage_hidden(hidden)
-                #print(inputs.size(), hidden[0].size(), hidden[1].size())
-                outputs, hidden = self.net(inputs, hidden)
-                tt = torch.squeeze(labels.view(-1, self.net.batch_size * self.net.num_steps))
-                loss = self.criterion(outputs.view(-1, self.net.vocab_size), tt)
-                test_loss += loss.item()
-                costs += loss.item() * self.net.num_steps
-                total_steps += self.net.num_steps
-            elif self.dnn == 'lstman4':
-                targets = labels_cpu
-                split_targets = []
-                offset = 0
-                for size in target_sizes:
-                    split_targets.append(targets[offset:offset + size])
-                    offset += size
+                if self.dnn in ['lstm', 'lstmwt2']:
+                    hidden = self.net.init_hidden()
+                    hidden = lstmpy.repackage_hidden(hidden)
+                    #print(inputs.size(), hidden[0].size(), hidden[1].size())
+                    outputs, hidden = self.net(inputs, hidden)
+                    tt = torch.squeeze(labels.view(-1, self.net.batch_size * self.net.num_steps))
+                    loss = self.criterion(outputs.view(-1, self.net.vocab_size), tt)
+                    test_loss += loss.item()
+                    costs += loss.item() * self.net.num_steps
+                    total_steps += self.net.num_steps
+                elif self.dnn == 'lstman4':
+                    targets = labels_cpu
+                    split_targets = []
+                    offset = 0
+                    for size in target_sizes:
+                        split_targets.append(targets[offset:offset + size])
+                        offset += size
 
-                out, output_sizes = self.net(inputs, input_sizes)
-                decoded_output, _ = self.decoder.decode(out.data, output_sizes)
+                    out, output_sizes = self.net(inputs, input_sizes)
+                    decoded_output, _ = self.decoder.decode(out.data, output_sizes)
 
-                target_strings = self.decoder.convert_to_strings(split_targets)
+                    target_strings = self.decoder.convert_to_strings(split_targets)
 
-                wer, cer = 0, 0
-                target_strings = self.decoder.convert_to_strings(split_targets)
-                wer, cer = 0, 0
-                for x in range(len(target_strings)):
-                    transcript, reference = decoded_output[x][0], target_strings[x][0]
-                    wer += self.decoder.wer(transcript, reference) / float(len(reference.split()))
-                total_wer += wer
+                    wer, cer = 0, 0
+                    target_strings = self.decoder.convert_to_strings(split_targets)
+                    wer, cer = 0, 0
+                    for x in range(len(target_strings)):
+                        transcript, reference = decoded_output[x][0], target_strings[x][0]
+                        wer += self.decoder.wer(transcript, reference) / float(len(reference.split()))
+                    total_wer += wer
 
-            else:
-                outputs = self.net(inputs)
-                loss = self.criterion(outputs, labels)
+                else:
+                    outputs = self.net(inputs)
+                    loss = self.criterion(outputs, labels)
 
-                acc1, acc5 = self.cal_accuracy(outputs, labels, topk=(1, 5))
-                batch_size = labels.size(0)
-                correct_top1 += float(acc1) * batch_size
-                correct_top5 += float(acc5) * batch_size
+                    acc1, acc5 = self.cal_accuracy(outputs, labels, topk=(1, 5))
+                    batch_size = labels.size(0)
+                    correct_top1 += float(acc1) * batch_size
+                    correct_top5 += float(acc5) * batch_size
 
-                #top1_acc.append(float(acc1))
-                #top5_acc.append(float(acc5))
+                    #top1_acc.append(float(acc1))
+                    #top5_acc.append(float(acc5))
 
-                test_loss += loss.data.item()
-                #_, predicted = torch.max(outputs.data, 1)
-                #correct += predicted.eq(labels.data).cpu().sum()
-            total += labels.size(0)
-            total_iters += 1
+                    test_loss += loss.data.item()
+                    #_, predicted = torch.max(outputs.data, 1)
+                    #correct += predicted.eq(labels.data).cpu().sum()
+                total += labels.size(0)
+                total_iters += 1
         test_loss /= total_iters
         if self.dnn not in ['lstm', 'lstmwt2', 'lstman4']:
             acc = correct_top1/total

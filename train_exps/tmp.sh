@@ -36,12 +36,12 @@ exp_name=$exp_name
 cluster_name=shenzhen
 
 #hosts=('10.0.0.22')
-hosts=('10.0.0.19' '10.0.0.23' '10.0.0.24' '10.0.0.25')
+hosts=('10.0.0.18' '10.0.0.16')
 #
 
 node_count=${#hosts[@]}
 nworkers=$((4 * node_count))
-interface=eno0
+interface=ens5f0
 # interface=ens5f0
 #nsteps_localsgd=20
 

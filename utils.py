@@ -10,6 +10,21 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 
+# class BackwardTimer:
+#     def __init__(self):
+#         self.start_time = 0
+#         self.elapsed_time = 0
+#         self.call_count = 0 
+#     def start(self):
+#         self.start_time = time.time()
+#     def stop(self):
+#         self.elapsed_time += time.time() - self.start_time
+#         self.call_count += 1
+#     def reset(self):
+#         self.elapsed_time = 0
+#         self.call_count = 0
+        
+
 def str2bool(v):
     if isinstance(v, bool):
         return v

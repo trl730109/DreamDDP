@@ -92,7 +92,7 @@ while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
-    args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2383 $script \
+    args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2384 $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \

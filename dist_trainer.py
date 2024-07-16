@@ -37,7 +37,12 @@ from layer_group import resnet_groups
 comm = MPI.COMM_WORLD
 writer = None
 
-
+def count_leaf_layers(model):
+    leaf_names = []
+    for name, module in model.named_modules():
+        if len(list(module.children())) == 0:  # This means the module has no children
+            leaf_names.append(name)
+    return leaf_names
 
 def is_root():
     return dist.get_rank() == 0
@@ -118,6 +123,16 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
     train_time_acc = 0.0
     iter_time_acc = 0.0
     backward_time_acc = 0.0
+    
+    layer_names = count_leaf_layers(trainer.net)
+    logger.info(f'layer names: {layer_names}')
+    modules = []
+    for name, module in trainer.net.named_modules():
+        modules.append(name)
+    logger.info(f'modules: {modules}')
+    logger.info(f'Resnet18 has {len(layer_names)} layers')
+    logger.info(f"linear layers index: {layer_names.index('linear')}")
+
     for epoch in range(max_epochs):
         hidden = None
         if dnn in ['lstm', 'lstmwt2']:
@@ -141,8 +156,9 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
                 else:
                     trainer.train(1)
             
+            #logger.info(trainer.net.named_modules())
             backward_time_acc += trainer.backwardtime_tmp
-            logger.info(f'Global iteration: {global_iters} backward time: {trainer.backwardtime_tmp} train time: {train_time} \n wait time: {wait_time} total wait time: {wait_time_acc}')
+            #logger.info(f'Global iteration: {global_iters} backward time: {trainer.backwardtime_tmp} train time: {train_time} \n wait time: {wait_time} total wait time: {wait_time_acc}')
             train_time_acc += (time.time() - s)
             comm_s = time.time()
             for param in trainer.net.parameters():
@@ -352,11 +368,29 @@ def localsgd_measure(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_up
     display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
 
     global_iters = 0
-    train_time_acc = 0.0
-    backward_time_acc = 0.0
-    comm_time_acc = 0
-    iteration_time_acc = 0
-    
+    layer_timestamps = {}
+    backward_dict = {}
+    def add_backward_hook(layer, name):
+        def backward_hook(module, grad_input, grad_output):
+            # Record the current time as the end time for this layer's backward computation
+            layer_timestamps[name] = time.time()
+        layer.register_full_backward_hook(backward_hook)
+        
+    def calculate_backward_times(start_backward_time):
+    # Obtain layer names in the order of backward computation
+        layer_names = list(reversed([name for name, _ in trainer.net.named_modules()]))
+        backward_times = {}
+        previous_time = start_backward_time  # This should be set to the time when backward starts
+        for name in layer_names:
+            current_time = layer_timestamps.get(name, previous_time)
+            backward_times[name] = current_time - previous_time
+            previous_time = current_time
+        return backward_times
+
+    for name, module in trainer.net.named_modules():
+        add_backward_hook(module, name)
+
+    total_list = {name:[] for name,_ in trainer.net.named_modules()}
     for epoch in range(max_epochs):
         logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
         hidden = None
@@ -366,9 +400,7 @@ def localsgd_measure(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_up
         result_dict = {}
         train_epoch_loss = 0.0
         train_epoch_acc = 0.0    
-        comm_list = {name : [] for (name,module) in trainer.net.named_modules()}
-        backward_list = []
-        total_comm_list = []
+
         for i in range(iters_per_epoch//nsteps_update):
             global_iters += 1
             result_dict = {}
@@ -389,67 +421,26 @@ def localsgd_measure(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_up
             train_acc = np.mean(trainer.train_acc_top1)
             train_epoch_loss += train_loss
             train_epoch_acc += train_acc
-            
+            bk_list = calculate_backward_times(trainer.backward_stamp)
+            for name in bk_list.keys():
+                total_list[name].append(bk_list[name])
             trainer.update_model()
             train_time = time.time()-s
             times.append(train_time)
-            train_time_acc += train_time
-            backward_time_acc += trainer.backwardtime_tmp
-            backward_list.append(trainer.backwardtime_tmp)
-            if(trainer.backwardtime_tmp > 0.5):
-                logger.info(f'The backward time is abnormal.')
-                logger.info(f'iteration No.{global_iters} out of total {iters_per_epoch} iterations. Backward Time: {trainer.backwardtime_tmp}')
-            trainer.backwardtime_tmp = 0.0
-            
+
             if i % display == 0 and i > 0: 
                 time_per_iter = np.mean(times)
                 logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
                 times = []
-                result_dict["time_per_iter"] = time_per_iter
-                result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
-                
-            # ExpTool.record(result_dict)
-            # ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-            #             "train_acc": train_acc, "Backward_time": trainer.backwardtime_tmp})
-            # ExpTool.upload()
-            
-            if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
-                logger.info(f'at Iteration {global_iters} do communication.')
-                start = time.time()
-                for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
-                    ls = time.time()
-                    for param in module.parameters():
-                        dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
-                    layer_time = time.time() - ls
-                    comm_list[name].append(layer_time)
-                comm_time = time.time() - start
-                comm_time_acc += comm_time
-                total_comm_list.append(comm_time)
-            else:
-                pass
-            iteration_time_acc += (time.time() - s)
-            # ExpTool.record({"global_iters": global_iters, "iteration time": iteration_time_acc, "total train time": train_time_acc,
-            #             "total comm time": comm_time_acc, "avg backward time": (backward_time_acc / global_iters), "total backward time": backward_time_acc})
+ 
+    backward_dict = {}
+    back_sum = 0.0
+    for name in total_list.keys():
+        backward_dict[name] = np.mean(total_list[name])
+        back_sum += np.mean(total_list[name])
+    logger.info(f'Sum of layer backward is {back_sum}')
+    logger.info(f'Each layer backward time {backward_dict}')
 
-        # val_acc = trainer.test(epoch)
-        # result_dict["val_acc"] = val_acc
-        # result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-        
-        if trainer.train_epoch < 3:
-            for name in comm_list.keys():
-                mean_time = np.mean(comm_list[name])
-                comm_list[name] = mean_time
-            logger.info(f'The averaged layerwise communication time are {comm_list}')
-            logger.info(f'Sum of all layers comm time is {np.sum(comm_list.values())}')
-            logger.info(f'The backward time list is {backward_list}')
-            logger.info(f"The averaged epoch backward time is {np.mean(backward_list)}")
-            logger.info(f'The averaged total communication time is {np.mean(total_comm_list)}')
-            logger.info(f'The communcation in the first round is {total_comm_list}')
-            backward_list = []
-        # ExpTool.record(result_dict)
-        # ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-        # ExpTool.upload()
 
 def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None):
     assert nsteps_localsgd > 1
@@ -512,12 +503,13 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
     backward_time_acc = 0.0
     comm_time_acc = 0
     iteration_time_acc = 0
-    
+    log_dir = f'./logs/profiler_rank_{rank}'
+    os.makedirs(log_dir, exist_ok=True)
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], 
-                 schedule=torch.profiler.schedule(wait=2, warmup=1, active=7),
-                 on_trace_ready=torch.profiler.tensorboard_trace_handler('./logs/profiler'),
+                 schedule=torch.profiler.schedule(wait=2, warmup=1, active=7,repeat=3),
+                 #on_trace_ready=torch.profiler.tensorboard_trace_handler(logdir),
                  record_shapes=True,
-                 with_stack=True) as prof:
+                 with_stack=False) as prof:
         for epoch in range(max_epochs):
             logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
             hidden = None
@@ -527,9 +519,7 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
             result_dict = {}
             train_epoch_loss = 0.0
             train_epoch_acc = 0.0    
-            comm_list = {name : [] for (name,module) in trainer.net.named_modules()}
             backward_list = []
-            total_comm_list = []
             for i in range(iters_per_epoch//nsteps_update):
                 global_iters += 1
                 result_dict = {}
@@ -576,17 +566,18 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
                 
                 with record_function("communication"):
                     if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
-                        logger.info(f'at Iteration {global_iters} do communication.')
+                        #logger.info(f'at Iteration {global_iters} do communication.')
                         start = time.time()
                         for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
-                            ls = time.time()
-                            for param in module.parameters():
-                                dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
-                            layer_time = time.time() - ls
-                            comm_list[name].append(layer_time)
+                            if len(list(module.children())) == 0:  
+                                ls = time.time()
+                                for param in module.parameters():
+                                    dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
+                                layer_time = time.time() - ls
+                            else:
+                                pass
                         comm_time = time.time() - start
                         comm_time_acc += comm_time
-                        total_comm_list.append(comm_time)
                     else:
                         pass
                 iteration_time_acc += (time.time() - s)
@@ -594,28 +585,17 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
                             "total comm time": comm_time_acc, "avg backward time": (backward_time_acc / global_iters), "total backward time": backward_time_acc})
                 prof.step()  # Update profiler for each iteration
 
-                
-                
             val_acc = trainer.test(epoch)
             result_dict["val_acc"] = val_acc
             result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
             result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
             
-            if trainer.train_epoch < 3:
-                for name in comm_list.keys():
-                    mean_time = np.mean(comm_list[name])
-                    comm_list[name] = mean_time
-                logger.info(f'The averaged layerwise communication time are {comm_list}')
-                logger.info(f'Sum of all layers comm time is {np.sum(comm_list.values())}')
-                logger.info(f'The backward time list is {backward_list}')
-                logger.info(f"The averaged epoch backward time is {np.mean(backward_list)}")
-                logger.info(f'The averaged total communication time is {np.mean(total_comm_list)}')
-                logger.info(f'The communcation in the first round is {total_comm_list}')
-                backward_list = []
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch})
             ExpTool.upload()
-
+    trace_path = os.path.join(log_dir, f'trace_epoch_1.json')
+    prof.export_chrome_trace(trace_path)
+    print(f"Trace saved to {trace_path}") 
 
 def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None):
     assert nsteps_localsgd > 1
@@ -687,26 +667,32 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
 
                 #buffer_param = copy.deepcopy(__param.data)
                 #handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
-                handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
-                _handles[__param] = (handle, None, 1)
+                with record_function(f"all_reduce_{name}_{layer_index}"):
+                    handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
+                    _handles[__param] = (handle, None, 1)
 
         return hook
 
-    named_modules = dict(trainer.net.named_modules())
-    layer_per_iter = int(len(named_modules) / nsteps_localsgd) + 1
-    logger.info(f"nsteps_localsgd:{nsteps_localsgd} \n len(modules): {len(named_modules)} "
+    module_names = count_leaf_layers(trainer.net)
+    layer_per_iter = int(len(module_names) / nsteps_localsgd) + 1
+    # named_modules = dict(trainer.net.named_modules())
+    # layer_per_iter = int(len(named_modules) / nsteps_localsgd) + 1
+    logger.info(f"nsteps_localsgd:{nsteps_localsgd} \n len(modules): {len(module_names)} "
                 f"\n layer_per_iter:{layer_per_iter}")
 
     grad_accs = []
     for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
-        if is_root():
-            logger.info(f"name: {name}, module id: {id(module)}")
-        # logger.info(f"name: {name}, module id: {id(module)}")
-        for param in module.parameters():
-            p_tmp = param.expand_as(param)
-            grad_acc = p_tmp.grad_fn.next_functions[0][0]
-            grad_acc.register_hook(_make_hook(module, param, layer_index // layer_per_iter, gap_iters=nsteps_localsgd, name=name, layer_index=layer_index))
-            grad_accs.append(grad_acc)
+        if (len(list(module.children()))) == 0: 
+            if is_root():
+                logger.info(f"name: {name}, module id: {id(module)}")
+            # logger.info(f"name: {name}, module id: {id(module)}")
+            for param in module.parameters():
+                p_tmp = param.expand_as(param)
+                grad_acc = p_tmp.grad_fn.next_functions[0][0]
+                grad_acc.register_hook(_make_hook(module, param, module_names.index(name) // layer_per_iter, gap_iters=nsteps_localsgd, name=name, layer_index=module_names.index(name)))
+                grad_accs.append(grad_acc)
+        else:
+            pass
             
     def update_model_sgd_iters(model, sgd_iters):
         for module in model.modules():
@@ -728,73 +714,87 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
     wait_time_acc = 0.0
     backward_time_acc = 0.0
     train_time_acc = 0.0
-    for epoch in range(max_epochs):
-        logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
-        hidden = None
-        
-        result_dict = {}
-        train_epoch_loss = 0.0
-        train_epoch_acc = 0.0
-        
-        if dnn in ['lstm', 'lstmwt2']:
-            hidden = trainer.net.init_hidden()
-        for i in range(iters_per_epoch//nsteps_update):
-            #_buffer_params = {}
-            global_iters += 1
+    log_dir = f'./logs/pipe_seq_localsgd/profiler_rank_{rank}'
+    os.makedirs(log_dir, exist_ok=True)
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], 
+                 schedule=torch.profiler.schedule(wait=1, warmup=1, active=8),
+                #  on_trace_ready=torch.profiler.tensorboard_trace_handler('./logs'),
+                 record_shapes=True,
+                 with_stack=False) as prof:
+        for epoch in range(max_epochs):
+            logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
+            hidden = None
+            
             result_dict = {}
+            train_epoch_loss = 0.0
+            train_epoch_acc = 0.0
             
-            update_model_sgd_iters(trainer.net, i)
-            s = time.time()
-            optimizer.zero_grad()
-            
-            for j in range(nsteps_update):
-                if dnn in ['lstm', 'lstmwt2']:
-                    _, hidden = trainer.train(1, hidden=hidden)
-                else:
-                    trainer.train(1)
             if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+                hidden = trainer.net.init_hidden()
+            for i in range(iters_per_epoch//nsteps_update):
+                #_buffer_params = {}
+                global_iters += 1
+                result_dict = {}
+                
+                update_model_sgd_iters(trainer.net, i)
+                s = time.time()
+                optimizer.zero_grad()
+                with record_function("Train_models"):
+                    for j in range(nsteps_update):
+                        if dnn in ['lstm', 'lstmwt2']:
+                            _, hidden = trainer.train(1, hidden=hidden)
+                        else:
+                            trainer.train(1)
+                    if dnn in ['lstm', 'lstmwt2']:
+                        torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+                    elif dnn == 'lstman4':
+                        torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
 
-            end_time = time.time()
-            synchronize_all_reduced_models()
-            wait_time = time.time() - end_time
-            wait_time_acc += wait_time
-            logger.info(f'Global iteration: {global_iters} wait time: {wait_time} total wait time: {wait_time_acc}')
+                with record_function("synchronize_models"):
+                    end_time = time.time()
+                    
+                    synchronize_all_reduced_models()
+                    wait_time = time.time() - end_time
+                    wait_time_acc += wait_time
+                    logger.info(f'Global iteration: {global_iters} wait time: {wait_time} total wait time: {wait_time_acc}')
 
-            train_loss = trainer.loss
-            train_acc = np.mean(trainer.train_acc_top1)
-            train_epoch_loss += train_loss
-            train_epoch_acc += train_acc
-            
-            trainer.update_model()
-            train_time = time.time()-s
-            times.append(train_time)
-            train_time_acc += train_time
-            backward_time_acc += trainer.backwardtime_tmp
-            
-            if i % display == 0 and i > 0: 
-                time_per_iter = np.mean(times)
-                # logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
-                samples_per_seconds = batch_size * nsteps_update / time_per_iter
-                times = []
-                result_dict["time_per_iter"] = time_per_iter
-                result_dict["samples_per_seconds"] = samples_per_seconds
+                train_loss = trainer.loss
+                train_acc = np.mean(trainer.train_acc_top1)
+                train_epoch_loss += train_loss
+                train_epoch_acc += train_acc
+                
+                trainer.update_model()
+                train_time = time.time()-s
+                times.append(train_time)
+                train_time_acc += train_time
+                backward_time_acc += trainer.backwardtime_tmp
+                
+                if i % display == 0 and i > 0: 
+                    time_per_iter = np.mean(times)
+                    # logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                    samples_per_seconds = batch_size * nsteps_update / time_per_iter
+                    times = []
+                    result_dict["time_per_iter"] = time_per_iter
+                    result_dict["samples_per_seconds"] = samples_per_seconds
+                ExpTool.record(result_dict)
+                ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                            "train_acc": train_acc, "total wait time": wait_time_acc, "total backward time":backward_time_acc, 
+                            "total train time": train_time_acc})
+                ExpTool.upload()  
+                prof.step()
+
+            val_acc = trainer.test(epoch)
+            result_dict["val_acc"] = val_acc
+            result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+            result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+
             ExpTool.record(result_dict)
-            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc, "total wait time": wait_time_acc, "total backward time":backward_time_acc, 
-                        "total train time": train_time_acc})
-            ExpTool.upload()  
-
-        val_acc = trainer.test(epoch)
-        result_dict["val_acc"] = val_acc
-        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-
-        ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-        ExpTool.upload()
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+            ExpTool.upload()
+    trace_path = os.path.join(log_dir, f'pipe_seq_localsgd.json')
+    prof.export_chrome_trace(trace_path)
+    print(f"Trace saved to {trace_path}") 
+    # logger.info(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=30))
 
 
 def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None, group_num=6):
@@ -913,74 +913,91 @@ def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_ep
     wait_time_acc = 0.0
     backward_time_acc = 0.0
     train_time_acc = 0.0
-    for epoch in range(max_epochs):
-        logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
-        hidden = None
-        
-        result_dict = {}
-        train_epoch_loss = 0.0
-        train_epoch_acc = 0.0
-        
-        if dnn in ['lstm', 'lstmwt2']:
-            hidden = trainer.net.init_hidden()
-        for i in range(iters_per_epoch//nsteps_update):
-            #_buffer_params = {}
-            global_iters += 1
+    
+    # def trace_handler(p):
+    #     output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
+    #     print(output)
+    #     p.export_chrome_trace("/logs/trace_" + str(p.step_num) + ".json")
+    
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], 
+                 schedule=torch.profiler.schedule(wait=2, warmup=1, active=7,repeat=3),
+                 on_trace_ready=torch.profiler.tensorboard_trace_handler('./logs'),
+                #  on_trace_ready = trace_handler,
+                 record_shapes=True,
+                 with_stack=False) as prof:
+        for epoch in range(max_epochs):
+            logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
+            hidden = None
+            
             result_dict = {}
+            train_epoch_loss = 0.0
+            train_epoch_acc = 0.0
             
-            update_model_sgd_iters(trainer.net, i)
-            s = time.time()
-            optimizer.zero_grad()
-            
-            for j in range(nsteps_update):
-                if dnn in ['lstm', 'lstmwt2']:
-                    _, hidden = trainer.train(1, hidden=hidden)
-                else:
-                    trainer.train(1)
             if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
-            end_time = time.time()
+                hidden = trainer.net.init_hidden()
+                
+            for i in range(iters_per_epoch//nsteps_update):
+                #_buffer_params = {}
+                global_iters += 1
+                result_dict = {}
+                
+                update_model_sgd_iters(trainer.net, i)
+                s = time.time()
+                optimizer.zero_grad()
+                
+                with record_function("Train_models"):
+                    for j in range(nsteps_update):
+                        if dnn in ['lstm', 'lstmwt2']:
+                            _, hidden = trainer.train(1, hidden=hidden)
+                        else:
+                            trainer.train(1)
+                    if dnn in ['lstm', 'lstmwt2']:
+                        torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+                    elif dnn == 'lstman4':
+                        torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+                
+                with record_function("synchronize_models"):
+                    end_time = time.time()
 
-            synchronize_all_reduced_models()
-            wait_time = time.time() - end_time
-            wait_time_acc += wait_time
-            # logger.info(f'Global iteration: {global_iters} wait time: {wait_time} total wait time: {wait_time_acc}')
-            
-            train_loss = trainer.loss
-            train_acc = np.mean(trainer.train_acc_top1)
-            train_epoch_loss += train_loss
-            train_epoch_acc += train_acc
-            
-            trainer.update_model()
-            train_time = time.time()-s
-            times.append(train_time)
-            train_time_acc += train_time
-            backward_time_acc += trainer.backwardtime_tmp
-            
-            logger.info(f'Global iteration: {global_iters} backward time: {trainer.backwardtime_tmp} train time: {train_time} \n wait time: {wait_time} total wait time: {wait_time_acc}')
-            if i % display == 0 and i > 0: 
-                time_per_iter = np.mean(times)
-                # logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
-                samples_per_seconds = batch_size * nsteps_update / time_per_iter
-                times = []
-                result_dict["time_per_iter"] = time_per_iter
-                result_dict["samples_per_seconds"] = samples_per_seconds
+                    synchronize_all_reduced_models()
+                    wait_time = time.time() - end_time
+                    wait_time_acc += wait_time
+                # logger.info(f'Global iteration: {global_iters} wait time: {wait_time} total wait time: {wait_time_acc}')
+                
+                train_loss = trainer.loss
+                train_acc = np.mean(trainer.train_acc_top1)
+                train_epoch_loss += train_loss
+                train_epoch_acc += train_acc
+                
+                trainer.update_model()
+                train_time = time.time()-s
+                times.append(train_time)
+                train_time_acc += train_time
+                backward_time_acc += trainer.backwardtime_tmp
+                
+                logger.info(f'Global iteration: {global_iters} backward time: {trainer.backwardtime_tmp} train time: {train_time} \n wait time: {wait_time} total wait time: {wait_time_acc}')
+                if i % display == 0 and i > 0: 
+                    time_per_iter = np.mean(times)
+                    # logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                    samples_per_seconds = batch_size * nsteps_update / time_per_iter
+                    times = []
+                    result_dict["time_per_iter"] = time_per_iter
+                    result_dict["samples_per_seconds"] = samples_per_seconds
+                ExpTool.record(result_dict)
+                ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                            "train_acc": train_acc, "total wait time": wait_time_acc , "total backward time":backward_time_acc, 
+                            "total train time": train_time_acc})
+                ExpTool.upload()  
+                prof.step()
+
+            val_acc = trainer.test(epoch)
+            result_dict["val_acc"] = val_acc
+            result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+            result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+
             ExpTool.record(result_dict)
-            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc, "total wait time": wait_time_acc , "total backward time":backward_time_acc, 
-                        "total train time": train_time_acc})
-            ExpTool.upload()  
-
-        val_acc = trainer.test(epoch)
-        result_dict["val_acc"] = val_acc
-        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-
-        ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-        ExpTool.upload()
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+            ExpTool.upload()
 
 def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, model_dir=None):
     assert nsteps_localsgd > 1
@@ -1204,6 +1221,239 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
 
+def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None):
+    rank = dist.get_rank()
+    logger.info('the rank of current process: %d', rank)
+    #print("The ssgd_with_horovod is called by rank: ", rank)
+    #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
+        
+    selected_gpu = rank%nwpernode
+    torch.cuda.set_device(selected_gpu)
+    if rank != 0:
+        pretrain = None
+    trainer = LLMTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,lr_decay=lr_decay)
+    
+    init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
+    init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
+    dist.broadcast(init_epoch, src=0)
+    dist.broadcast(init_iter, src=0)
+    trainer.set_train_epoch(int(init_epoch.item()))
+    trainer.set_train_iter(int(init_iter.item()))
+    
+    is_sparse = density < 1
+    if not is_sparse:
+        compressor = None
+
+    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
+        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
+        layerwise_times = comm.bcast(layerwise_times, root=0)
+        if rank == 0:
+            logger.info('layerwise backward times: %s', list(layerwise_times))
+            logger.info('layerwise backward sizes: %s', list(layerwise_sizes))
+        logger.info('Bencharmked backward time: %f', np.sum(layerwise_times))
+        logger.info('Model size: %d', np.sum(layerwise_sizes))
+    else:
+        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
+
+    logger.info('Broadcast parameters....')
+    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
+    logger.info('Broadcast parameters finished....')
+
+
+    norm_clip = None
+    if dnn in ['lstm', 'lstmwt2']:
+        norm_clip = 0.25
+    elif dnn == 'lstman4':
+        norm_clip = 400
+        
+    optimizer = trainer.optimizer
+    
+    iters_per_epoch = trainer.num_batches_per_epoch
+
+    times = []
+    logger.info('max_epochs: %d', max_epochs)
+    display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+    global_iters = 0
+    comm_time_acc = 0.0
+    train_time_acc = 0.0
+    iter_time_acc = 0.0
+    backward_time_acc = 0.0
+    for epoch in range(max_epochs):
+        hidden = None
+        if dnn in ['lstm', 'lstmwt2']:
+            hidden = trainer.net.init_hidden()
+            
+        train_epoch_loss = 0.0
+        train_epoch_acc = 0.0
+        result_dict = {}
+        for i in range(iters_per_epoch//nsteps_update):
+            global_iters += 1
+            result_dict = {}
+            s = time.time()
+            optimizer.zero_grad()
+            for j in range(nsteps_update):
+                if j < nsteps_update - 1 and nsteps_update > 1:
+                    optimizer.local = True
+                else:
+                    optimizer.local = False
+                if dnn in ['lstm', 'lstmwt2']:
+                    _, hidden = trainer.train(1, hidden=hidden)
+                else:
+                    trainer.train(1)
+            
+            backward_time_acc += trainer.backwardtime_tmp
+            #logger.info(f'Global iteration: {global_iters} backward time: {trainer.backwardtime_tmp} train time: {train_time} \n wait time: {wait_time} total wait time: {wait_time_acc}')
+            train_time_acc += (time.time() - s)
+            comm_s = time.time()
+            for param in trainer.net.parameters():
+                if param.requires_grad:
+                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
+                    #param.grad.data /= dist.get_world_size()
+            comm_time_acc += (time.time() - comm_s)
+            
+            if dnn in ['lstm', 'lstmwt2']:
+                optimizer.synchronize()
+                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            elif dnn == 'lstman4':
+                optimizer.synchronize()
+                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+            
+            train_loss = trainer.loss
+            train_acc = np.mean(trainer.train_acc_top1)
+            train_epoch_loss += train_loss
+            train_epoch_acc += train_epoch_acc
+            
+            trainer.update_model()
+            times.append(time.time()-s)
+            if i % display == 0 and i > 0: 
+                time_per_iter = np.mean(times)
+                logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                times = []
+                result_dict["time_per_iter"] = time_per_iter
+                result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
+            iter_time_acc += time.time() - s
+            ExpTool.record(result_dict)
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                        "train_acc": train_acc, "total train time": train_time_acc,
+                        "total comm time": comm_time_acc, "total iteration time": iter_time_acc})
+            ExpTool.upload()
+        logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+        val_acc = trainer.test(epoch)
+        result_dict["val_acc"] = val_acc
+        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+
+        ExpTool.record(result_dict)
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+        ExpTool.upload()
+
+def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None):
+    rank = dist.get_rank()
+    logger.info('the rank of current process: %d', rank)
+    #print("The ssgd_with_horovod is called by rank: ", rank)
+    #torch.manual_seed(rank)
+    #print("Assign the gpu ", (rank%nwpernode)+2, " to the rank ", rank)
+        
+    selected_gpu = rank%nwpernode
+    torch.cuda.set_device(selected_gpu)
+    if rank != 0:
+        pretrain = None
+    trainer = LLMTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay)
+    
+    init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
+    init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
+    dist.broadcast(init_epoch, src=0)
+    dist.broadcast(init_iter, src=0)
+    trainer.set_train_epoch(int(init_epoch.item()))
+    trainer.set_train_iter(int(init_iter.item()))
+    
+    is_sparse = density < 1
+    if not is_sparse:
+        compressor = None
+
+    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
+        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
+        layerwise_times = comm.bcast(layerwise_times, root=0)
+        if rank == 0:
+            logger.info('layerwise backward times: %s', list(layerwise_times))
+            logger.info('layerwise backward sizes: %s', list(layerwise_sizes))
+        logger.info('Bencharmked backward time: %f', np.sum(layerwise_times))
+        logger.info('Model size: %d', np.sum(layerwise_sizes))
+    else:
+        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
+
+    logger.info('Broadcast parameters....')
+    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
+    logger.info('Broadcast parameters finished....')
+
+
+    norm_clip = None
+    if dnn in ['lstm', 'lstmwt2']:
+        norm_clip = 0.25
+    elif dnn == 'lstman4':
+        norm_clip = 400
+        
+    optimizer = dist_optim.DistributedOptimizer(trainer.optimizer, strategy=strategy,overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
+    trainer.update_optimizer(optimizer)
+    iters_per_epoch = trainer.num_batches_per_epoch
+
+    times = []
+    logger.info('max_epochs: %d', max_epochs)
+    display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+    global_iters = 0
+    iter_time_acc = 0.0
+    for epoch in range(max_epochs):
+        hidden = None
+        if dnn in ['lstm', 'lstmwt2']:
+            hidden = trainer.net.init_hidden()
+            
+        train_epoch_loss = 0.0
+        train_epoch_acc = 0.0
+        result_dict = {}
+        
+        for i in range(iters_per_epoch//nsteps_update):
+            global_iters += 1
+            result_dict = {}
+            s = time.time()
+            optimizer.zero_grad()
+            for j in range(nsteps_update):
+                if j < nsteps_update - 1 and nsteps_update > 1:
+                    optimizer.local = True
+                else:
+                    optimizer.local = False
+                if dnn in ['lstm', 'lstmwt2']:
+                    _, hidden = trainer.train(1, hidden=hidden)
+                else:
+                    trainer.train(1)
+ 
+            train_loss = trainer.loss
+            train_acc = np.mean(trainer.train_acc_top1)
+            train_epoch_loss += train_loss
+            train_epoch_acc += train_acc
+            
+            trainer.update_model()
+            times.append(time.time()-s)
+            if i % display == 0 and i > 0: 
+                time_per_iter = np.mean(times)
+                logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                times = []
+                result_dict["time_per_iter"] = time_per_iter
+                result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
+            iter_time_acc += time.time() - s
+            ExpTool.record(result_dict)
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                        "train_acc": train_acc, "total iteration time": iter_time_acc})
+            ExpTool.upload()    
+            
+        #logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+        val_acc = trainer.test(epoch)
+        result_dict["val_acc"] = val_acc
+        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+
+        ExpTool.record(result_dict)
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+        ExpTool.upload()
 
 def arg_str2bool(args):
     for key in args.__dict__.keys():
@@ -1305,7 +1555,10 @@ if __name__ == '__main__':
         # os.environ['NCCL_DEBUG_SUBSYS'] = 'ALL'
         # os.environ['NCCL_DEBUG'] = 'TRACE'
         os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
-        os.environ['NCCL_SOCKET_IFNAME'] = args.interface #,ens5f0
+        if args.interface == 'eno0':
+            os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
+        elif args.interface == 'ens5f0':
+            os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
         os.environ['NCCL_IGNORE_DISABLED_P2P'] = '1'
         #logger.info(f"NCCL_SOCKET_IFNAME is set to: {os.environ.get('NCCL_SOCKET_IFNAME')}")
         dist.init_process_group(backend='nccl', init_method='env://')

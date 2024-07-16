@@ -204,6 +204,7 @@ class LLMTrainer:
         self.net.share_memory()
         self.accuracy = 0
         self.loss = 0.0
+        self.ppl = 0.0
         self.train_iter = 0
         self.recved_counter = 0
         self.master = master
@@ -755,6 +756,7 @@ class LLMTrainer:
                 self.train_loss.append(loss)
             
             ppl = torch.exp(torch.stack(self.train_loss).mean())
+            self.ppl = ppl
             self.train_iter += 1
             self.num_of_updates_during_comm += 1
             self.loss /= num_of_iters 
