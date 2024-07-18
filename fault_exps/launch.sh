@@ -64,6 +64,10 @@ data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 # Loop to launch training on each node
 i=0
 
+
+
+
+
 project_name=DDP-Train
 
 nworkers=$(expr $nwpernode \* $node_count)
