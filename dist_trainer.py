@@ -1415,7 +1415,8 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
 
-def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1):
+def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1,
+                         nsteps_param_diversit=None, check_param_diversity=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -1554,7 +1555,8 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
 
-def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None):
+def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
+                         nsteps_param_diversit=None, check_param_diversity=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -1681,7 +1683,8 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
 
-def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None):
+def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
+                         nsteps_param_diversit=None, check_param_diversity=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
