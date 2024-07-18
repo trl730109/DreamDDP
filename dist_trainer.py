@@ -8,6 +8,11 @@ import numpy as np
 import argparse
 import os
 import settings
+from multiprocessing import set_start_method
+from collections import defaultdict
+import math
+
+from copy import deepcopy
 
 import pytz
 import logging
@@ -66,7 +71,62 @@ def str2bool(v):
 
 from settings import logger, formatter
 
-def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None):
+
+
+def param_diversity(model):
+    if isinstance(model, dict):
+        avg_params = deepcopy(model)
+    else:
+        avg_params = deepcopy(model.state_dict())
+
+    # for name, module in model.name_modules():
+    # for name, param in model.name_parameters():
+    for name, param in avg_params.items():
+        if "weight" in name:
+            # dist.all_reduce(param, op=dist.ReduceOp.SUM)
+            # param.float() /= dist.get_world_size()
+            dist.all_reduce(param, op=dist.ReduceOp.AVG)
+
+    if is_root():
+        named_diversitys = {}
+        total_diversity = 0.0
+        if isinstance(model, dict):
+            for name, param in model.items():
+                if "weight" in name:
+                    diff = (avg_params[name] - param.data)
+                    if param.dtype == torch.long:
+                        diff = diff.float()
+                    named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[f"diver/{name}"] = diff.norm()
+                    total_diversity += named_diversitys[f"diver/{name}"].item()
+            return named_diversitys, total_diversity
+        else:
+            for name, param in model.state_dict().items():
+                if "weight" in name:
+                    diff = (avg_params[name] - param.data)
+                    if param.dtype == torch.long:
+                        diff = diff.float()
+                    named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[f"diver/{name}"] = diff.norm()
+                    total_diversity += named_diversitys[f"diver/{name}"].item()
+            return named_diversitys, total_diversity
+    else:
+        return None, None
+
+
+
+def record_param_diversity_with_period(model, global_iters, nsteps_param_diversity, check_param_diversity):
+    if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
+        named_diversitys, total_diversity = param_diversity(model)
+        if is_root():
+            ExpTool.record(named_diversitys)
+            ExpTool.record({"total_diversity": total_diversity})
+            logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
+
+
+
+def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
+             check_param_diversity=None, nsteps_param_diversity=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -192,6 +252,7 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc, "total train time": train_time_acc,
                         "total comm time": comm_time_acc, "total iteration time": iter_time_acc})
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_acc = trainer.test(epoch)
@@ -442,7 +503,8 @@ def localsgd_measure(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_up
     logger.info(f'Each layer backward time {backward_dict}')
 
 
-def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None):
+def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None,
+             check_param_diversity=None, nsteps_param_diversity=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -562,6 +624,7 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
                 ExpTool.record(result_dict)
                 ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                             "train_acc": train_acc, "Backward_time": trainer.backwardtime_tmp})
+                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
                 ExpTool.upload()
                 
                 with record_function("communication"):
@@ -597,7 +660,8 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
     prof.export_chrome_trace(trace_path)
     print(f"Trace saved to {trace_path}") 
 
-def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None):
+def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None,
+             check_param_diversity=None, nsteps_param_diversity=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -780,6 +844,7 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
                 ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                             "train_acc": train_acc, "total wait time": wait_time_acc, "total backward time":backward_time_acc, 
                             "total train time": train_time_acc})
+                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
                 ExpTool.upload()  
                 prof.step()
 
@@ -796,7 +861,8 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
     print(f"Trace saved to {trace_path}") 
     # logger.info(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=30))
     
-def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None):
+def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None,
+             check_param_diversity=None, nsteps_param_diversity=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -902,6 +968,7 @@ def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, n
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc, "total wait time": wait_time_acc, "total backward time":backward_time_acc, 
                         "total train time": train_time_acc})
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()  
 
         val_acc = trainer.test(epoch)
@@ -1043,6 +1110,7 @@ def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, n
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc, "total wait time": wait_time_acc, "total backward time":backward_time_acc, 
                         "total train time": train_time_acc})
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()  
 
         val_acc = trainer.test(epoch)
@@ -1057,7 +1125,8 @@ def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, n
 
 
 
-def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None, group_num=6):
+def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None, group_num=6,
+             check_param_diversity=None, nsteps_param_diversity=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -1247,6 +1316,7 @@ def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_ep
                 ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                             "train_acc": train_acc, "total wait time": wait_time_acc , "total backward time":backward_time_acc, 
                             "total train time": train_time_acc})
+                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
                 ExpTool.upload()  
                 prof.step()
 
@@ -1259,7 +1329,8 @@ def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_ep
             ExpTool.record({"global_iters": global_iters, "epochs": epoch})
             ExpTool.upload()
 
-def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, model_dir=None):
+def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, model_dir=None,
+             check_param_diversity=None, nsteps_param_diversity=None):
     assert nsteps_localsgd > 1
     set_seed(3000)
     rank = dist.get_rank()
@@ -1320,6 +1391,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
             
             if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
@@ -1470,6 +1542,7 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()  
 
         val_acc = trainer.test(epoch)
@@ -1596,6 +1669,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc, "total train time": train_time_acc,
                         "total comm time": comm_time_acc, "total iteration time": iter_time_acc})
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_acc = trainer.test(epoch)
@@ -1703,6 +1777,7 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc, "total iteration time": iter_time_acc})
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()    
             
         #logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
@@ -1725,7 +1800,6 @@ def arg_str2bool(args):
 
 if __name__ == '__main__':
     #torch.multiprocessing.set_start_method('spawn')
-    set_seed(3000)
     parser = argparse.ArgumentParser(description="AllReduce trainer")
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--nsteps-update', type=int, default=1)
@@ -1756,6 +1830,12 @@ if __name__ == '__main__':
     parser.add_argument('--config_name', type=str, default='', help='Model configurations.')
     parser.add_argument('--model_name_or_path', type=str,default='',help='Local model path for GPT or Bert.')
 
+
+    # Check model divergence
+    parser.add_argument('--check_param_diversity', type=str, default="False")
+    parser.add_argument('--nsteps_param_diversity', type=int, default=5)
+
+    
     # wandb, exp record related
     parser.add_argument("--wandb_offline", type=str, default="True")
     parser.add_argument("--wandb_console", type=str, default="False")
@@ -1831,7 +1911,8 @@ if __name__ == '__main__':
     if rank == 0:
         tb_runs = './runs/%s'%logdir
         writer = None #SummaryWriter(tb_runs)
-        
+
+    set_seed(3000)
     ExpTool.init(args, dist)    
     
     logfile = os.path.join(relative_path, settings.hostname+'-'+str(rank)+'.log')
@@ -1842,10 +1923,12 @@ if __name__ == '__main__':
 
     if (args.alg == 'localsgd'):
         logger.info("Alg used: localsgd.")
-        localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay)
+        localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay, 
+             args.check_param_diversity, args.nsteps_param_diversity)
     elif (args.alg == 'sgd'):
         logger.info("Alg used: sgd.")
-        ssgd(args.optimizer_name, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix, args.lr_decay)
+        ssgd(args.optimizer_name, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix, args.lr_decay, 
+             args.check_param_diversity, args.nsteps_param_diversity)
     # elif (args.alg == 'seq'):
     #     logger.info("Alg used: seq.")
     #     seq_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
@@ -1854,16 +1937,20 @@ if __name__ == '__main__':
         ssgd_with_pipe(args.optimizer_name,  args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix, args.lr_decay)
     elif (args.alg == 'pipe_seq_localsgd'):
         logger.info("Alg used: pipe_seq_localsgd.")
-        pipe_seq_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay)
+        pipe_seq_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay, 
+             args.check_param_diversity, args.nsteps_param_diversity)
     elif (args.alg == 'pipe_seq_localsgd_warmup'):
         logger.info("Alg used: pipe_seq_localsgd_warmup.")
-        pipe_seq_localsgd_warmup(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay)
+        pipe_seq_localsgd_warmup(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay, 
+             args.check_param_diversity, args.nsteps_param_diversity)
     elif (args.alg == 'full_pipe_seq'):
         logger.info("Alg used: test.")
-        test(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay, args.group_num)
+        test(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay, args.group_num, 
+             args.check_param_diversity, args.nsteps_param_diversity)
     elif (args.alg == 'transformer_localsgd'):
         logger.info("Alg used: transformer training.")
-        transformer_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, model_dir=args.model_name_or_path)
+        transformer_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, model_dir=args.model_name_or_path, 
+             check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity)
     if (args.alg == 'time_measure'):
         logger.info("Alg used: localsgd.")
         localsgd_measure(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay)

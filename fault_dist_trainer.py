@@ -73,7 +73,7 @@ def check_model_diff(model1, model2):
     pass
 
 
-def check_param_diversity(model):
+def param_diversity(model):
     if isinstance(model, dict):
         avg_params = deepcopy(model)
     else:
@@ -114,6 +114,16 @@ def check_param_diversity(model):
         return None, None
 
 
+def record_param_diversity_with_period(model, global_iters, nsteps_param_diversity, check_param_diversity):
+    if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
+        named_diversitys, total_diversity = param_diversity(model)
+        if is_root():
+            ExpTool.record(named_diversitys)
+            ExpTool.record({"total_diversity": total_diversity})
+            logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
+
+
+
 def allreduce_model_weights(model):
     if isinstance(model, dict):
         state_dict = model
@@ -140,7 +150,7 @@ def allreduce_model_weights(model):
 
 
 def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
-                   nsteps_param_sync=None, nsteps_check_param_diversity=None, nsteps_display_param_diversity=None, param_sync=None):
+                   nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
         
@@ -243,12 +253,13 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
-            if global_iters % nsteps_display_param_diversity == 0:
-                named_diversitys, total_diversity = check_param_diversity(trainer.net)
-                if is_root():
-                    ExpTool.record(named_diversitys)
-                    ExpTool.record({"total_diversity": total_diversity})
-                    logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
+            # if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
+            #     named_diversitys, total_diversity = param_diversity(trainer.net)
+            #     if is_root():
+            #         ExpTool.record(named_diversitys)
+            #         ExpTool.record({"total_diversity": total_diversity})
+            #         logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
 
             ExpTool.upload()
 
@@ -268,7 +279,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
 
 
 def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
-                        nsteps_param_sync=None, nsteps_check_param_diversity=None, nsteps_display_param_diversity=None, param_sync=None): 
+                        nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None): 
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
         
@@ -373,18 +384,13 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
-            if global_iters % nsteps_display_param_diversity == 0:
-                named_diversitys, total_diversity = check_param_diversity(trainer.net)
-                if is_root():
-                    ExpTool.record(named_diversitys)
-                    ExpTool.record({"total_diversity": total_diversity})
-                    logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
             if (global_iters % nsteps_param_sync == 0):
                 logger.info(f'Params averaged using Allreduce at specific iterations.')
                 avg_params = allreduce_model_weights(trainer.net)
                 trainer.net.load_state_dict(dict(avg_params))
-                named_diversitys, total_diversity = check_param_diversity(trainer.net)
+                named_diversitys, total_diversity = param_diversity(trainer.net)
                 if is_root():
                     logger.info(f'Params have diversity: {total_diversity} after sync params !!!!!!!!.')
 
@@ -444,9 +450,10 @@ if __name__ == '__main__':
     parser.add_argument('--local_rank', type=int, default=0,help='local rank for distributed training')
     parser.add_argument('--sync',type=str,default='sum',help='synchronization ways, sum or avg')
 
+    # Check model divergence
     parser.add_argument('--nsteps_param_sync', type=int, default=20)
-    parser.add_argument('--nsteps_check_param_diversity', type=int, default=20)
-    parser.add_argument('--nsteps_display_param_diversity', type=int, default=20)
+    parser.add_argument('--check_param_diversity', type=str, default="False")
+    parser.add_argument('--nsteps_param_diversity', type=int, default=5)
     parser.add_argument('--param_sync', type=str, default="fix")
 
     # wandb, exp record related
@@ -547,14 +554,14 @@ if __name__ == '__main__':
     elif (args.alg == 'sgd'):
         logger.info("Alg used: sgd.")
         ssgd_with_dist(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
-                       args.nsteps_param_sync, args.nsteps_check_param_diversity, args.nsteps_display_param_diversity, args.param_sync)
+                       args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync)
     # elif (args.alg == 'pipe'):
     #     logger.info("Alg used: pipelined seq.")
     #     ssgd_with_pipe(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
     elif (args.alg == 'sgd_with_sync'):
         logger.info("Alg used: pipe_seq_localsgd.")
         ssgd_with_param_sync(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
-                       args.nsteps_param_sync, args.nsteps_check_param_diversity, args.nsteps_display_param_diversity, args.param_sync)
+                       args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync)
 
     ExpTool.finish(args)
 
