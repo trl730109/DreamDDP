@@ -22,10 +22,11 @@ batch_size=128
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
 optimizer_name=SGD
-dnn=resnet18
+dnn=resnet50
 max_epochs=181
+dataset=cifar100
 # add_noise=True
-extra_name='8Nodes'
+extra_name='8Nodes-reverse'
 interface=eno0
 # interface=ens5f0
 enable_wandb=True
@@ -37,7 +38,8 @@ exp_name=$exp_name
 cluster_name=shenzhen
 
 #hosts=('10.0.0.22')
-hosts=('10.0.0.19' '10.0.0.16' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
+#'10.0.0.16' '10.0.0.20' '10.0.0.21' '10.0.0.22' 
+hosts=('10.0.0.19' '10.0.0.23' '10.0.0.24' '10.0.0.25')
 # hosts=('10.0.0.19' '10.0.0.11')
 #
 
@@ -46,35 +48,47 @@ nworkers=$((4 * node_count))
 
 nsteps_localsgd=20
 
+
 # alg='localsgd'
+# node_rank=1
 # lr_decay='general'
 # lr=0.1
+# nsteps_localsgd=5
+# interface=eno0
 # source train_exps/launch_mul.sh
 
 # alg='localsgd'
 # node_rank=1
 # lr_decay='general'
 # lr=0.1
+# nsteps_localsgd=10
+# interface=eno0
+# source train_exps/launch_mul.sh
+
+# alg='localsgd'
+# node_rank=1
+# lr_decay='general'
+# lr=0.1
+# nsteps_localsgd=20
+# interface=eno0
+# source train_exps/launch_mul.sh
+
+
+# node_rank=1
+# alg='pipe_sgd'
+# lr_decay='general'
+# lr=0.1
+# interface=eno0
+# source train_exps/launch_mul.sh
+
+# node_rank=1
+# alg='pipe_sgd'
+# lr_decay='general'
+# lr=0.1
 # interface=ens5f0
 # source train_exps/launch_mul.sh
 
-#pipe_sgd
-
-node_rank=1
-alg='pipe_sgd'
-lr_decay='general'
-lr=0.1
-interface=eno0
-source train_exps/launch_mul.sh
-
-node_rank=1
-alg='pipe_sgd'
-lr_decay='general'
-lr=0.1
-interface=ens5f0
-source train_exps/launch_mul.sh
-
-# #sgd
+#sgd
 # node_rank=1
 # alg='sgd'
 # lr_decay='general'
@@ -90,7 +104,40 @@ source train_exps/launch_mul.sh
 # source train_exps/launch_mul.sh
 
 # #pipe_Seq_localsgd
+# dnn=resnet18
+# dataset=cifar10
 # node_rank=1
+# nsteps_localsgd=5
+# alg='pipe_seq_localsgd'
+# lr_decay='general'
+# lr=0.1
+# interface=eno0
+# source train_exps/launch_mul.sh
+
+# dnn=resnet18
+# dataset=cifar10
+# node_rank=1
+# nsteps_localsgd=10
+# alg='pipe_seq_localsgd'
+# lr_decay='general'
+# lr=0.1
+# interface=eno0
+# source train_exps/launch_mul.sh
+
+# dnn=resnet18
+# dataset=cifar10
+# node_rank=1
+# nsteps_localsgd=15
+# alg='pipe_seq_localsgd'
+# lr_decay='general'
+# lr=0.1
+# interface=eno0
+# source train_exps/launch_mul.sh
+
+# dnn=resnet18
+# dataset=cifar10
+# node_rank=1
+# nsteps_localsgd=15
 # alg='pipe_seq_localsgd'
 # lr_decay='general'
 # lr=0.1
@@ -98,11 +145,13 @@ source train_exps/launch_mul.sh
 # source train_exps/launch_mul.sh
 
 # node_rank=1
+# nsteps_localsgd=40
 # alg='pipe_seq_localsgd'
 # lr_decay='general'
 # lr=0.1
-# interface=ens5f0
+# interface=eno0
 # source train_exps/launch_mul.sh
+
 
 # group_num=6
 # node_rank=1
@@ -124,21 +173,25 @@ source train_exps/launch_mul.sh
 
 # Resnet50
 dnn=resnet50
+dataset=cifar100
+node_rank=1
 alg='localsgd'
 lr_decay='general'
 lr=0.1
+interface=eno0
 source train_exps/launch_mul.sh
 
-dnn=resnet50
-alg='localsgd'
-node_rank=1
-lr_decay='general'
-lr=0.1
-interface=ens5f0
-source train_exps/launch_mul.sh
+# dnn=resnet50
+# alg='localsgd'
+# node_rank=1
+# lr_decay='general'
+# lr=0.1
+# interface=ens5f0
+# source train_exps/launch_mul.sh
 
 #pipe_sgd
 dnn=resnet50
+dataset=cifar100
 node_rank=1
 alg='pipe_sgd'
 lr_decay='general'
@@ -146,16 +199,17 @@ lr=0.1
 interface=eno0
 source train_exps/launch_mul.sh
 
-dnn=resnet50
-node_rank=1
-alg='pipe_sgd'
-lr_decay='general'
-lr=0.1
-interface=ens5f0
-source train_exps/launch_mul.sh
+# dnn=resnet50
+# node_rank=1
+# alg='pipe_sgd'
+# lr_decay='general'
+# lr=0.1
+# interface=ens5f0
+# source train_exps/launch_mul.sh
 
 #sgd
 dnn=resnet50
+dataset=cifar100
 node_rank=1
 alg='sgd'
 lr_decay='general'
@@ -163,16 +217,18 @@ lr=0.1
 interface=eno0
 source train_exps/launch_mul.sh
 
-dnn=resnet50
-node_rank=1
-alg='sgd'
-lr_decay='general'
-lr=0.1
-interface=ens5f0
-source train_exps/launch_mul.sh
+# dnn=resnet50
+# node_rank=1
+# alg='sgd'
+# lr_decay='general'
+# lr=0.1
+# interface=ens5f0
+# source train_exps/launch_mul.sh
 
 #pipe_Seq_localsgd
 dnn=resnet50
+dataset=cifar100
+nsteps_localsgd=20
 node_rank=1
 alg='pipe_seq_localsgd'
 lr_decay='general'
@@ -181,9 +237,30 @@ interface=eno0
 source train_exps/launch_mul.sh
 
 dnn=resnet50
+dataset=cifar100
+nsteps_localsgd=10
 node_rank=1
 alg='pipe_seq_localsgd'
 lr_decay='general'
 lr=0.1
-interface=ens5f0
+interface=eno0
 source train_exps/launch_mul.sh
+
+dnn=resnet50
+dataset=cifar100
+nsteps_localsgd=5
+node_rank=1
+alg='pipe_seq_localsgd'
+lr_decay='general'
+lr=0.1
+interface=eno0
+source train_exps/launch_mul.sh
+
+# dnn=resnet50
+# dataset=cifar100
+# node_rank=1
+# alg='pipe_seq_localsgd'
+# lr_decay='general'
+# lr=0.1
+# interface=ens5f0
+# source train_exps/launch_mul.sh

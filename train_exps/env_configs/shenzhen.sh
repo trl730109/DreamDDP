@@ -20,6 +20,7 @@ case "$cluster_name" in
             # "Tiny-ImageNet-200") data_dir="/datasets/tiny-imagenet-200" ;;
             # "cifar10") data_dir="/home/yinyiming/datasets/cifar10" ;;
             "cifar10") data_dir="/home/yinyiming/datasets/cifar10" ;;
+            "cifar100") data_dir="/home/yinyiming/datasets/cifar100" ;;
             # "fmnist") data_dir="/datasets/fmnist" ;;
             # "SVHN") data_dir="/datasets/SVHN" ;;
             # "mnist") data_dir="/datasets" ;;

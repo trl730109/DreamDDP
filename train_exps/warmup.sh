@@ -1,6 +1,6 @@
 lr=0.1
 batch_size=128
-alg='pipe_seq_localsgd'
+alg='pipe_seq_localsgd_warmup'
 #pipe_seq_localsgd
 # 127.0.0.1 localhost
 # 127.0.1.1 gpu9
@@ -23,7 +23,7 @@ alg='pipe_seq_localsgd'
 # 10.0.0.26 gpu16
 optimizer_name=SGD
 dnn=resnet18
-max_epochs=5
+max_epochs=20
 # add_noise=True
 extra_name='test'
 interface=eno0
@@ -44,20 +44,10 @@ nworkers=$((4 * node_count))
 
 nsteps_localsgd=20
 
+interface=ens5f0
+node_rank=1
 lr_decay='general'
-
+node_rank=1
+lr=0.1
 source train_exps/launch_mul.sh
 
-
-# interface=ens5f0
-# node_rank=1
-# source train_exps/launch_mul.sh
-# lr_decay='cosine'
-# node_rank=1
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# lr_decay='step'
-# node_rank=1
-# lr=0.1
-# source train_exps/launch_mul.sh

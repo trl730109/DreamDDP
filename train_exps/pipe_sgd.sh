@@ -22,8 +22,9 @@ alg='pipe_sgd'
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
 optimizer_name=SGD
-dnn=resnet18
+dnn=resnet50
 max_epochs=2
+dataset=cifar100
 # add_noise=True
 extra_name='707'
 interface=eno0
@@ -35,7 +36,7 @@ wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 cluster_name=shenzhen
 
 #hosts=('10.0.0.20')
-hosts=('10.0.0.11')
+hosts=('10.0.0.18' '10.0.0.26')
 # hosts=('10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
 #
 

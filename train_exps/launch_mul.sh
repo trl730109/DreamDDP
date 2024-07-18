@@ -65,17 +65,17 @@ fi
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
 if [ "$alg" = "pipe_seq_localsgd" ]; then
-    exp_name="${extra_name}-${alg}-${sync}-${dnn}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    exp_name="${extra_name}-${alg}-${sync}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
 elif [ "$alg" = "localsgd" ]; then
-    exp_name="${extra_name}-${alg}-${dnn}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
 elif [ "$alg" = "transformer_localsgd" ]; then
-    exp_name="${extra_name}-${alg}-${dnn}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
 elif [ "$alg" = "full_pipe_seq" ]; then
-    exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
 else
-    exp_name="${extra_name}-${alg}-${dnn}-nstepsupdate${nstepsupdate}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-nstepsupdate${nstepsupdate}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
 fi
 

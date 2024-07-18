@@ -77,7 +77,7 @@ if settings.EFFICIENT_IO:
 else:
     NUM_CPU_THREADS=8
 
-_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'shakespeare', 'wikitext2']
+_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'shakespeare', 'wikitext2','cifar100']
 _support_dnns = ['alexnet', 'alexnetbn',
         'resnet18', 'resnet50', 'resnet101', 'resnet152', 
         'densenet121', 'densenet161', 'densenet201', 

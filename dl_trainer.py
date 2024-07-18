@@ -54,7 +54,7 @@ if settings.EFFICIENT_IO:
 else:
     NUM_CPU_THREADS=8
 
-_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016']
+_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'cifar100']
 _support_dnns = ['alexnet', 'alexnetbn',
         'resnet18', 'resnet50', 'resnet101', 'resnet152', 
         'densenet121', 'densenet161', 'densenet201', 
@@ -127,6 +127,8 @@ def create_net(num_classes, dnn='resnet20', dataset='cifar10', **kwargs):
     elif dnn == 'resnet18' and dataset == "cifar10":
         net = models.cifar_resnet18(num_classes=num_classes)
     elif dnn == 'resnet50' and dataset == "cifar10":
+        net = models.cifar_resnet50(num_classes=num_classes)
+    elif dnn == 'resnet50' and dataset == "cifar100":
         net = models.cifar_resnet50(num_classes=num_classes)
     elif dnn == 'resnet101' and dataset == "cifar10":
         net = models.cifar_resnet101(num_classes=num_classes)
@@ -216,6 +218,8 @@ class DLTrainer:
         self.num_batches_per_epoch = -1
         if self.dataset == 'cifar10' or self.dataset == 'mnist':
             self.num_classes = 10
+        elif self.dataset == 'cifar100':
+            self.num_classes = 100
         elif self.dataset == 'imagenet':
             self.num_classes = 1000
         elif self.dataset == 'an4':
@@ -285,8 +289,10 @@ class DLTrainer:
             self.criterion = CTCLoss()
         self.lr_scheduler = getattr(LRSchedule, 'linear')(lr_init=self.lr, epochs=settings.MAX_EPOCHS, extra=0)
         weight_decay = 1e-4
+        self.weight_decay = weight_decay
         self.m = 0.9 # momentum
         nesterov = False
+        self.nesterov = nesterov
         if self.dataset == 'an4':
             #nesterov = True
             self.lstman4_lr_epoch_tag = 0
@@ -366,6 +372,26 @@ class DLTrainer:
         model, optim = apex.amp.initialize(self.net, self.optimizer, opt_level='O2', loss_scale=128.0)
         self.net = model
         self.optimizer = optim
+
+    def remake_optimizer(self):
+        if (self.optimizer_name == 'Adam'):
+            self.optimizer = optim.Adam(
+            self.net.parameters(),
+            lr=self.lr,
+            weight_decay=self.weight_decay
+        )
+        elif(self.optimizer_name == 'AdamW'):
+            self.optimizer = optim.AdamW(
+            self.net.parameters(),
+            lr=self.lr,
+            weight_decay=self.weight_decay
+        )
+        elif(self.optimizer_name == 'SGD'):
+            self.optimizer = optim.SGD(self.net.parameters(), 
+                lr=self.lr,
+                momentum=self.m, 
+                weight_decay=self.weight_decay,
+                nesterov=self.nesterov)
 
     def get_acc(self):
         return self.accuracy
@@ -506,6 +532,51 @@ class DLTrainer:
             shuffle = False
         self.train_sampler = train_sampler
         print("Downlaod the CIFAR10 dataset.")
+        self.trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size,
+                                                  shuffle=shuffle, num_workers=NUM_CPU_THREADS, sampler=train_sampler)
+        self.testloader = torch.utils.data.DataLoader(testset, batch_size=1000,
+                                                 shuffle=False, num_workers=8)
+        self.classes = ('plane', 'car', 'bird', 'cat',
+               'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+        
+    def cifar100_prepare(self):
+        #transform = transforms.Compose(
+        #    [transforms.ToTensor(),
+        #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        #train_transform = transform
+        #test_transform = transform
+        image_size = 32
+        self._input_shape = (self.batch_size, 3, image_size, image_size)
+        self._output_shape = (self.batch_size, 100)
+        normalize = transforms.Normalize(mean=[0.5070751592371323, 0.48654887331495095, 0.4409178433670343],
+                                             std=[0.2673342858792401, 0.2564384629170883, 0.27615047132568404])
+        train_transform = transforms.Compose([
+                # transforms.ToPILImage(),
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ToTensor(),
+                normalize
+            ])
+        test_transform = transform_test = transforms.Compose([
+                transforms.ToTensor(),
+                normalize])
+        trainset = torchvision.datasets.CIFAR100(root=self.data_dir, train=True,
+                                                download=True, transform=train_transform)
+        testset = torchvision.datasets.CIFAR100(root=self.data_dir, train=False,
+                                               download=True, transform=test_transform)
+        self.trainset = trainset
+        self.testset = testset
+
+        train_sampler = None
+        shuffle = True
+        if self.nworkers > 1: 
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                self.trainset, num_replicas=self.nworkers, rank=self.rank)
+            train_sampler.set_epoch(0)
+            shuffle = False
+        self.train_sampler = train_sampler
+        print("Downlaod the CIFAR100 dataset.")
         self.trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size,
                                                   shuffle=shuffle, num_workers=NUM_CPU_THREADS, sampler=train_sampler)
         self.testloader = torch.utils.data.DataLoader(testset, batch_size=1000,
@@ -678,6 +749,8 @@ class DLTrainer:
             self.imagenet_prepare()
         elif self.dataset == 'cifar10':
             self.cifar10_prepare()
+        elif self.dataset == 'cifar100':
+            self.cifar100_prepare()
         elif self.dataset == 'mnist':
             self.mnist_prepare()
         elif self.dataset == 'an4':
