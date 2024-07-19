@@ -10,7 +10,7 @@ dnn=resnet18
 lr=0.1
 batch_size=128
 
-max_epochs=181
+max_epochs=111
 
 add_noise=True
 
@@ -20,12 +20,14 @@ wandb_entity=hpml-hkbu
 wandb_key=5edd8acc594b95a0b4f58e39b2243143f03c65a0
 exp_name=$exp_name
 # cluster_name=gpuhome
-# cluster_name=scigpu
-# hosts=('scigpu11')
+cluster_name=scigpu
+hosts=('scigpu14')
 
-cluster_name=esetstore
-hosts=('gpu3')
+# cluster_name=esetstore
+# hosts=('gpu3')
 
+
+param_sync=detect_base
 
 alg=sgd_with_sync
 
@@ -57,7 +59,7 @@ source fault_exps/launch.sh
 # source fault_exps/launch.sh
 
 gaussian_std=10.0
-extra_name="nstd$gaussian_std-Psync${param_sync}-Disp${nsteps_display_param_diversity}"
+extra_name="nstd$gaussian_std-Psync${param_sync}-Disp${nsteps_param_diversity}"
 source fault_exps/launch.sh
 
 

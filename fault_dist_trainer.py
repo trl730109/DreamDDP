@@ -83,9 +83,9 @@ def param_diversity(model):
     # for name, param in model.name_parameters():
     for name, param in avg_params.items():
         if "weight" in name:
-            # dist.all_reduce(param, op=dist.ReduceOp.SUM)
-            # param.float() /= dist.get_world_size()
-            dist.all_reduce(param, op=dist.ReduceOp.AVG)
+            dist.all_reduce(param, op=dist.ReduceOp.SUM)
+            param = param.float() / dist.get_world_size()
+            # dist.all_reduce(param, op=dist.ReduceOp.AVG)
 
     if is_root():
         named_diversitys = {}
@@ -97,9 +97,10 @@ def param_diversity(model):
                     diff = (avg_params[name] - param.data)
                     if param.dtype == torch.long:
                         diff = diff.float()
-                    named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    named_diversitys[name] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversitys.append(named_diversitys[f"diver/{name}"].item())
+                    total_diversitys.append(named_diversitys[name].item())
             # return named_diversitys, total_diversity
             return named_diversitys, np.mean(total_diversitys)
         else:
@@ -108,19 +109,47 @@ def param_diversity(model):
                     diff = (avg_params[name] - param.data)
                     if param.dtype == torch.long:
                         diff = diff.float()
-                    named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    named_diversitys[name] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversitys.append(named_diversitys[f"diver/{name}"].item())
+                    total_diversitys.append(named_diversitys[name].item())
             # return named_diversitys, total_diversity
             return named_diversitys, np.mean(total_diversitys)
     else:
         return None, None
 
 
+def get_grad_norm(model):
+    if is_root():
+        named_norms = {}
+        # total_norm = 0.0
+        total_norms = []
+        if isinstance(model, dict):
+            for name, param in model.items():
+                if "weight" in name:
+                    named_norms[name] = param.grad.data.norm() / math.sqrt(param.grad.data.numel())
+                    total_norms.append(named_norms[name].item())
+            return named_norms, np.mean(total_norms)
+        else:
+            # for name, param in model.state_dict().items():
+            for name, param in model.named_parameters():
+                if "weight" in name:
+                    named_norms[name] = param.grad.data.norm() / math.sqrt(param.grad.data.numel())
+                    total_norms.append(named_norms[name].item())
+            return named_norms, np.mean(total_norms)
+    else:
+        return None, None
+    
+
+
+
 def record_param_diversity_with_period(model, global_iters, nsteps_param_diversity, check_param_diversity):
     if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
         named_diversitys, total_diversity = param_diversity(model)
         if is_root():
+            new_named_diversitys = {}
+            for layer, diversity in named_diversitys.items():
+                new_named_diversitys[f"diver/{layer}"] = diversity
             ExpTool.record(named_diversitys)
             ExpTool.record({"total_diversity": total_diversity})
             logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
@@ -143,11 +172,12 @@ def allreduce_model_weights(model):
         # handle = dist.all_reduce(state_dict[name], op=dist.ReduceOp.SUM, async_op=True)
         # handle = dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG, async_op=True)
         # handles.append(handle)
-        dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG)
+        # dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG)
+        dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.SUM)
     # for handle in handles:
     #     handle.wait()
-    # for name, p in state_dict.items():
-    #     state_dict[name] = state_dict[name] / dist.get_world_size()
+    for name, p in state_dict.items():
+        state_dict[name] = state_dict[name] / dist.get_world_size()
 
     return state_dict
 
@@ -368,6 +398,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     if (str2bool(add_noise)):
                         add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
 
+            named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
@@ -393,16 +424,34 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-            ExpTool.upload()
             if (global_iters % new_nsteps_param_sync == 0):
                 logger.info(f'Params averaged using Allreduce at specific iterations.')
                 avg_params = allreduce_model_weights(trainer.net)
                 trainer.net.load_state_dict(dict(avg_params))
                 named_diversitys, total_diversity = param_diversity(trainer.net)
-                if param_sync == ""
+                layers = list(named_diversitys.keys())
+                diversitys = list(named_diversitys.values())
+                max_index = np.argmax(diversitys)
+                max_diversity = diversitys[max_index]
+                argmax_layer = layers[max_index]
+                diverge_per_iter = max_diversity / new_nsteps_param_sync
+                max_error_per_iter = diverge_per_iter / trainer.lr
+                
+                grad_norm = named_gradnorms[argmax_layer]
+                est_tolerance_iters = (grad_norm /10) // max_error_per_iter
 
+                # grad_norm / max_error_per_iter
+                ExpTool.record({"max_error_per_iter": max_error_per_iter, "argmax_error_grad_norm": grad_norm,
+                                "est_tolerance_iters": est_tolerance_iters, "total_gradnorm": total_gradnorm})
+                if param_sync == "detect_base":
+                    # for i in range(1, 100):
+                    #     if grad_norm * 1/100 < max_error_per_iter * i:
+                    #         new_nsteps_param_sync = i
+                    #         break
+                    new_nsteps_param_sync = min(50, est_tolerance_iters)
                 if is_root():
                     logger.info(f'Params have diversity: {total_diversity} after sync params !!!!!!!!.')
+            ExpTool.upload()
 
 
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
@@ -462,7 +511,7 @@ if __name__ == '__main__':
 
     # Check model divergence
     parser.add_argument('--nsteps_param_sync', type=int, default=20)
-    parser.add_argument('--check_param_diversity', type=str, default="False")
+    parser.add_argument('--check_param_diversity', type=str, default="True")
     parser.add_argument('--nsteps_param_diversity', type=int, default=5)
     parser.add_argument('--param_sync', type=str, default="fix")
 

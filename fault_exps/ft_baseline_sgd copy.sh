@@ -10,7 +10,7 @@ dnn=resnet18
 lr=0.1
 batch_size=128
 
-max_epochs=181
+max_epochs=111
 
 add_noise=False
 

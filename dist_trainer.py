@@ -97,9 +97,10 @@ def param_diversity(model):
                     diff = (avg_params[name] - param.data)
                     if param.dtype == torch.long:
                         diff = diff.float()
-                    named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    named_diversitys[name] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversitys.append(named_diversitys[f"diver/{name}"].item())
+                    total_diversitys.append(named_diversitys[name].item())
             # return named_diversitys, total_diversity
             return named_diversitys, np.mean(total_diversitys)
         else:
@@ -108,9 +109,10 @@ def param_diversity(model):
                     diff = (avg_params[name] - param.data)
                     if param.dtype == torch.long:
                         diff = diff.float()
-                    named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    named_diversitys[name] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversitys.append(named_diversitys[f"diver/{name}"].item())
+                    total_diversitys.append(named_diversitys[name].item())
             # return named_diversitys, total_diversity
             return named_diversitys, np.mean(total_diversitys)
     else:
@@ -119,10 +121,14 @@ def param_diversity(model):
 
 
 
+
 def record_param_diversity_with_period(model, global_iters, nsteps_param_diversity, check_param_diversity):
     if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
         named_diversitys, total_diversity = param_diversity(model)
         if is_root():
+            new_named_diversitys = {}
+            for layer, diversity in named_diversitys.items():
+                new_named_diversitys[f"diver/{layer}"] = diversity
             ExpTool.record(named_diversitys)
             ExpTool.record({"total_diversity": total_diversity})
             logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')

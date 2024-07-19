@@ -10,7 +10,7 @@ dnn=resnet18
 lr=0.1
 batch_size=128
 
-max_epochs=181
+max_epochs=111
 
 add_noise=True
 
@@ -55,14 +55,14 @@ gaussian_std=1.0
 extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
 source fault_exps/launch.sh
 
-gaussian_std=10.0
-extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-source fault_exps/launch.sh
+# gaussian_std=10.0
+# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+# source fault_exps/launch.sh
 
 
-gaussian_std=100.0
-extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-source fault_exps/launch.sh
+# gaussian_std=100.0
+# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+# source fault_exps/launch.sh
 
 
 # gaussian_std=1000.0

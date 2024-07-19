@@ -78,8 +78,8 @@ exp_name=${alg}-noi${add_noise}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nstep
 echo "exp name is $exp_name !"
 
 nsteps_param_sync=${nsteps_param_sync:-20}
-nsteps_check_param_diversity=${nsteps_check_param_diversity:-20}
-nsteps_display_param_diversity=${nsteps_display_param_diversity:-20}
+check_param_diversity=${check_param_diversity:-20}
+nsteps_param_diversity=${nsteps_param_diversity:-20}
 param_sync=${param_sync:-"fix"}
 
 master_port=${master_port:-23456}
@@ -114,8 +114,8 @@ do
         --gaussian_mu $gaussian_mu \
         --gaussian_std $gaussian_std \
         --nsteps_param_sync $nsteps_param_sync \
-        --nsteps_check_param_diversity $nsteps_check_param_diversity \
-        --nsteps_display_param_diversity $nsteps_display_param_diversity \
+        --check_param_diversity $check_param_diversity \
+        --nsteps_param_diversity $nsteps_param_diversity \
         --param_sync $param_sync \
         --wandb_entity $wandb_entity --project_name $project_name --enable_wandb $enable_wandb --wandb_offline $wandb_offline \
         --wandb_key $wandb_key \
