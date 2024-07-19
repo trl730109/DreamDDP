@@ -89,7 +89,8 @@ def param_diversity(model):
 
     if is_root():
         named_diversitys = {}
-        total_diversity = 0.0
+        # total_diversity = 0.0
+        total_diversitys = []
         if isinstance(model, dict):
             for name, param in model.items():
                 if "weight" in name:
@@ -98,8 +99,9 @@ def param_diversity(model):
                         diff = diff.float()
                     named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversity += named_diversitys[f"diver/{name}"].item()
-            return named_diversitys, total_diversity
+                    total_diversitys.append(named_diversitys[f"diver/{name}"].item())
+            # return named_diversitys, total_diversity
+            return named_diversitys, np.mean(total_diversitys)
         else:
             for name, param in model.state_dict().items():
                 if "weight" in name:
@@ -108,10 +110,12 @@ def param_diversity(model):
                         diff = diff.float()
                     named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversity += named_diversitys[f"diver/{name}"].item()
-            return named_diversitys, total_diversity
+                    total_diversitys.append(named_diversitys[f"diver/{name}"].item())
+            # return named_diversitys, total_diversity
+            return named_diversitys, np.mean(total_diversitys)
     else:
         return None, None
+
 
 
 

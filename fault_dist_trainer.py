@@ -89,7 +89,8 @@ def param_diversity(model):
 
     if is_root():
         named_diversitys = {}
-        total_diversity = 0.0
+        # total_diversity = 0.0
+        total_diversitys = []
         if isinstance(model, dict):
             for name, param in model.items():
                 if "weight" in name:
@@ -98,8 +99,9 @@ def param_diversity(model):
                         diff = diff.float()
                     named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversity += named_diversitys[f"diver/{name}"].item()
-            return named_diversitys, total_diversity
+                    total_diversitys.append(named_diversitys[f"diver/{name}"].item())
+            # return named_diversitys, total_diversity
+            return named_diversitys, np.mean(total_diversitys)
         else:
             for name, param in model.state_dict().items():
                 if "weight" in name:
@@ -108,8 +110,9 @@ def param_diversity(model):
                         diff = diff.float()
                     named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversity += named_diversitys[f"diver/{name}"].item()
-            return named_diversitys, total_diversity
+                    total_diversitys.append(named_diversitys[f"diver/{name}"].item())
+            # return named_diversitys, total_diversity
+            return named_diversitys, np.mean(total_diversitys)
     else:
         return None, None
 
@@ -158,7 +161,8 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer)
+    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
+                        lr_decay='general')
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -287,7 +291,8 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer)
+    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
+                        lr_decay='general')
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -326,6 +331,9 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
     # optimizer = dist_optim.DistributedOptimizer(trainer.optimizer, add_noise = add_noise, gaussian_mu = gaussian_mu, gaussian_std = gaussian_std, strategy=strategy,overlap_scalar=overlap_scalar, named_parameters=trainer.net.named_parameters(), compression=compressors[compressor](), is_sparse=is_sparse, density=density, seq_layernames=seq_layernames, layerwise_times=layerwise_times, norm_clip=norm_clip, threshold=threshold, writer=writer, gradient_path=gradient_path, momentum_correction=momentum_correction)
     # trainer.update_optimizer(optimizer)
     iters_per_epoch = trainer.num_batches_per_epoch
+
+    init_nsteps_param_sync = nsteps_param_sync
+    new_nsteps_param_sync = nsteps_param_sync
 
     times = []
     logger.info('max_epochs: %d', max_epochs)
@@ -386,11 +394,13 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                         "train_acc": train_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
-            if (global_iters % nsteps_param_sync == 0):
+            if (global_iters % new_nsteps_param_sync == 0):
                 logger.info(f'Params averaged using Allreduce at specific iterations.')
                 avg_params = allreduce_model_weights(trainer.net)
                 trainer.net.load_state_dict(dict(avg_params))
                 named_diversitys, total_diversity = param_diversity(trainer.net)
+                if param_sync == ""
+
                 if is_root():
                     logger.info(f'Params have diversity: {total_diversity} after sync params !!!!!!!!.')
 
