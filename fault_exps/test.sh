@@ -1,6 +1,6 @@
 
 
-master_port=23456
+master_port=11111
 
 alg=sgd
 gaussian_mu=0.0
@@ -27,40 +27,32 @@ hosts=('scigpu14')
 # hosts=('gpu3')
 
 
-param_sync=detect_base
+# param_sync=detect_base
+param_sync=fix
 
 alg=sgd_with_sync
 
 # alg=sgd
 
-source fault_exps/launch.sh
-
-
-# gaussian_std=0.0001
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+# gaussian_std=0.000001
 
 # gaussian_std=0.001
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
 
-# gaussian_std=0.01
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
-
+gaussian_std=0.01
 
 # gaussian_std=0.1
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
 
 
-# gaussian_std=1.0
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+# gaussian_std=10.0
+# gaussian_std=10000.0
+param_sync_async_op=False
 
-gaussian_std=10.0
-extra_name="nstd$gaussian_std-Psync${param_sync}-Disp${nsteps_param_diversity}"
+nsteps_param_diversity=1
+nsteps_param_sync=20
+# gaussian_std=10.0
+extra_name="nstd$gaussian_std-Psync${param_sync}-S${nsteps_param_sync}-Disp${nsteps_param_diversity}"
 source fault_exps/launch.sh
+# source fault_exps/launch_debug.sh
 
 
 # gaussian_std=100.0

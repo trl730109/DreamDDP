@@ -84,9 +84,9 @@ def param_diversity(model, avg_params=None):
         # for name, param in model.name_parameters():
         for name, param in avg_params.items():
             if "weight" in name:
+                # dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
                 dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
                 avg_params[name] = avg_params[name] / dist.get_world_size()
-                # dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
 
     if is_root():
         named_diversitys = {}
@@ -161,8 +161,11 @@ def record_param_diversity_with_period(model, global_iters, nsteps_param_diversi
                 new_named_diversitys[f"diver/{layer}"] = diversity
             ExpTool.record(new_named_diversitys)
             ExpTool.record({"total_diversity": total_diversity})
-            # logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
-            # logger.info(f'!!!!!!!!!!!!!==================named_diversitys: {named_diversitys}!!!!!!!!!!!!!==================')
+            logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
+            for layer, diversity in named_diversitys.items():
+                logger.info(f'Params {layer} have diversity: {diversity} !!!!!!!!.')            
+                break
+            # logger.info(f'!!!!!!!!!!!!!==================named_diversitys: {new_named_diversitys}!!!!!!!!!!!!!==================')
 
 
 
@@ -175,7 +178,7 @@ def record_grad_norm(model, global_iters, nsteps_param_diversity, check_param_di
                 new_named_grad_norms[f"grad_norm/{layer}"] = grad_norm
             ExpTool.record(new_named_grad_norms)
             ExpTool.record({"total_grad_norm": total_grad_norm})
-            # logger.info(f'Params have grad_norm: {total_grad_norm} !!!!!!!!.')
+            logger.info(f'Params have grad_norm: {total_grad_norm} !!!!!!!!.')
             # logger.info(f'!!!!!!!!!!!!!==================named_grad_norms: {named_grad_norms}!!!!!!!!!!!!!==================')
 
 
@@ -197,11 +200,13 @@ def allreduce_model_weights(model):
         # handle = dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG, async_op=True)
         # handles.append(handle)
         # dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG)
-        dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.SUM)
+        dist.all_reduce(state_dict[name], op=dist.ReduceOp.SUM)
+
     # for handle in handles:
     #     handle.wait()
     for name, p in state_dict.items():
-        state_dict[name].data = state_dict[name].data / dist.get_world_size()
+        state_dict[name] = state_dict[name] / dist.get_world_size()
+        # state_dict[name] = state_dict[name]
 
     return state_dict
 
@@ -215,32 +220,22 @@ def allreduce_model_weights_not_inplace(model):
     # for name, module in model.name_modules():
     # for name, param in model.name_parameters():
     for name, param in avg_params.items():
-        # dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
-        dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
-        avg_params[name] = avg_params[name] / dist.get_world_size()
+        if "weight" in name:
+            # dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
+            dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
+            avg_params[name] = avg_params[name] / dist.get_world_size()
     return avg_params
-
-def allreduce_model_weights_not_inplace_async(model, _handles):
-    if isinstance(model, dict):
-        avg_params = deepcopy(model)
-    else:
-        avg_params = deepcopy(model.state_dict())
-
-    # for name, module in model.name_modules():
-    # for name, param in model.name_parameters():
-    for name, param in avg_params.items():
-    # for name, param in model.name_parameters():
-        handle = dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM, async_op=True)
-        _handles[name] = (handle, None, 1)
-        # avg_params[name] = avg_params[name] / dist.get_world_size()
-    return avg_params
-
-
-
 
 
 def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
                    nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None):
+    pass
+
+
+
+
+def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
+                        nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None): 
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
         
@@ -276,134 +271,8 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     logger.info('Broadcast parameters....')
     broadcast_parameters(trainer.net.state_dict(), root_rank=0)
     logger.info('Broadcast parameters finished....')
-
-
-    norm_clip = None
-    if dnn in ['lstm', 'lstmwt2']:
-        norm_clip = 0.25
-    elif dnn == 'lstman4':
-        norm_clip = 400
-
-    optimizer = trainer.optimizer
-    iters_per_epoch = trainer.num_batches_per_epoch
-
-    times = []
-    logger.info('max_epochs: %d', max_epochs)
-    display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
-    global_iters = 0
-    for epoch in range(max_epochs):
-        hidden = None
-        if dnn in ['lstm', 'lstmwt2']:
-            hidden = trainer.net.init_hidden()
-
-        result_dict = {}
-        train_epoch_loss = 0.0
-        train_epoch_acc = 0.0
-        for i in range(iters_per_epoch//nsteps_update):
-            global_iters += 1
-            result_dict = {}
-            s = time.time()
-            optimizer.zero_grad()
-            for j in range(nsteps_update):
-                if j < nsteps_update - 1 and nsteps_update > 1:
-                    optimizer.local = True
-                else:
-                    optimizer.local = False
-                if dnn in ['lstm', 'lstmwt2']:
-                    _, hidden = trainer.train(1, hidden=hidden)
-                else:
-                    trainer.train(1)
-            for param in trainer.net.parameters():
-                if param.requires_grad:
-                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-                    param.grad.data /= dist.get_world_size()
-                    if (str2bool(add_noise)):
-                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
-            # if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
-            #     named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
-            record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-
-            if dnn in ['lstm', 'lstmwt2']:
-                optimizer.synchronize()
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                optimizer.synchronize()
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
-
-            train_loss = trainer.loss
-            train_acc = np.mean(trainer.train_acc_top1)
-            train_epoch_loss += train_loss
-            train_epoch_acc += train_acc
-
-            trainer.update_model()
-            times.append(time.time()-s)
-            if i % display == 0 and i > 0: 
-                time_per_iter = np.mean(times)
-                logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
-                samples_per_seconds = batch_size * nsteps_update / time_per_iter
-                times = []
-                result_dict["time_per_iter"] = time_per_iter
-                result_dict["samples_per_seconds"] = samples_per_seconds
-            ExpTool.record(result_dict)
-            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc})
-            # if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
-            #     named_diversitys, total_diversity = param_diversity(trainer.net)
-            #     if is_root():
-            #         ExpTool.record(named_diversitys)
-            #         ExpTool.record({"total_diversity": total_diversity})
-            #         logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
-            # if is_root():
-            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-
-            ExpTool.upload()
-
-
-        logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-        val_acc = trainer.test(epoch)
-        result_dict["val_acc"] = val_acc
-        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-
-        ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-        ExpTool.upload()
-
-
-
-def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
-                        nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None, param_sync_async_op=False): 
-    rank = dist.get_rank()
-    logger.info('the rank of current process: %d', rank)
-        
-    selected_gpu = rank%nwpernode
-    torch.cuda.set_device(selected_gpu)
-    if rank != 0:
-        pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
-                        lr_decay='general')
-    
-    init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
-    init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
-    dist.broadcast(init_epoch, src=0)
-    dist.broadcast(init_iter, src=0)
-    trainer.set_train_epoch(int(init_epoch.item()))
-    trainer.set_train_iter(int(init_iter.item()))
-
-    logger.info('Broadcast parameters....')
-    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
-    logger.info('Broadcast parameters finished....')
-
-
-    _handles = {}
-    _buffer_params = {}
-
-    def synchronize_all_reduced_models():
-        for tensor, value in _handles.items():
-            handle, ctx, density = value
-            handle.wait()
-        _handles.clear()
-        _buffer_params.clear()
+    # avg_params = allreduce_model_weights(trainer.net)
+    # trainer.net.load_state_dict(dict(avg_params))
 
 
     norm_clip = None
@@ -437,6 +306,19 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             result_dict = {}
             s = time.time()
             optimizer.zero_grad()
+            # avg_params = allreduce_model_weights(trainer.net)
+            # trainer.net.load_state_dict(dict(avg_params))
+            # for name, param in trainer.net.named_parameters():
+            #     if name in avg_params:
+            #         param.data = avg_params[name]
+            # if is_root():
+            #     named_diversitys, total_diversitys = param_diversity(trainer.net, avg_params)
+            #     logger.info(f"=========================================== Init ================================{named_diversitys}===========")
+            # logger.info(f"=========================================== Before FP AND BP ===========================================")
+            # logger.info(f"global_iters % nsteps_param_diversity == 0: {global_iters % nsteps_param_diversity == 0}")
+            # record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            # logger.info(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! After Updating !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
             for j in range(nsteps_update):
                 if j < nsteps_update - 1 and nsteps_update > 1:
                     optimizer.local = True
@@ -446,6 +328,10 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
+            # Record grad norm before averaging with noise. Because the noise will change the magnitude of gradients.
+            record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            if (global_iters % new_nsteps_param_sync == 0):
+                named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
             for param in trainer.net.parameters():
                 if param.requires_grad:
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
@@ -453,9 +339,9 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     if (str2bool(add_noise)):
                         add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
 
-            record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-            if (global_iters % new_nsteps_param_sync == 0):
-                named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
+            # record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            # if (global_iters % new_nsteps_param_sync == 0):
+            #     named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
 
 
             if dnn in ['lstm', 'lstmwt2']:
@@ -469,62 +355,9 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             train_acc = np.mean(trainer.train_acc_top1)
             train_epoch_loss += train_loss
             train_epoch_acc += train_acc
-            # if is_root():
-            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-
-            # calculate divergence before updating model.
-            if (global_iters % new_nsteps_param_sync == 0):
-                if param_sync_async_op:
-                    synchronize_all_reduced_models()
-                    # avg_params[name] = avg_params[name] / dist.get_world_size()
-                    for name, p in avg_params.items():
-                        avg_params[name] = avg_params[name] / dist.get_world_size()
-                else:
-                    pass
-                named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)
-                if is_root():
-                    layers = list(named_diversitys.keys())
-                    diversitys = list(named_diversitys.values())
-                    max_index = np.argmax(diversitys)
-                    max_diversity = diversitys[max_index]
-                    min_index = np.argmin(diversitys)
-                    min_diversity = diversitys[min_index]
-
-                    argmax_layer = layers[max_index]
-                    diverge_per_iter = max_diversity / new_nsteps_param_sync
-                    # max_error_per_iter = diverge_per_iter / trainer.lr
-                    max_error_per_iter = diverge_per_iter
-                    # logger.info(f'named_diversitys: {named_diversitys}')
-                    # logger.info(f'named_gradnorms: {named_gradnorms}')
-                    
-                    grad_norm = named_gradnorms[argmax_layer]
-                    # est_tolerance_iters = (grad_norm /10) // max_error_per_iter
-                    est_tolerance_iters = grad_norm // max_error_per_iter
-                    if param_sync == "detect_base":
-                        # for i in range(1, 100):
-                        #     if grad_norm * 1/100 < max_error_per_iter * i:
-                        #         new_nsteps_param_sync = i
-                        #         break
-                        new_nsteps_param_sync = min(10, est_tolerance_iters)
-                        if new_nsteps_param_sync < 2:
-                            new_nsteps_param_sync = 2
-                        # new_nsteps_param_sync = torch.ones(1) * new_nsteps_param_sync
-                        new_nsteps_param_sync = (torch.ones(1).to(selected_gpu) * new_nsteps_param_sync).to(selected_gpu)
-                    logger.info(f'Params have diversity: {total_diversity} after sync params !!!!!!!!.')
-                    logger.info(f"total_diversity: {total_diversity}, total_gradnorm: {total_gradnorm} "
-                        f'max_diversity: {max_diversity},  min_diversity: {min_diversity}   '
-                        f'max_error_per_iter: {max_error_per_iter.item()}  argmax_error_grad_norm: {grad_norm.item()},'
-                        f"est_tolerance_iters:{est_tolerance_iters.item()},  total_gradnorm: {total_gradnorm.item()}"
-                        f"new_nsteps_param_sync:{new_nsteps_param_sync.item()}")
-                    ExpTool.record({"max_error_per_iter": max_error_per_iter.item(), "argmax_error_grad_norm": grad_norm.item(),
-                                    "est_tolerance_iters": est_tolerance_iters.item(), "total_gradnorm": total_gradnorm.item(),
-                                    "new_nsteps_param_sync": new_nsteps_param_sync.item()})
-
-                    # avg_params = allreduce_model_weights(trainer.net)
-                trainer.net.load_state_dict(dict(avg_params))
-                dist.broadcast(new_nsteps_param_sync, src=0)
-                logger.info(f'have new_nsteps_param_sync: {new_nsteps_param_sync} !!!!!!!!.')
-
+            # logger.info(f"=========================================== Before Updating ===========================================")
+            # record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            # logger.info(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! After Updating !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
             trainer.update_model()
             times.append(time.time()-s)
@@ -538,15 +371,56 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
-
-            #  Launch asynchronous averaging model parameters.
-            if (global_iters % new_nsteps_param_sync == (new_nsteps_param_sync - 1)):
+            # if is_root():
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            if (global_iters % new_nsteps_param_sync == 0):
                 logger.info(f'Params averaged using Allreduce at specific iterations.')
-                if param_sync_async_op:
-                    avg_params = allreduce_model_weights_not_inplace_async(trainer.net, _handles)
-                else:
-                    avg_params = allreduce_model_weights_not_inplace(trainer.net)
+                avg_params = allreduce_model_weights_not_inplace(trainer.net)
+                named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)
+                # named_diversitys, total_diversity = param_diversity(trainer.net)
+                if is_root():
+                    layers = list(named_diversitys.keys())
+                    diversitys = list(named_diversitys.values())
+                    max_index = np.argmax(diversitys)
+                    max_diversity = diversitys[max_index]
+                    min_index = np.argmin(diversitys)
+                    min_diversity = diversitys[min_index]
 
+                    argmax_layer = layers[max_index]
+                    diverge_per_iter = max_diversity / new_nsteps_param_sync
+                    # max_error_per_iter = diverge_per_iter / trainer.lr
+                    max_error_per_iter = diverge_per_iter
+                    logger.info(f'named_diversitys: {named_diversitys}')
+                    logger.info(f'named_gradnorms: {named_gradnorms}')
+                    
+                    grad_norm = named_gradnorms[argmax_layer]
+                    # est_tolerance_iters = (grad_norm /10) // max_error_per_iter
+                    est_tolerance_iters = grad_norm // max_error_per_iter
+                    if param_sync == "detect_base":
+                        # for i in range(1, 100):
+                        #     if grad_norm * 1/100 < max_error_per_iter * i:
+                        #         new_nsteps_param_sync = i
+                        #         break
+                        new_nsteps_param_sync = min(50, est_tolerance_iters)
+                        if new_nsteps_param_sync < 1:
+                            new_nsteps_param_sync = 1
+                        # new_nsteps_param_sync = torch.ones(1) * new_nsteps_param_sync
+                        new_nsteps_param_sync = (torch.ones(1).to(selected_gpu) * new_nsteps_param_sync).to(selected_gpu)
+                    logger.info(f'Params have diversity: {total_diversity} after sync params !!!!!!!!.')
+                    logger.info(f"total_diversity: {total_diversity}, total_gradnorm: {total_gradnorm} "
+                        f'max_diversity: {max_diversity},  min_diversity: {min_diversity}   '
+                        f'max_error_per_iter: {max_error_per_iter.item()}  argmax_error_grad_norm: {grad_norm.item()},'
+                        f"est_tolerance_iters:{est_tolerance_iters.item()},  total_gradnorm: {total_gradnorm.item()}"
+                        f"new_nsteps_param_sync:{new_nsteps_param_sync.item()}")
+                    ExpTool.record({"max_error_per_iter": max_error_per_iter.item(), "argmax_error_grad_norm": grad_norm.item(),
+                                    "est_tolerance_iters": est_tolerance_iters.item(), "total_gradnorm": total_gradnorm.item(),
+                                    "new_nsteps_param_sync": new_nsteps_param_sync.item()})
+
+                    logger.info(f'Params have diversity: {total_diversity} after sync params !!!!!!!!.')
+                    # avg_params = allreduce_model_weights(trainer.net)
+                trainer.net.load_state_dict(dict(avg_params))
+                dist.broadcast(new_nsteps_param_sync, src=0)
+                logger.info(f'have new_nsteps_param_sync: {new_nsteps_param_sync} !!!!!!!!.')
             ExpTool.upload()
 
 
@@ -717,7 +591,7 @@ if __name__ == '__main__':
     elif (args.alg == 'sgd_with_sync'):
         logger.info("Alg used: pipe_seq_localsgd.")
         ssgd_with_param_sync(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
-                       args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync, args.param_sync_async_op)
+                       args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync)
 
     ExpTool.finish(args)
 

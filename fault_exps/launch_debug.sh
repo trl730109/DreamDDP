@@ -3,7 +3,7 @@
 # Set Python and script environment
 #source ../configs/envs.conf
 directory=`pwd`
-script="${script:-fault_dist_trainer.py}"  # Assuming this is the PyTorch distributed training script
+script="${script:-fault_debug_dist_trainer.py}"  # Assuming this is the PyTorch distributed training script
 params="${params:-}"
 echo "launch dir: $directory"
 

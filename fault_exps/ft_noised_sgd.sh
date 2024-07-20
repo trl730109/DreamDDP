@@ -22,13 +22,20 @@ exp_name=$exp_name
 # cluster_name=gpuhome
 # cluster_name=scigpu
 # hosts=('localhost')
+cluster_name=scigpu
+hosts=('scigpu14')
 
-cluster_name=esetstore
-hosts=('gpu6')
+
+# cluster_name=esetstore
+# hosts=('gpu6')
 
 
 
 # source fault_exps/launch.sh
+param_sync_async_op=False
+
+nsteps_param_diversity=5
+nsteps_param_sync=20
 
 
 gaussian_std=0.0001
@@ -52,6 +59,41 @@ source fault_exps/launch.sh
 gaussian_std=1.0
 extra_name="nstd$gaussian_std"
 source fault_exps/launch.sh
+
+
+alg=sgd_with_sync
+gaussian_mu=0.0
+gaussian_std=0.001
+optimizer_name=SGD
+dnn=resnet18
+lr=0.1
+batch_size=128
+
+max_epochs=111
+
+add_noise=True
+param_sync=detect_base
+
+gaussian_std=0.0001
+extra_name="nstd$gaussian_std-SyncPdetect"
+source fault_exps/launch.sh
+
+gaussian_std=0.001
+extra_name="nstd$gaussian_std-SyncPdetect"
+source fault_exps/launch.sh
+
+gaussian_std=0.01
+extra_name="nstd$gaussian_std-SyncPdetect"
+source fault_exps/launch.sh
+
+gaussian_std=0.1
+extra_name="nstd$gaussian_std-SyncPdetect"
+source fault_exps/launch.sh
+
+gaussian_std=1.0
+extra_name="nstd$gaussian_std-SyncPdetect"
+source fault_exps/launch.sh
+
 
 # gaussian_std=10.0
 # extra_name="nstd$gaussian_std"

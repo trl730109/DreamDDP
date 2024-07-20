@@ -85,7 +85,7 @@ def param_diversity(model):
         if "weight" in name:
             # dist.all_reduce(param, op=dist.ReduceOp.SUM)
             # param.float() /= dist.get_world_size()
-            dist.all_reduce(param, op=dist.ReduceOp.AVG)
+            dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
 
     if is_root():
         named_diversitys = {}
@@ -93,7 +93,7 @@ def param_diversity(model):
         total_diversitys = []
         if isinstance(model, dict):
             for name, param in model.items():
-                if "weight" in name:
+                if "weight" in name and ("bn" not in name ):
                     diff = (avg_params[name] - param.data)
                     if param.dtype == torch.long:
                         diff = diff.float()
@@ -105,7 +105,7 @@ def param_diversity(model):
             return named_diversitys, np.mean(total_diversitys)
         else:
             for name, param in model.state_dict().items():
-                if "weight" in name:
+                if "weight" in name and ("bn" not in name ):
                     diff = (avg_params[name] - param.data)
                     if param.dtype == torch.long:
                         diff = diff.float()
@@ -129,7 +129,7 @@ def record_param_diversity_with_period(model, global_iters, nsteps_param_diversi
             new_named_diversitys = {}
             for layer, diversity in named_diversitys.items():
                 new_named_diversitys[f"diver/{layer}"] = diversity
-            ExpTool.record(named_diversitys)
+            ExpTool.record(new_named_diversitys)
             ExpTool.record({"total_diversity": total_diversity})
             logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
 
@@ -1401,6 +1401,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
+
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
             
@@ -1426,7 +1427,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         ExpTool.upload()
 
 def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1,
-                         nsteps_param_diversit=None, check_param_diversity=None):
+                         nsteps_param_diversity=None, check_param_diversity=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -1566,7 +1567,7 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
         ExpTool.upload()
 
 def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
-                         nsteps_param_diversit=None, check_param_diversity=None):
+                         nsteps_param_diversity=None, check_param_diversity=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -1694,7 +1695,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         ExpTool.upload()
 
 def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
-                         nsteps_param_diversit=None, check_param_diversity=None):
+                         nsteps_param_diversity=None, check_param_diversity=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)

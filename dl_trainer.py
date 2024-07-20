@@ -291,6 +291,7 @@ class DLTrainer:
         weight_decay = 1e-4
         self.weight_decay = weight_decay
         self.m = 0.9 # momentum
+        # self.m = 0.0 # momentum
         nesterov = False
         self.nesterov = nesterov
         if self.dataset == 'an4':
