@@ -23,7 +23,7 @@ alg='sgd'
 # 10.0.0.26 gpu16
 optimizer_name=SGD
 dnn=resnet18
-max_epochs=0
+max_epochs=1
 # add_noise=True
 extra_name='707'
 
@@ -34,10 +34,12 @@ wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 
 exp_name=$exp_name
 cluster_name=shenzhen
-
+check_param_diversity=false
+nsteps_param_diversity=5
 #hosts=('10.0.0.22')
-hosts=('10.0.0.18' '10.0.0.16')
-#
+# hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
+hosts=('10.0.0.19' '10.0.0.18')
+# #
 
 node_count=${#hosts[@]}
 nworkers=$((4 * node_count))
@@ -48,25 +50,11 @@ interface=eno0
 lr=0.1
 lr_decay='general'
 source train_exps/launch_mul.sh
-# lr_decay=None
-# lr=0.1
-# lr_decay='linear'
-# source train_exps/launch_mul.sh
 
-# interface=ens5f0
-# node_rank=1
-# source train_exps/launch_mul.sh
-# # lr=0.1
-# lr_decay='cosine'
-# source train_exps/launch_mul.sh
-
-# alg='pipe'
-# # lr_decay='cosine'
-# node_rank=1
-# # lr=0.1
-# source train_exps/launch_mul.sh
-
-# lr_decay='step'
-# node_rank=1
-# lr=0.1
-# source train_exps/launch_mul.sh
+dnn=resnet50
+dataset=cifar100
+lr=0.1
+interface=eno0
+node_rank=1
+lr_decay='general'
+source train_exps/launch_mul.sh

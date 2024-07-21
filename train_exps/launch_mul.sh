@@ -54,6 +54,10 @@ lr_decay="${lr_decay:-None}"
 dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 group_num="${group_num:-6}"
+
+check_param_diversity=false
+nsteps_param_diversity=5
+
 if [ "$interface" = "eno0" ]; then
     bandwidth="1G"
 elif [ "$interface" = "ens5f0" ]; then
@@ -65,7 +69,9 @@ fi
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
 if [ "$alg" = "pipe_seq_localsgd" ]; then
-    exp_name="${extra_name}-${alg}-${sync}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+elif [ "$alg" = "pipe_seq_localsgd_warmup" ]; then
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
 elif [ "$alg" = "localsgd" ]; then
     exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
 elif [ "$alg" = "transformer_localsgd" ]; then
@@ -115,6 +121,8 @@ do
         --interface $interface \
         --threshold $threshold \
         --saved-dir $GRADSPATH \
+        --check_param_diversity $check_param_diversity \
+        --nsteps_param_diversity $nsteps_param_diversity \
         --momentum-correction $momentum_correction \
         --wandb_entity $wandb_entity --project_name $project_name --enable_wandb $enable_wandb --wandb_offline $wandb_offline \
         --wandb_key $wandb_key"

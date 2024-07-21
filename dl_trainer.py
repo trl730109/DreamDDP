@@ -959,57 +959,41 @@ class DLTrainer:
                 self.lr = lr
             for param_group in optimizer.param_groups:
                 param_group['lr'] = self.lr
+                
+        elif self.lr_decay == 'exp':
+            warmup = 5
+            if settings.WARMUP and progress < warmup:
+                warmup_total_iters = self.num_batches_per_epoch * warmup
+                min_lr = self.base_lr / warmup_total_iters 
+                lr_interval = (self.base_lr - min_lr) / warmup_total_iters
+                self.lr = min_lr + lr_interval * self.train_iter
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = self.lr
+                return self.lr
+            first = 101
+            second = 121
+            decay_factor = 10 ** (1 / 20)
+            # third = second+33
+            if progress < first: #40:  30 for ResNet-50, 40 for ResNet-20
+                #interval_iters = first * self.num_batches_per_epoch+2
+                #lr_interval = (self.base_lr-self.base_lr*0.1)/interval_iters
+                #lr = self.base_lr - (self.train_iter % interval_iters) * lr_interval
+                lr = self.base_lr
+            elif progress < second: #80: 70 for ResNet-50, 80 for ResNet-20
+                decay_epochs = second - progress
+                lr = self.base_lr * 0.1 * (decay_factor ** decay_epochs)
+            self.lr = lr
+            if settings.ZHU:
+                k = (self.train_iter+1)#*self.nworkers
+                lr = 1.0/(np.sqrt(k) * np.log(k))
+                max_lr = self.base_lr
+                if lr > max_lr:
+                    lr = max_lr
+                self.lr = lr
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = self.lr
         return self.lr 
-        # warmup = 5
-        # if settings.WARMUP and progress < warmup:
-        #     warmup_total_iters = self.num_batches_per_epoch * warmup
-        #     min_lr = self.base_lr / warmup_total_iters 
-        #     lr_interval = (self.base_lr - min_lr) / warmup_total_iters
-        #     self.lr = min_lr + lr_interval * self.train_iter
-        #     for param_group in optimizer.param_groups:
-        #         param_group['lr'] = self.lr
-        #     return self.lr
-        # first = 81
-        # second = first + 41
-        # third = second+33
-        # if self.dataset == 'imagenet':
-        #     first = 30
-        #     second = 60
-        #     third = 80
-        # elif self.dataset == 'ptb':
-        #     first = 24
-        #     second = 60
-        #     third = 80
-        # if progress < first: #40:  30 for ResNet-50, 40 for ResNet-20
-        #     #interval_iters = first * self.num_batches_per_epoch+2
-        #     #lr_interval = (self.base_lr-self.base_lr*0.1)/interval_iters
-        #     #lr = self.base_lr - (self.train_iter % interval_iters) * lr_interval
-        #     lr = self.base_lr
-        # elif progress < second: #80: 70 for ResNet-50, 80 for ResNet-20
-        #     #interval_iters = (second-first) * self.num_batches_per_epoch+2
-        #     #lr_interval = (self.base_lr*0.1-self.base_lr*0.01)/interval_iters
-        #     #lr = self.base_lr *0.1 - (self.train_iter % interval_iters) * lr_interval
-        #     lr = self.base_lr * 0.1
-        # elif progress < third:
-        #     #interval_iters = (third-second) * self.num_batches_per_epoch+2
-        #     #lr_interval = (self.base_lr*0.01-self.base_lr*0.001)/interval_iters
-        #     #lr = self.base_lr *0.01 - (self.train_iter % interval_iters) * lr_interval
-        #     lr = self.base_lr * 0.01
-        # else:
-        #     lr = self.base_lr *0.001
-        # #if self.train_iter % self.num_batches_per_epoch != 0:
-        # #    lr = lr - lr/(self.train_iter % self.num_batches_per_epoch+1)
-        # self.lr = lr
-        # if settings.ZHU:
-        #     k = (self.train_iter+1)#*self.nworkers
-        #     lr = 1.0/(np.sqrt(k) * np.log(k))
-        #     max_lr = self.base_lr
-        #     if lr > max_lr:
-        #         lr = max_lr
-        #     self.lr = lr
-        # for param_group in optimizer.param_groups:
-        #     param_group['lr'] = self.lr
-        # return self.lr 
+        
 
     def _adjust_learning_rate_vgg16(self, progress, optimizer):
         if progress > 0 and progress % 25 == 0:
@@ -1219,61 +1203,47 @@ class DLTrainer:
             #inputs, labels = Variable(inputs), Variable(labels)
             #logger.info('[%d] labels: %s', self.train_iter, labels_cpu)
             self.iotime += (time.time() - ss)
-            with record_function("forward_pass"):
-                sforward = time.time()
-                if self.dnn == 'lstman4':
-                    out, output_sizes = self.net(inputs, input_sizes)
-                    out = out.transpose(0, 1)  # TxNxH
-                    loss = self.criterion(out, labels_cpu, output_sizes, target_sizes)
-                    self.forwardtime += (time.time() - sforward)
-                    loss = loss / inputs.size(0)  # average the loss by minibatch
-                elif self.dnn in ['lstm', 'lstmwt2']:
-                    hidden = lstmpy.repackage_hidden(hidden)
-                    #print(inputs.size(), hidden[0].size(), hidden[1].size())
-                    outputs, hidden = self.net(inputs, hidden)
-                    tt = torch.squeeze(labels.view(-1, self.net.batch_size * self.net.num_steps))
-                    loss = self.criterion(outputs.view(-1, self.net.vocab_size), tt)
-                    self.forwardtime += (time.time() - sforward)
-                elif self.dnn == 'transformer':
-                    pred = self.net(src_seq, src_pos, tgt_seq, tgt_pos)
+            # with record_function("forward_pass"):
+            sforward = time.time()
+            if self.dnn == 'lstman4':
+                out, output_sizes = self.net(inputs, input_sizes)
+                out = out.transpose(0, 1)  # TxNxH
+                loss = self.criterion(out, labels_cpu, output_sizes, target_sizes)
+                self.forwardtime += (time.time() - sforward)
+                loss = loss / inputs.size(0)  # average the loss by minibatch
+            elif self.dnn in ['lstm', 'lstmwt2']:
+                hidden = lstmpy.repackage_hidden(hidden)
+                #print(inputs.size(), hidden[0].size(), hidden[1].size())
+                outputs, hidden = self.net(inputs, hidden)
+                tt = torch.squeeze(labels.view(-1, self.net.batch_size * self.net.num_steps))
+                loss = self.criterion(outputs.view(-1, self.net.vocab_size), tt)
+                self.forwardtime += (time.time() - sforward)
+            elif self.dnn == 'transformer':
+                pred = self.net(src_seq, src_pos, tgt_seq, tgt_pos)
 
-                    loss, n_correct = self.cal_performance_transformer(pred, gold, smoothing=True)
-                    non_pad_mask = gold.ne(Constants.PAD)
-                    n_word = non_pad_mask.sum().item()
-                    accuracy = n_correct/n_word
-                    self.train_acc_top1.append(accuracy)
-                    self.forwardtime += (time.time() - sforward)
-                else:
-                    # forward + backward + optimize
-                    outputs = self.net(inputs)
-                    loss = self.criterion(outputs, labels)
-                    self.forwardtime += (time.time() - sforward)
+                loss, n_correct = self.cal_performance_transformer(pred, gold, smoothing=True)
+                non_pad_mask = gold.ne(Constants.PAD)
+                n_word = non_pad_mask.sum().item()
+                accuracy = n_correct/n_word
+                self.train_acc_top1.append(accuracy)
+                self.forwardtime += (time.time() - sforward)
+            else:
+                # forward + backward + optimize
+                outputs = self.net(inputs)
+                loss = self.criterion(outputs, labels)
+                self.forwardtime += (time.time() - sforward)
                     
-            # if (self.time_measure and self.train_epoch == 0):
-            #     self.layer_backward_dict = {}
-            #     for name, _ in self.net.named_modules():
-            #         self.layer_backward_dict[name] = 0
-                
-            #     tmp_times = {}
-            #     def _make_hook(name):
-            #         def hook(module, grad_input, grad_output):
-            #             logger.info(f'Hook is called')
-            #             elapsed_time = time.time()
-            #             tmp_times[name] = elapsed_time
-            #         return hook
-                
-            #     for name, module in self.net.named_modules():
-            #         module.register_backward_hook(_make_hook(name))
-            #     tmp_times['start'] = time.time()
-            with record_function("backward_pass"):
-                sbackward = time.time()
-                self.backward_stamp = sbackward
-                if self.amp_handle is not None:
-                    with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                        loss = scaled_loss
-                else:
-                    loss.backward()
+
+            # with record_function("backward_pass"):
+            torch.cuda.synchronize()
+            sbackward = time.time()
+            self.backward_stamp = sbackward
+            if self.amp_handle is not None:
+                with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                    scaled_loss.backward()
+                    loss = scaled_loss
+            else:
+                loss.backward()
                 
             # if (self.time_measure and self.train_epoch == 0):
             #     logger.info(f'Time stamp for each layers is {tmp_times}')
