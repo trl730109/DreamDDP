@@ -22,21 +22,21 @@ alg='pipe_seq_localsgd_warmup'
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
 optimizer_name=SGD
-dnn=resnet18
+dnn=resnet50
 max_epochs=20
 # add_noise=True
 extra_name='test'
 interface=eno0
-enable_wandb=False
+enable_wandb=true
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
-
+dataset=cifar100
 exp_name=$exp_name
 cluster_name=shenzhen
 
 #hosts=('10.0.0.20')
-hosts=('10.0.0.19')
+hosts=('10.0.0.11' '10.0.0.12')
 #
 
 node_count=${#hosts[@]}
@@ -46,7 +46,7 @@ nsteps_localsgd=20
 
 interface=ens5f0
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
 node_rank=1
 lr=0.1
 source train_exps/launch_mul.sh

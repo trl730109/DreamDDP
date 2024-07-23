@@ -34,65 +34,75 @@ wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 interface=eno0
 exp_name=$exp_name
 cluster_name=shenzhen
-
+check_param_diversity=false
+nsteps_param_diversity=5
 #hosts=('10.0.0.20')
-hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' '10.0.0.26')
+hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21')
 #
-
 node_count=${#hosts[@]}
+# extra_name="Diversity_${node_count}Nodes"
 extra_name="${node_count}Nodes"
 nworkers=$((4 * node_count))
 
-alg='pipe_seq_localsgd_warmup'
-nsteps_localsgd=20
-node_rank=1
-lr_decay='general'
-lr=0.1
-source train_exps/launch_mul.sh
-
 alg='pipe_seq_localsgd'
 nsteps_localsgd=20
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
 lr=0.1
 source train_exps/launch_mul.sh
+
 
 alg='localsgd'
 nsteps_localsgd=20
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
 lr=0.1
 source train_exps/launch_mul.sh
 
-alg='pipe_seq_localsgd_warmup'
-nsteps_localsgd=10
+# alg='sgd'
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# alg='pipe_sgd'
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# alg='pipe_sgd'
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+alg='full_pipe_seq'
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
+group_num=5
 lr=0.1
 source train_exps/launch_mul.sh
 
-alg='pipe_seq_localsgd'
-nsteps_localsgd=10
+alg='full_pipe_seq'
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
+group_num=10
 lr=0.1
 source train_exps/launch_mul.sh
 
-alg='localsgd'
-nsteps_localsgd=10
+alg='full_pipe_seq'
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
+group_num=12
 lr=0.1
 source train_exps/launch_mul.sh
 
-alg='sgd'
+alg='full_pipe_seq'
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
+group_num=15
 lr=0.1
 source train_exps/launch_mul.sh
 
-alg='pipe_sgd'
-node_rank=1
-lr_decay='general'
-lr=0.1
-source train_exps/launch_mul.sh
+

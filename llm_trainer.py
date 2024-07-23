@@ -709,7 +709,7 @@ class LLMTrainer:
                     self.train_sampler.set_epoch(self.train_epoch)
 
             
-            # batch = self.data_iter()
+            
             # if self.is_cuda: 
             #     keys = list(batch.keys())
             #     device_batch = {
@@ -724,36 +724,32 @@ class LLMTrainer:
             # else:
             #     labels = labels_cpu
 
-
+            batch = self.data_iter()
             ss = time.time()
             self.iotime += (time.time() - ss)
             
-            # outputs = self.net(device_batch)
-            # # loss = self.criterion(outputs, labels)
-            # loss = outputs.loss
-            for step, batch in enumerate(self.trainloader):
-                device_batch = self.to_device(batch)
-                sforward = time.time()
-                outputs = self.net(**device_batch)
-                loss = outputs.loss
-                self.forwardtime += (time.time() - sforward)
-            
-                sbackward = time.time()
-                if self.amp_handle is not None:
-                    with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                        loss = scaled_loss
-                else:
-                    loss.backward()
-                loss_value = loss.item()
-                self.backwardtime += (time.time() - sbackward)
-            
-                self.loss += loss_value 
-                self.avg_loss_per_epoch += loss_value
+            device_batch = self.to_device(batch)
+            sforward = time.time()
+            outputs = self.net(**device_batch)
+            loss = outputs.loss
+            self.forwardtime += (time.time() - sforward)
+        
+            sbackward = time.time()
+            if self.amp_handle is not None:
+                with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                    scaled_loss.backward()
+                    loss = scaled_loss
+            else:
+                loss.backward()
+            loss_value = loss.item()
+            self.backwardtime += (time.time() - sbackward)
+        
+            self.loss += loss_value 
+            self.avg_loss_per_epoch += loss_value
 
-                # acc1, = self.cal_accuracy(outputs, labels, topk=(1,))
-                # self.train_acc_top1.append(float(acc1))
-                self.train_loss.append(loss)
+            # acc1, = self.cal_accuracy(outputs, labels, topk=(1,))
+            # self.train_acc_top1.append(float(acc1))
+            self.train_loss.append(loss)
             
             ppl = torch.exp(torch.stack(self.train_loss).mean())
             self.ppl = ppl
@@ -807,12 +803,13 @@ class LLMTrainer:
                 total_iters += 1
 
         test_loss /= total_iters
+        test_ppl = math.exp(test_loss)
         acc = correct_top1 / total
         acc5 = correct_top5 / total
         logger.info('Epoch %d, lr: %f, val loss: %f, val top-1 acc: %f, top-5 acc: %f' % (epoch, self.lr, test_loss, acc, acc5))
         
         self.net.train()
-        return acc
+        return test_ppl
 
     def update_model(self):
         self.optimizer.step()

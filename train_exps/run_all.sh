@@ -38,7 +38,7 @@ nsteps_localsgd=10
 interface=eno0
 node_rank=1
 lr_decay='exp'
-lr=0.1
+lr=0.01
 source train_exps/launch_mul.sh
 
 interface=eno0

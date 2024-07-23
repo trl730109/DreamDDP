@@ -992,6 +992,12 @@ class DLTrainer:
                 self.lr = lr
             for param_group in optimizer.param_groups:
                 param_group['lr'] = self.lr
+                
+        elif self.lr_decay == 'fixed':
+            self.lr = self.base_lr
+            for param_group in optimizer.param_groups:
+                    param_group['lr'] = self.lr
+
         return self.lr 
         
 

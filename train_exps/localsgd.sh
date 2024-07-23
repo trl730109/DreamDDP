@@ -24,7 +24,7 @@ alg='localsgd'
 interface=eno0
 optimizer_name=SGD
 dnn=resnet18
-max_epochs=3
+max_epochs=180
 # add_noise=True
 extra_name='lrtest'
 
@@ -38,7 +38,7 @@ exp_name=$exp_name
 cluster_name=shenzhen
 
 # hosts=('10.0.0.19' '10.0.0.16' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
-hosts=('10.0.0.19')
+hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.26')
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
 #
 
@@ -56,7 +56,7 @@ scalar=2
 # source train_exps/launch_mul.sh
 
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
 lr=0.2
 source train_exps/launch_mul.sh
 

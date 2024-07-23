@@ -39,7 +39,7 @@ exp_name=$exp_name
 cluster_name=shenzhen
 
 #hosts=('10.0.0.20')
-hosts=('10.0.0.19')
+hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' '10.0.0.26')
 #
 
 node_count=${#hosts[@]}
@@ -47,13 +47,13 @@ extra_name="${node_count}Nodes"
 nworkers=$((4 * node_count))
 
 
-interface=eno0
-alg='pipe_seq_localsgd'
-node_rank=1
-nsteps_localsgd=20
-lr_decay='general'
-lr=0.1
-source train_exps/launch_mul.sh
+# interface=eno0
+# alg='pipe_seq_localsgd'
+# node_rank=1
+# nsteps_localsgd=20
+# lr_decay='general'
+# lr=0.1
+# source train_exps/launch_mul.sh
 
 node_rank=1
 nsteps_localsgd=20
@@ -64,12 +64,12 @@ interface=eno0
 source train_exps/launch_mul.sh
 
 
-node_rank=1
-alg='pipe_sgd'
-lr_decay='general'
-lr=0.1
-interface=eno0
-source train_exps/launch_mul.sh
+# node_rank=1
+# alg='pipe_sgd'
+# lr_decay='general'
+# lr=0.1
+# interface=eno0
+# source train_exps/launch_mul.sh
 
 node_rank=1
 alg='sgd'

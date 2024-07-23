@@ -38,7 +38,7 @@ check_param_diversity=false
 nsteps_param_diversity=5
 #hosts=('10.0.0.22')
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
-hosts=('10.0.0.19' '10.0.0.18')
+hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.26')
 # #
 
 node_count=${#hosts[@]}
@@ -47,8 +47,14 @@ interface=eno0
 # interface=ens5f0
 #nsteps_localsgd=20
 
+# lr=0.1
+# lr_decay='general'
+# source train_exps/launch_mul.sh
+
 lr=0.1
-lr_decay='general'
+interface=eno0
+node_rank=1
+lr_decay='exp'
 source train_exps/launch_mul.sh
 
 dnn=resnet50
@@ -56,5 +62,5 @@ dataset=cifar100
 lr=0.1
 interface=eno0
 node_rank=1
-lr_decay='general'
+lr_decay='exp'
 source train_exps/launch_mul.sh

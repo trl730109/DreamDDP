@@ -55,7 +55,7 @@ dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 group_num="${group_num:-6}"
 
-check_param_diversity=false
+check_param_diversity="${check_param_diversity:-false}"
 nsteps_param_diversity=5
 
 if [ "$interface" = "eno0" ]; then
