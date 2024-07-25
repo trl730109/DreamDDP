@@ -1,6 +1,5 @@
 lr=0.1
 batch_size=128
-alg='pipe_sgd'
 #pipe_seq_localsgd
 # 127.0.0.1 localhost
 # 127.0.1.1 gpu9
@@ -26,58 +25,78 @@ dnn=resnet50
 max_epochs=121
 dataset=cifar100
 # add_noise=True
-extra_name="${node_count}Nodes"
-interface=ens5f0
-enable_wandb=True
+# extra_name='test'
+interface=eno0
+enable_wandb=true
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
+interface=eno0
+exp_name=$exp_name
+cluster_name=shenzhen
 check_param_diversity=false
 nsteps_param_diversity=5
-cluster_name=shenzhen
-
 #hosts=('10.0.0.20')
-# hosts=('10.0.0.18' '10.0.0.26')
-hosts=('10.0.0.19' '10.0.0.11' '10.0.0.12' '10.0.0.20' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' )
+hosts=('10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' )
 #
-
 node_count=${#hosts[@]}
+# extra_name="Diversity_${node_count}Nodes"
+extra_name="${node_count}Nodes"
 nworkers=$((4 * node_count))
 
-#nsteps_localsgd=20
-# lr_decay='linear'
-# lr_decay=None
-
-# lr=0.1
+# alg='pipe_seq_localsgd'
+# nsteps_localsgd=10
 # node_rank=1
 # lr_decay='exp'
+# lr=0.1
 # source train_exps/launch_mul.sh
 
-scalar=2
-lr=0.1
-lr=$(echo "$lr * sqrt($scalar)" | bc -l)
+# alg='localsgd'
+# nsteps_localsgd=10
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# alg='sgd'
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# alg='pipe_sgd'
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+
+alg='dream_ddp'
 node_rank=1
 lr_decay='exp'
+group_num=5
+lr=0.1
 source train_exps/launch_mul.sh
 
-# lr=0.3
-# node_rank=1
-# lr_decay='exp'
-# source train_exps/launch_mul.sh
+alg='dream_ddp'
+node_rank=1
+lr_decay='exp'
+group_num=6
+lr=0.1
+source train_exps/launch_mul.sh
 
-# lr=1
-# node_rank=1
-# lr_decay='exp'
-# source train_exps/launch_mul.sh
+alg='dream_ddp'
+node_rank=1
+lr_decay='exp'
+group_num=8
+lr=0.1
+source train_exps/launch_mul.sh
 
-# interface=ens5f0
-# node_rank=1
-# source train_exps/launch_mul.sh
-# lr=0.1
-# lr_decay='cosine'
-# source train_exps/launch_mul.sh
+alg='dream_ddp'
+node_rank=1
+lr_decay='exp'
+group_num=10
+lr=0.1
+source train_exps/launch_mul.sh
 
-# lr_decay='step'
-# node_rank=1
-# lr=0.1
-# source train_exps/launch_mul.sh
+

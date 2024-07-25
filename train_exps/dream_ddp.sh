@@ -1,6 +1,6 @@
 lr=0.1
 batch_size=128
-alg='pipe_seq_localsgd'
+alg='dream_ddp'
 #pipe_seq_localsgd
 # 127.0.0.1 localhost
 # 127.0.1.1 gpu9
@@ -23,36 +23,31 @@ alg='pipe_seq_localsgd'
 # 10.0.0.26 gpu16
 optimizer_name=SGD
 dnn=resnet50
-max_epochs=121
+max_epochs=5
 dataset=cifar100
 # add_noise=True
-extra_name='test'
+extra_name='707'
 interface=eno0
-enable_wandb=True
+enable_wandb=false
 wandb_offline=False
 wandb_entity=hpml-hkbu
+# wandb_key=None
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
-
 exp_name=$exp_name
 cluster_name=shenzhen
+check_param_diversity=false
+nsteps_param_diversity=5
 
-#hosts=('10.0.0.20')
-hosts=('10.0.0.19')
+#hosts=('10.0.0.22')
+hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.26')
 #
 
 node_count=${#hosts[@]}
 nworkers=$((4 * node_count))
 
-nsteps_localsgd=20
-
+alg='dream_ddp'
+node_rank=1
 lr_decay='exp'
-
+group_num=10
+lr=0.1
 source train_exps/launch_mul.sh
-
-
-
-
-# lr_decay='step'
-# node_rank=1
-# lr=0.1
-# source train_exps/launch_mul.sh

@@ -80,6 +80,9 @@ elif [ "$alg" = "transformer_localsgd" ]; then
 elif [ "$alg" = "full_pipe_seq" ]; then
     exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
+elif [ "$alg" = "dream_ddp" ]; then
+    exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    echo "Exp name: $exp_name"
 else
     exp_name="${extra_name}-${alg}-${dnn}-${dataset}-nstepsupdate${nstepsupdate}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"

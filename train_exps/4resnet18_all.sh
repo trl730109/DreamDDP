@@ -21,9 +21,9 @@ batch_size=128
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
 optimizer_name=SGD
-dnn=resnet50
+dnn=resnet18
 max_epochs=121
-dataset=cifar100
+dataset=cifar10
 # add_noise=True
 # extra_name='test'
 interface=eno0
@@ -37,7 +37,7 @@ cluster_name=shenzhen
 check_param_diversity=false
 nsteps_param_diversity=5
 #hosts=('10.0.0.20')
-hosts=('10.0.0.19' '10.0.0.11' '10.0.0.12' '10.0.0.20' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' )
+hosts=('10.0.0.19' '10.0.0.11' '10.0.0.12' '10.0.0.20')
 #
 node_count=${#hosts[@]}
 # extra_name="Diversity_${node_count}Nodes"
@@ -45,14 +45,15 @@ extra_name="${node_count}Nodes"
 nworkers=$((4 * node_count))
 
 # alg='pipe_seq_localsgd'
-# nsteps_localsgd=10
+# nsteps_localsgd=20
 # node_rank=1
 # lr_decay='exp'
 # lr=0.1
 # source train_exps/launch_mul.sh
 
+
 # alg='localsgd'
-# nsteps_localsgd=10
+# nsteps_localsgd=20
 # node_rank=1
 # lr_decay='exp'
 # lr=0.1
@@ -70,6 +71,18 @@ nworkers=$((4 * node_count))
 # lr=0.1
 # source train_exps/launch_mul.sh
 
+# alg='pipe_sgd'
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# alg='full_pipe_seq'
+# node_rank=1
+# lr_decay='exp'
+# group_num=5
+# lr=0.1
+# source train_exps/launch_mul.sh
 
 alg='dream_ddp'
 node_rank=1
@@ -81,21 +94,21 @@ source train_exps/launch_mul.sh
 alg='dream_ddp'
 node_rank=1
 lr_decay='exp'
-group_num=6
-lr=0.1
-source train_exps/launch_mul.sh
-
-alg='dream_ddp'
-node_rank=1
-lr_decay='exp'
-group_num=8
-lr=0.1
-source train_exps/launch_mul.sh
-
-alg='dream_ddp'
-node_rank=1
-lr_decay='exp'
 group_num=10
+lr=0.1
+source train_exps/launch_mul.sh
+
+alg='dream_ddp'
+node_rank=1
+lr_decay='exp'
+group_num=12
+lr=0.1
+source train_exps/launch_mul.sh
+
+alg='dream_ddp'
+node_rank=1
+lr_decay='exp'
+group_num=15
 lr=0.1
 source train_exps/launch_mul.sh
 

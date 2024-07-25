@@ -23,4 +23,4 @@ node_count=${#hosts[@]}
 
 
 nsteps_localsgd=20
-source train_exps/launch.sh
+source train_exps/launch_mul.sh
