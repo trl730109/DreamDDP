@@ -1604,7 +1604,7 @@ def dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, m
         ExpTool.upload()
 
 
-def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, model_dir=None,
+def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, model_dir=None, lr_decay = 'step',
              check_param_diversity=None, nsteps_param_diversity=None):
     assert nsteps_localsgd > 1
     set_seed(3000)
@@ -1614,7 +1614,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     selected_gpu = rank % nwpernode
     torch.cuda.set_device(selected_gpu)
     times = []
-    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name="Adam")
+    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name="Adam", lr_decay = lr_decay)
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
     dist.broadcast(init_epoch, src=0)
@@ -1643,7 +1643,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         
         result_dict = {}
         train_epoch_loss = 0.0
-        train_epoch_acc = 0.0  
+        # train_epoch_acc = 0.0  
         train_epoch_ppl = 0.0
         
         for j in range(iters_per_epoch):
@@ -1652,10 +1652,10 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             trainer.train(1)
             
             train_loss = trainer.loss
-            train_acc = np.mean(trainer.train_acc_top1)
+            # train_acc = np.mean(trainer.train_acc_top1)
             train_ppl = trainer.ppl
             train_epoch_loss += train_loss
-            train_epoch_acc += train_acc
+            # train_epoch_acc += train_acc
             train_epoch_ppl += train_ppl
             
             trainer.update_model()
@@ -1672,9 +1672,10 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
                 result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
                 
             ExpTool.record(result_dict)
+            # ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+            #             "train_acc": train_acc, "train_ppl": train_ppl})
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc, "train_ppl": train_ppl})
-
+                          "train_ppl": train_ppl})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
             
@@ -1693,14 +1694,14 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         val_ppl = trainer.test(epoch)
         result_dict["val_ppl"] = val_ppl
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+        # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
 
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
 
-def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1,
+def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay = None,
                          nsteps_param_diversity=None, check_param_diversity=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
@@ -1710,7 +1711,7 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name)
+    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name='Adam',  lr_decay = lr_decay)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -1796,7 +1797,7 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
         
         result_dict = {}
         train_epoch_loss = 0.0
-        train_epoch_acc = 0.0
+        # train_epoch_acc = 0.0
         train_epoch_ppl = 0.0
         
         for i in range(iters_per_epoch//nsteps_update):
@@ -1813,11 +1814,11 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
                 synchronize_all_reduced_models()
 
             train_loss = trainer.loss
-            train_acc = np.mean(trainer.train_acc_top1)
+            # train_acc = np.mean(trainer.train_acc_top1)
             train_ppl = trainer.ppl
             train_epoch_loss += train_loss
-            train_epoch_acc += train_acc
-            train_epoch_acc += train_ppl
+            # train_epoch_acc += train_acc
+            train_epoch_ppl += train_ppl
             
             trainer.update_model() #optimizer.step() hook
             times.append(time.time()-s)
@@ -1829,15 +1830,17 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
                 result_dict["time_per_iter"] = time_per_iter
                 result_dict["samples_per_seconds"] = samples_per_seconds
             ExpTool.record(result_dict)
+            # ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+            #             "train_acc": train_acc, "train_ppl":train_ppl})
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc, "train_ppl":train_ppl})
+                        "train_ppl":train_ppl})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()  
 
         val_ppl = trainer.test(epoch)
         result_dict["val_ppl"] = val_ppl
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+        # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
 
         ExpTool.record(result_dict)
@@ -1925,7 +1928,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             hidden = trainer.net.init_hidden()
             
         train_epoch_loss = 0.0
-        train_epoch_acc = 0.0
+        # train_epoch_acc = 0.0
         train_epoch_ppl = 0.0
         result_dict = {}
         layer_bp_timestamps = {}
@@ -1964,9 +1967,9 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             
             train_loss = trainer.loss
             train_ppl = trainer.ppl
-            train_acc = np.mean(trainer.train_acc_top1)
+            # train_acc = np.mean(trainer.train_acc_top1)
             train_epoch_loss += train_loss
-            train_epoch_acc += train_epoch_acc
+            # train_epoch_acc += train_epoch_acc
             train_epoch_ppl += train_ppl
             
             trainer.update_model()
@@ -1979,8 +1982,11 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
                 result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
             iter_time_acc += time.time() - s
             ExpTool.record(result_dict)
+            # ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+            #             "train_acc": train_acc, "train_ppl": train_ppl, "total train time": train_time_acc,
+            #             "total comm time": comm_time_acc, "total iteration time": iter_time_acc})
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc, "train_ppl": train_ppl, "total train time": train_time_acc,
+                        "train_ppl": train_ppl, "total train time": train_time_acc,
                         "total comm time": comm_time_acc, "total iteration time": iter_time_acc})
             logger.info(f'check_param_diversity {check_param_diversity}')
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
@@ -1997,7 +2003,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         val_ppl = trainer.test(epoch)
         result_dict["val_ppl"] = val_ppl
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+        # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
         
         
@@ -2079,7 +2085,7 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
             hidden = trainer.net.init_hidden()
             
         train_epoch_loss = 0.0
-        train_epoch_acc = 0.0
+        # train_epoch_acc = 0.0
         train_epoch_ppl = 0.0
         result_dict = {}
         
@@ -2100,9 +2106,9 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
  
             train_loss = trainer.loss
             train_ppl = trainer.ppl
-            train_acc = np.mean(trainer.train_acc_top1)
+            # train_acc = np.mean(trainer.train_acc_top1)
             train_epoch_loss += train_loss
-            train_epoch_acc += train_acc
+            # train_epoch_acc += train_acc
             train_epoch_ppl += train_ppl
             
             trainer.update_model()
@@ -2115,8 +2121,10 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
                 result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
             iter_time_acc += time.time() - s
             ExpTool.record(result_dict)
+            # ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+            #             "train_acc": train_acc, "train_ppl": train_ppl, "total iteration time": iter_time_acc})
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc, "train_ppl": train_ppl, "total iteration time": iter_time_acc})
+                        "train_ppl": train_ppl, "total iteration time": iter_time_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()    
             
@@ -2124,7 +2132,7 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
         val_ppl = trainer.test(epoch)
         result_dict["val_ppl"] = val_ppl
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+        # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
 
         ExpTool.record(result_dict)
@@ -2239,12 +2247,14 @@ if __name__ == '__main__':
         # os.environ['NCCL_DEBUG'] = 'INFO'
         # os.environ['NCCL_DEBUG_SUBSYS'] = 'ALL'
         # os.environ['NCCL_DEBUG'] = 'TRACE'
-        os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
-        if args.interface == 'eno0':
-            os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
-        elif args.interface == 'ens5f0':
-            os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
+        
+        # os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
+        # if args.interface == 'eno0':
+        #     os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
+        # elif args.interface == 'ens5f0':
+        #     os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
         os.environ['NCCL_IGNORE_DISABLED_P2P'] = '1'
+        
         #logger.info(f"NCCL_SOCKET_IFNAME is set to: {os.environ.get('NCCL_SOCKET_IFNAME')}")
         dist.init_process_group(backend='nccl', init_method='env://')
         args.local_rank = int(os.environ['LOCAL_RANK'])

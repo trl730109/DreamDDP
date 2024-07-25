@@ -138,7 +138,7 @@ class LLMTrainer:
 
     def __init__(self, rank, size, master='gpu10', localsgd=False, dist=True, ngpus=1, batch_size=32, 
         is_weak_scaling=True, data_dir='./data', dataset='wikitext2', dnn='gpt2', 
-        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='Adam'):
+        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='Adam', lr_decay='step'):
 
         self.size = size
         self.rank = rank
@@ -152,6 +152,7 @@ class LLMTrainer:
         self.optimizer_name = optimizer_name
         self.localsgd = localsgd
         self.train_loss = []
+        self.lr_decay = lr_decay
         if settings.EFFICIENT_IO:
             self.cached_index_images = CachedIndexImages()
         else:
@@ -892,10 +893,10 @@ class LLMTrainer:
                 outputs = self.net(**device_batch)
                 loss = outputs.loss
 
-                acc1, acc5 = self.cal_accuracy(outputs, device_batch["labels"], topk=(1, 5))
+                # acc1, acc5 = self.cal_accuracy(outputs, device_batch["labels"], topk=(1, 5))
                 batch_size = device_batch["labels"].size(0)
-                correct_top1 += float(acc1) * batch_size
-                correct_top5 += float(acc5) * batch_size
+                # correct_top1 += float(acc1) * batch_size
+                # correct_top5 += float(acc5) * batch_size
 
                 test_loss += loss.data.item()
                 total += device_batch["labels"].size(0)
@@ -903,9 +904,9 @@ class LLMTrainer:
 
         test_loss /= total_iters
         test_ppl = math.exp(test_loss)
-        acc = correct_top1 / total
-        acc5 = correct_top5 / total
-        logger.info('Epoch %d, lr: %f, val loss: %f, val top-1 acc: %f, top-5 acc: %f' % (epoch, self.lr, test_loss, acc, acc5))
+        # acc = correct_top1 / total
+        # acc5 = correct_top5 / total
+        logger.info('Epoch %d, lr: %f, val loss: %f, val ppl: %f' % (epoch, self.lr, test_loss, test_ppl))
         
         self.net.train()
         return test_ppl
