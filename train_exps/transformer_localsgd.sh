@@ -1,5 +1,5 @@
 lr=0.01
-batch_size=1
+batch_size=8
 alg='transformer_localsgd'
 dataset='wikitext2'
 #pipe_seq_localsgd
@@ -22,32 +22,34 @@ dataset='wikitext2'
 # 10.0.0.24 gpu14
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
-optimizer_name=SGD
+optimizer_name=Adam
 dnn=gpt2
-max_epochs=91
+max_epochs=5
 # add_noise=True
-extra_name='localsgd-Convergence'
+extra_name='gpt-convergence'
 
-enable_wandb=False
-wandb_offline=True
+enable_wandb=false
+wandb_offline=false
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
-
+check_param_diversity=false
+nsteps_param_diversity=5
 exp_name=$exp_name
-cluster_name=shenzhen
+cluster_name=A6000
 
 # hosts=('10.0.0.20')
-hosts=('10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
+hosts=('haigpu3')
 #
 
 node_count=${#hosts[@]}
-nworkers=$((4 * node_count))
-
+nworkers=$((8 * node_count))
+nwpernode=8
 nsteps_localsgd=10
 
 # lr_decay=None
 lr=0.01
-source train_exps/launch_mul.sh
+lr_decay='fixed'
+source train_exps/launch_transformer.sh
 
 # lr_decay='cosine'
 # node_rank=1
