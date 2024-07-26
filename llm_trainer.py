@@ -93,9 +93,9 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'gpt2', 'bert']
 
 
-gpt_path = "/workspace/gpt2"
-shakespeare_path = "/home/esetstore/dataset/shakespeare"
-wikitext_path = '/workspace/wikitext2'
+# gpt_path = "/workspace/gpt2"
+# shakespeare_path = "/home/esetstore/dataset/shakespeare"
+# wikitext_path = '/workspace/wikitext2'
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 def init_processes(rank, size, backend='tcp', master='gpu10'):
@@ -117,14 +117,26 @@ def get_available_gpu_device_ids(ngpus):
 def create_net(dnn='gpt2', **kwargs):
     ext = None
     if dnn == 'gpt2':
-        config = GPT2Config.from_pretrained(gpt_path)
+        config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
         net = AutoModelForCausalLM.from_pretrained(
-            gpt_path,
+            pretrained_model_name_or_path=dnn,
+            cache_dir=kwargs["model_dir"],
             from_tf=False, 
             config=config,
             low_cpu_mem_usage=True, 
             trust_remote_code=False
         )
+        # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
+        # net = AutoModelForCausalLM.from_pretrained(
+        #     pretrained_model_name_or_path="openai-community/gpt2",
+        #     cache_dir=kwargs["model_dir"],
+        #     from_tf=False, 
+        #     config=config,
+        #     low_cpu_mem_usage=True, 
+        #     trust_remote_code=False
+        # )
+
+
     elif dnn == 'bert':
         pass
     else:
@@ -138,8 +150,10 @@ class LLMTrainer:
 
     def __init__(self, rank, size, master='gpu10', localsgd=False, dist=True, ngpus=1, batch_size=32, 
         is_weak_scaling=True, data_dir='./data', dataset='wikitext2', dnn='gpt2', 
-        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='Adam', lr_decay='step'):
+        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='Adam', lr_decay='step',
+        args="/workspace/gpt2"):
 
+        self.args = args
         self.size = size
         self.rank = rank
         self.pretrain = pretrain
@@ -175,6 +189,7 @@ class LLMTrainer:
         #     self.num_classes = 10
         self.nworkers = nworkers # just for easy comparison
         self.data_dir = data_dir
+        self.model_dir = self.args.model_dir
         if type(dnn) != str:
             self.net = dnn
             self.dnn = dnn.name
@@ -185,7 +200,9 @@ class LLMTrainer:
             if self.dnn == 'gpt2':
                 if data_dir is not None:
                     self.data_prepare()
-                self.net, self.ext = create_net(dnn='gpt2')
+                logger.info(f"Finish preparing loading datasets")
+                self.net, self.ext = create_net(dnn='gpt2', model_dir=self.model_dir)
+                logger.info(f"Finish preparing loading model")
             elif self.dnn == 'bert':
                 pass
   
@@ -203,6 +220,7 @@ class LLMTrainer:
             else:
                 self.net.cuda()
         self.net.share_memory()
+        logger.info(f"Finish model sharing memory")
         self.accuracy = 0
         self.loss = 0.0
         self.ppl = 0.0
@@ -212,6 +230,7 @@ class LLMTrainer:
         self.average_iter = 0
         if dist:
             init_processes(rank, size, master=master)
+        logger.info(f"Finish model init processes")
         if self.dataset != 'an4':
             if self.is_cuda:
                 self.criterion = nn.CrossEntropyLoss().cuda()
@@ -243,11 +262,13 @@ class LLMTrainer:
                 momentum=self.m, 
                 weight_decay=weight_decay,
                 nesterov=nesterov)
+        logger.info(f"Finish init optimizer processes")
 
         self.train_epoch = 0
 
         if self.pretrain is not None and os.path.isfile(self.pretrain):
             self.load_model_from_file(self.pretrain)
+        logger.info(f"Finish load from pretrain processes")
 
         self.sparsities = []
         self.compression_ratios = []
@@ -272,6 +293,8 @@ class LLMTrainer:
         if apex is not None:
             self.init_fp16()
         logger.info('num_batches_per_epoch: %d'% self.num_batches_per_epoch)
+        logger.info(f"Finish LLM trainer initialize processes")
+
 
     def init_fp16(self):
         model, optim = apex.amp.initialize(self.net, self.optimizer, opt_level='O2', loss_scale=128.0)
@@ -317,9 +340,11 @@ class LLMTrainer:
 
     def wikitext2_prepare(self):
         # Data loading code
-        tokenizer = AutoTokenizer.from_pretrained(gpt_path)
-        dataset = load_from_disk(wikitext_path)
-        
+        tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+        # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
+
+        # dataset = load_from_disk(wikitext_path)
+        dataset = load_from_disk(self.data_dir)
         # def tokenize(example):
         #     return tokenizer(example['text'], truncation=True, padding='max_length', max_length=512)
 
@@ -786,9 +811,11 @@ class LLMTrainer:
 
     def train(self, num_of_iters=1, data=None, hidden=None):
         self.loss = 0.0
+        logger.info('Enter LLM Trainer')
         s = time.time()
         self.net.train()
         for i in range(num_of_iters):
+            logger.info(f'Enter LLM Trainer {i}')
             self.adjust_learning_rate(self.train_epoch, self.optimizer)
             if self.train_iter % self.num_batches_per_epoch == 0 and self.train_iter > 0:
                 self.train_epoch += 1

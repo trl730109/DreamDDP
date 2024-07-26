@@ -1605,7 +1605,7 @@ def dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, m
 
 
 def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, model_dir=None, lr_decay = 'step',
-             check_param_diversity=None, nsteps_param_diversity=None):
+             check_param_diversity=None, nsteps_param_diversity=None, args=None):
     assert nsteps_localsgd > 1
     set_seed(3000)
     rank = dist.get_rank()
@@ -1614,7 +1614,9 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     selected_gpu = rank % nwpernode
     torch.cuda.set_device(selected_gpu)
     times = []
-    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name="Adam", lr_decay = lr_decay)
+    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name="Adam", lr_decay = lr_decay,
+                         args=args)
+    logger.info(f'rank {rank} Broadcast epoch....')
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
     dist.broadcast(init_epoch, src=0)
@@ -1623,9 +1625,9 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     trainer.set_train_iter(int(init_iter.item()))
     iters_per_epoch = trainer.num_batches_per_epoch
     
-    logger.info('Broadcast parameters....')
+    logger.info(f'rank {rank} Broadcast parameters....')
     broadcast_parameters(trainer.net.state_dict(), root_rank=0)
-    logger.info('Broadcast parameters finished....')
+    logger.info(f'rank {rank} Broadcast parameters finished....')
     
     global_iters = 0
     train_time_acc = 0
@@ -1646,6 +1648,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         # train_epoch_acc = 0.0  
         train_epoch_ppl = 0.0
         
+        logger.info(f' Rank {rank} Enter epochs')
         for j in range(iters_per_epoch):
             s = time.time()
             trainer.zero_grad()
@@ -1702,7 +1705,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         ExpTool.upload()
 
 def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay = None,
-                         nsteps_param_diversity=None, check_param_diversity=None):
+                         nsteps_param_diversity=None, check_param_diversity=None, args=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -1711,7 +1714,8 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name='Adam',  lr_decay = lr_decay)
+    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name='Adam',  lr_decay = lr_decay,
+                         args=args)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -1848,7 +1852,7 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
         ExpTool.upload()
 
 def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
-                         nsteps_param_diversity=None, check_param_diversity=None):
+                         nsteps_param_diversity=None, check_param_diversity=None, args=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -1858,7 +1862,8 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = LLMTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay)
+    trainer = LLMTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay,
+                         args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -2024,7 +2029,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         ExpTool.upload()
 
 def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
-                         nsteps_param_diversity=None, check_param_diversity=None):
+                         nsteps_param_diversity=None, check_param_diversity=None, args=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -2035,7 +2040,8 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = LLMTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay)
+    trainer = LLMTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay,
+                         args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -2172,6 +2178,9 @@ if __name__ == '__main__':
     parser.add_argument('--nsteps_localsgd', type=int, default=10)
     parser.add_argument('--optimizer_name',type=str, default=None, help='Optimizer used in the training, default to be SGD.')
 
+    parser.add_argument('--model_dir', type=str, default='./model', help='')
+
+
     parser.add_argument('--interface', default='eno0', help='Network interface, choosing from eno0-1G, ens5f0-10G')
     parser.add_argument('--alg', type=str,default='localsgd',help='Algorithms including desync, sgd, localsgd, layerwise.')
     parser.add_argument('--local_rank', type=int, default=0,help='local rank for distributed training')
@@ -2304,7 +2313,7 @@ if __name__ == '__main__':
     elif (args.alg == 'transformer_localsgd'):
         logger.info("Alg used: transformer training.")
         transformer_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, model_dir=args.model_name_or_path, 
-             check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity)
+             check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
     if (args.alg == 'time_measure'):
         logger.info("Alg used: localsgd.")
         localsgd_measure(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay)

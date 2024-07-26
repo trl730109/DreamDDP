@@ -11,7 +11,7 @@ from settings import logger, ADAPTIVE_MERGE, ADAPTIVE_SPARSE, DEBUG
 from draw_plot import *
 
 from profiling import CommunicationProfiler
-from sklearn.linear_model import LinearRegression
+# from sklearn.linear_model import LinearRegression
 
 def broadcast_parameters(params, root_rank):
     """

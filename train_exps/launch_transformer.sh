@@ -13,6 +13,7 @@ dnn="${dnn:-resnet18}"
 echo "cluster name: $cluster_name"
 source train_exps/env_configs/$cluster_name.sh
 echo "dataset dir: $data_dir"
+echo "model_dir: $model_dir"
 
 export NCCL_DEBUG=TRACE
 
@@ -54,6 +55,7 @@ GRADSPATH=./logs/tzc
 lr_decay="${lr_decay:-None}"
 dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
+model_dir="${model_dir:-/mnt/raid/gpt2}"
 group_num="${group_num:-6}"
 
 check_param_diversity="${check_param_diversity:-false}"
@@ -102,7 +104,7 @@ while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
-    args="$PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2384 $script \
+    args="HF_ENDPOINT=https://hf-mirror.com $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2384 $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
@@ -115,6 +117,7 @@ do
         --batch-size $batch_size \
         --nworkers $nworkers \
         --data-dir $data_dir \
+        --model_dir $model_dir \
         --lr $lr \
         --lr_decay $lr_decay \
         --group_num $group_num \
@@ -133,9 +136,9 @@ do
     echo "$host: $args"
     cmd="cd $directory; $args"
     if [ $(expr $i + 1) -eq $node_count ]; then
-        ssh -p 30169 $host $cmd   # return until finished or interrupted
+        ssh  $host $cmd   # return until finished or interrupted
     else
-        ssh -p 30169 $host $cmd &
+        ssh $host $cmd &
     fi
     node_rank=$(expr $node_rank + 1)
     i=$(expr $i + 1)
