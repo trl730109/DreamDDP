@@ -15,9 +15,14 @@ total_host=1
 # Model and training configurations
 dnn="${dnn:-resnet18}"
 # source fault_exps/model_configs/$dnn.conf
+echo "cluster name: $cluster_name"
+source train_exps/env_configs/$cluster_name.sh
+echo "dataset dir: $data_dir"
+echo "model_dir: $model_dir"
 
-cluster_name="${cluster_name:-localhost}"
-source fault_exps/env_configs/$cluster_name.sh
+pre_cmd="${pre_cmd:-}"
+echo "pre_cmd: $pre_cmd"
+
 
 
 nworkers="${nworkers:-4}"
@@ -39,6 +44,9 @@ master_host=${hosts[$node_rank]}
 
 dnn="${dnn:-resnet18}"
 lr="${lr:-0.1}"
+weight_decay="${weight_decay:-0.0001}"
+adam_beta1="${adam_beta1:-0.9}"
+adam_beta2="${adam_beta2:-0.999}"
 batch_size="${batch_size:-128}"
 
 max_epochs="${max_epochs:-181}"
@@ -58,6 +66,8 @@ GRADSPATH=./logs/tzc
 
 dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
+model_dir="${model_dir:-/mnt/raid/gpt2}"
+load_pretrain="${load_pretrain:-False}"
 
 # exp_name="${exp_name:-default}"
 
@@ -88,7 +98,7 @@ master_port=${master_port:-23456}
 while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
-    args="HF_ENDPOINT=https://hf-mirror.com $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
+    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
@@ -101,7 +111,13 @@ do
         --batch-size $batch_size \
         --nworkers $nworkers \
         --data-dir $data_dir \
+        --model_dir $model_dir \
+        --load_pretrain $load_pretrain \
         --lr $lr \
+        --lr_decay $lr_decay \
+        --weight_decay $weight_decay \
+        --adam_beta1 $adam_beta1 \
+        --adam_beta2 $adam_beta2 \
         --nsteps-update $nstepsupdate \
         --nwpernode $nwpernode \
         --density $density \

@@ -66,7 +66,8 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'lstm', 'lstmwt2',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
-        'transformer',"gpt2"]
+        'transformer',"gpt2",
+        "bert-base-uncased"]
 
 
 def init_processes(rank, size, backend='tcp', master='gpu10'):

@@ -15,6 +15,9 @@ source train_exps/env_configs/$cluster_name.sh
 echo "dataset dir: $data_dir"
 echo "model_dir: $model_dir"
 
+pre_cmd="${pre_cmd:-}"
+echo "pre_cmd: $pre_cmd"
+
 export NCCL_DEBUG=TRACE
 
 # Optionally, focus on socket information
@@ -52,10 +55,18 @@ optimizer_name="${optimizer_name:-SGD}"
 sync="${sync:-avg}"
 alg="${alg:-sgd}"
 GRADSPATH=./logs/tzc
+lr="${lr:-0.0001}"
 lr_decay="${lr_decay:-None}"
+weight_decay="${weight_decay:-0.0001}"
+adam_beta1="${adam_beta1:-0.9}"
+adam_beta2="${adam_beta2:-0.999}"
+batch_size="${batch_size:-128}"
+
 dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 model_dir="${model_dir:-/mnt/raid/gpt2}"
+load_pretrain="${load_pretrain:-False}"
+
 group_num="${group_num:-6}"
 
 check_param_diversity="${check_param_diversity:-false}"
@@ -68,6 +79,8 @@ elif [ "$interface" = "ens5f0" ]; then
 else
     bandwidth="100G"
 fi
+
+
 
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
@@ -104,7 +117,7 @@ while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
-    args="HF_ENDPOINT=https://hf-mirror.com $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2384 $script \
+    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2384 $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
@@ -118,8 +131,12 @@ do
         --nworkers $nworkers \
         --data-dir $data_dir \
         --model_dir $model_dir \
+        --load_pretrain $load_pretrain \
         --lr $lr \
         --lr_decay $lr_decay \
+        --weight_decay $weight_decay \
+        --adam_beta1 $adam_beta1 \
+        --adam_beta2 $adam_beta2 \
         --group_num $group_num \
         --nsteps-update $nstepsupdate \
         --nwpernode $nwpernode \

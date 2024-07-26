@@ -1,17 +1,22 @@
 lr=0.01
-batch_size=8
+batch_size=4
 alg='transformer_localsgd'
 dataset='wikitext2'
 
 
 data_dir="/mnt/raid/tangzichen/wikitext2"
-model_dir="/mnt/raid/tangzichen/gpt2"
+# model_dir="/mnt/raid/tangzichen/gpt2"
+
+model_dir="/mnt/raid/tangzichen/bert-base-uncased"
+
+
 # data_dir="/home/tangzhenheng/wikitext2"
 # model_dir="/home/tangzhenheng/gpt2"
 # PY="/mnt/raid/tangzhenheng/anaconda3/bin/python"
 PY="/mnt/raid/tangzhenheng/anaconda3/envs/fusionai/bin/python"
 
-export HF_ENDPOINT=https://hf-mirror.com
+pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
+
 
 #pipe_seq_localsgd
 # 127.0.0.1 localhost
@@ -35,11 +40,14 @@ export HF_ENDPOINT=https://hf-mirror.com
 # 10.0.0.26 gpu16
 optimizer_name=Adam
 dnn=gpt2
-max_epochs=5
-# add_noise=True
-extra_name='gpt-convergence'
 
-enable_wandb=false
+
+
+max_epochs=20
+# add_noise=True
+extra_name='gpt-load-pretrain'
+
+enable_wandb=True
 wandb_offline=false
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
@@ -58,9 +66,15 @@ nwpernode=4
 nsteps_localsgd=10
 
 # lr_decay=None
-lr=0.01
+
+adam_beta1=0.9
+# lr=0.00001
+lr=0.0001
+
+weight_decay=0.0001
+
 lr_decay='fixed'
-source train_exps/launch_transformer.sh
+# source train_exps/launch_transformer.sh
 
 # lr_decay='cosine'
 # node_rank=1
@@ -71,3 +85,92 @@ source train_exps/launch_transformer.sh
 # node_rank=1
 # lr=0.1
 # source train_exps/launch_mul.sh
+
+dnn=bert-base-uncased
+model_dir="/mnt/raid/tangzichen/bert-base-uncased"
+extra_name='bert-load-pretrain'
+load_pretrain=True
+
+
+weight_decays=(0.0001 0.001 0.01)
+lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+for weight_decay in "${weight_decays[@]}"
+do
+    for lr in "${lrs[@]}"
+    do
+        # weight_decay=weight_decay
+        # lr=lr
+        source train_exps/launch_transformer.sh
+
+    done
+done
+
+
+
+
+dnn=gp2
+model_dir="/mnt/raid/tangzichen/gpt2"
+extra_name='gpt2-load-pretrain'
+load_pretrain=True
+
+
+weight_decays=(0.0001 0.001 0.01)
+lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+for weight_decay in "${weight_decays[@]}"
+do
+    for lr in "${lrs[@]}"
+    do
+        # weight_decay=weight_decay
+        # lr=lr
+        source train_exps/launch_transformer.sh
+    done
+done
+
+
+
+
+
+dnn=bert-base-uncased
+model_dir="/mnt/raid/tangzichen/bert-base-uncased"
+extra_name='bert-Notload'
+load_pretrain=False
+
+
+weight_decays=(0.0001 0.001 0.01)
+lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+for weight_decay in "${weight_decays[@]}"
+do
+    for lr in "${lrs[@]}"
+    do
+        # weight_decay=weight_decay
+        # lr=lr
+        source train_exps/launch_transformer.sh
+
+    done
+done
+
+
+
+
+dnn=gp2
+model_dir="/mnt/raid/tangzichen/gpt2"
+extra_name='gpt2-Notload'
+load_pretrain=False
+
+weight_decays=(0.0001 0.001 0.01)
+lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+for weight_decay in "${weight_decays[@]}"
+do
+    for lr in "${lrs[@]}"
+    do
+        # weight_decay=weight_decay
+        # lr=lr
+        source train_exps/launch_transformer.sh
+    done
+done
+
+
+
+
+
+

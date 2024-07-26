@@ -16,7 +16,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.cuda as ct
 import settings
-
 from transformers import (BertConfig, 
                           GPT2Config, 
                           BertForSequenceClassification, 
@@ -28,6 +27,7 @@ from transformers import (BertConfig,
                           CONFIG_MAPPING,
                           MODEL_MAPPING,
                           AutoConfig,
+                          AutoModel,
                           AutoModelForCausalLM,
                           AutoTokenizer,
                           SchedulerType,
@@ -89,8 +89,8 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'lstm', 'lstmwt2',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
-        'transformer',
-        'gpt2', 'bert']
+        'transformer', "gpt2",
+        "bert-base-uncased"]
 
 
 # gpt_path = "/workspace/gpt2"
@@ -118,14 +118,33 @@ def create_net(dnn='gpt2', **kwargs):
     ext = None
     if dnn == 'gpt2':
         config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
-        net = AutoModelForCausalLM.from_pretrained(
-            pretrained_model_name_or_path=dnn,
-            cache_dir=kwargs["model_dir"],
-            from_tf=False, 
-            config=config,
-            low_cpu_mem_usage=True, 
-            trust_remote_code=False
-        )
+        if kwargs["load_pretrain"]:
+            net = AutoModelForCausalLM.from_pretrained(
+                pretrained_model_name_or_path=dnn,
+                cache_dir=kwargs["model_dir"],
+                from_tf=False, 
+                config=config,
+                low_cpu_mem_usage=True, 
+                trust_remote_code=False
+            )
+        else:
+            net = AutoModelForCausalLM.from_config(config)
+            
+    elif dnn == 'bert-base-uncased':
+        config = BertConfig.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+        if kwargs["load_pretrain"]:
+            net = AutoModelForCausalLM.from_pretrained(
+                pretrained_model_name_or_path=dnn,
+                cache_dir=kwargs["model_dir"],
+                from_tf=False, 
+                config=config,
+                low_cpu_mem_usage=True, 
+                trust_remote_code=False
+            )
+        else:
+            net = AutoModelForCausalLM.from_config(config)
+            
+
         # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
         # net = AutoModelForCausalLM.from_pretrained(
         #     pretrained_model_name_or_path="openai-community/gpt2",
@@ -135,8 +154,6 @@ def create_net(dnn='gpt2', **kwargs):
         #     low_cpu_mem_usage=True, 
         #     trust_remote_code=False
         # )
-
-
     elif dnn == 'bert':
         pass
     else:
@@ -197,11 +214,11 @@ class LLMTrainer:
         else:
             self.dnn = dnn
             # TODO: Refact these codes!
-            if self.dnn == 'gpt2':
+            if self.dnn in ['gpt2', "bert-base-uncased"]:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
-                self.net, self.ext = create_net(dnn='gpt2', model_dir=self.model_dir)
+                self.net, self.ext = create_net(dnn='gpt2', model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
                 logger.info(f"Finish preparing loading model")
             elif self.dnn == 'bert':
                 pass
@@ -240,7 +257,7 @@ class LLMTrainer:
             from warpctc_pytorch import CTCLoss
             self.criterion = CTCLoss()
         self.lr_scheduler = getattr(LRSchedule, 'linear')(lr_init=self.lr, epochs=settings.MAX_EPOCHS, extra=0)
-        weight_decay = 1e-4
+        self.weight_decay = self.args.weight_decay
         self.m = 0.9 # momentum
         nesterov = False
 
@@ -248,19 +265,21 @@ class LLMTrainer:
             self.optimizer = optim.Adam(
             self.net.parameters(),
             lr=lr,
-            weight_decay=weight_decay
+            betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
+            weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'AdamW'):
             self.optimizer = optim.AdamW(
             self.net.parameters(),
             lr=lr,
-            weight_decay=weight_decay
+            betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
+            weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'SGD'):
             self.optimizer = optim.SGD(self.net.parameters(), 
                 lr=self.lr,
                 momentum=self.m, 
-                weight_decay=weight_decay,
+                weight_decay=self.weight_decay,
                 nesterov=nesterov)
         logger.info(f"Finish init optimizer processes")
 
@@ -811,11 +830,11 @@ class LLMTrainer:
 
     def train(self, num_of_iters=1, data=None, hidden=None):
         self.loss = 0.0
-        logger.info('Enter LLM Trainer')
+        # logger.info('Enter LLM Trainer')
         s = time.time()
         self.net.train()
         for i in range(num_of_iters):
-            logger.info(f'Enter LLM Trainer {i}')
+            # logger.info(f'Enter LLM Trainer {i}')
             self.adjust_learning_rate(self.train_epoch, self.optimizer)
             if self.train_iter % self.num_batches_per_epoch == 0 and self.train_iter > 0:
                 self.train_epoch += 1
@@ -936,7 +955,7 @@ class LLMTrainer:
         logger.info('Epoch %d, lr: %f, val loss: %f, val ppl: %f' % (epoch, self.lr, test_loss, test_ppl))
         
         self.net.train()
-        return test_ppl
+        return test_ppl, test_loss
 
     def update_model(self):
         self.optimizer.step()

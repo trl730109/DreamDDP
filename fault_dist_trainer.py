@@ -587,6 +587,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-dir', type=str, default='./data', help='Specify the data root path')
     parser.add_argument('--saved-dir', type=str, default='.', help='Specify the saved weights or gradients root path')
     parser.add_argument('--lr', type=float, default=0.1, help='Default learning rate')
+    parser.add_argument('--lr_decay', type=str, default=None,help='learning rate decay methods, choosing from None,cosine,step')
     parser.add_argument('--max-epochs', type=int, default=settings.MAX_EPOCHS, help='Default maximum epochs to train')
     parser.add_argument('--pretrain', type=str, default=None, help='Specify the pretrain path')
     parser.add_argument('--num-steps', type=int, default=35)
@@ -598,6 +599,14 @@ if __name__ == '__main__':
     parser.add_argument('--overlap_scalar', type=float, default=2, help='Overlap scalar for TopK sparsification, default is 0.1')
     parser.add_argument('--nsteps_localsgd', type=int, default=10)
     parser.add_argument('--optimizer_name',type=str, default=None, help='Optimizer used in the training, default to be SGD.')
+    parser.add_argument('--adam_beta1',type=float, default=0.9, help='.')
+    parser.add_argument('--adam_beta2',type=float, default=0.999, help='.')
+    parser.add_argument('--weight_decay',type=float, default=0.0001, help='.')
+
+    parser.add_argument('--model_dir', type=str, default='./model', help='')
+    parser.add_argument('--load_pretrain', type=str, default='False', help='')
+
+
     parser.add_argument('--gaussian_mu', type=float, default=0.0, help='Mean of the Gaussian Noise Mean.')
     parser.add_argument('--gaussian_std', type=float, default=0.01, help='Std of the Gaussian Noise std.')
     parser.add_argument('--add_noise', type=str, default='false', help='Whether to add noise to the averaged gradients.')

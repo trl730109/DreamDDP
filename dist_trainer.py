@@ -42,6 +42,9 @@ from layer_group import resnet_groups, resnet_groups_dream
 comm = MPI.COMM_WORLD
 writer = None
 
+GPT2_MAX_GRAD_NORM = 1.0
+
+
 def count_leaf_layers(model):
     leaf_names = []
     for name, module in model.named_modules():
@@ -70,6 +73,14 @@ def str2bool(v):
         return v
 
 from settings import logger, formatter
+
+def clip_grad(model, dnn, max_norm):
+    if dnn in ['lstm', 'lstmwt2']:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.25)
+    elif dnn == 'lstman4':
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 400)
+    elif dnn in ["gpt2", "bert-base-uncased"]:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm, norm_type=2.0) 
 
 
 
@@ -245,13 +256,15 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
                     #param.grad.data /= dist.get_world_size()
             comm_time_acc += (time.time() - comm_s)
             
-            if dnn in ['lstm', 'lstmwt2']:
-                optimizer.synchronize()
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                optimizer.synchronize()
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
-            
+            optimizer.synchronize()
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            # if dnn in ['lstm', 'lstmwt2']:
+            #     optimizer.synchronize()
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            # elif dnn == 'lstman4':
+            #     optimizer.synchronize()
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+
             train_loss = trainer.loss
             train_acc = np.mean(trainer.train_acc_top1)
             train_epoch_loss += train_loss
@@ -511,10 +524,12 @@ def localsgd_measure(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_up
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            # if dnn in ['lstm', 'lstmwt2']:
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            # elif dnn == 'lstman4':
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
                 
             train_loss = trainer.loss
             train_acc = np.mean(trainer.train_acc_top1)
@@ -637,10 +652,11 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
                         _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            # if dnn in ['lstm', 'lstmwt2']:
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            # elif dnn == 'lstman4':
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
                 
             train_loss = trainer.loss
             train_acc = np.mean(trainer.train_acc_top1)
@@ -868,11 +884,12 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            
-            if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            # if dnn in ['lstm', 'lstmwt2']:
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            # elif dnn == 'lstman4':
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
 
             end_time = time.time()
             
@@ -1079,10 +1096,12 @@ def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, n
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            # if dnn in ['lstm', 'lstmwt2']:
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            # elif dnn == 'lstman4':
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
 
             for name, param in trainer.net.named_parameters():
                 if param.grad is None:
@@ -1172,10 +1191,12 @@ def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, n
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            # if dnn in ['lstm', 'lstmwt2']:
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            # elif dnn == 'lstman4':
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
 
             train_loss = trainer.loss
             train_acc = np.mean(trainer.train_acc_top1)
@@ -1360,10 +1381,11 @@ def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_ep
                 else:
                     trainer.train(1)
             
-            if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            # if dnn in ['lstm', 'lstmwt2']:
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            # elif dnn == 'lstman4':
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
                 
             end_time = time.time()
 
@@ -1444,13 +1466,6 @@ def dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, m
     logger.info('Broadcast parameters....')
     broadcast_parameters(trainer.net.state_dict(), root_rank=0)
     logger.info('Broadcast parameters finished....')
-
-
-    norm_clip = None
-    if dnn in ['lstm', 'lstmwt2']:
-        norm_clip = 0.25
-    elif dnn == 'lstman4':
-        norm_clip = 400
 
     optimizer = trainer.optimizer
     iters_per_epoch = trainer.num_batches_per_epoch
@@ -1556,10 +1571,7 @@ def dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, m
                 else:
                     trainer.train(1)
             
-            if dnn in ['lstm', 'lstmwt2']:
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
                 
             end_time = time.time()
 
@@ -1604,7 +1616,7 @@ def dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, m
         ExpTool.upload()
 
 
-def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, model_dir=None, lr_decay = 'step',
+def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
              check_param_diversity=None, nsteps_param_diversity=None, args=None):
     assert nsteps_localsgd > 1
     set_seed(3000)
@@ -1648,7 +1660,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         # train_epoch_acc = 0.0  
         train_epoch_ppl = 0.0
         
-        logger.info(f' Rank {rank} Enter epochs')
+        # logger.info(f' Rank {rank} Enter epochs')
         for j in range(iters_per_epoch):
             s = time.time()
             trainer.zero_grad()
@@ -1661,6 +1673,8 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             # train_epoch_acc += train_acc
             train_epoch_ppl += train_ppl
             
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+
             trainer.update_model()
             train_time = time.time() - s
             times.append(train_time)
@@ -1694,7 +1708,8 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
                         "total comm time": comm_time_acc})
             global_iters += 1
                 
-        val_ppl = trainer.test(epoch)
+        val_ppl, test_loss = trainer.test(epoch)
+        result_dict["test_loss"] = test_loss
         result_dict["val_ppl"] = val_ppl
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
@@ -1817,6 +1832,8 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
                 trainer.train(1)
                 synchronize_all_reduced_models()
 
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+
             train_loss = trainer.loss
             # train_acc = np.mean(trainer.train_acc_top1)
             train_ppl = trainer.ppl
@@ -1841,7 +1858,8 @@ def transformer_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, n
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()  
 
-        val_ppl = trainer.test(epoch)
+        val_ppl, test_loss = trainer.test(epoch)
+        result_dict["test_loss"] = test_loss
         result_dict["val_ppl"] = val_ppl
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
@@ -1963,12 +1981,14 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
                     #param.grad.data /= dist.get_world_size()
             comm_time_acc += (time.time() - comm_s)
             
-            if dnn in ['lstm', 'lstmwt2']:
-                optimizer.synchronize()
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
-            elif dnn == 'lstman4':
-                optimizer.synchronize()
-                torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
+            optimizer.synchronize()
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            # if dnn in ['lstm', 'lstmwt2']:
+            #     optimizer.synchronize()
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
+            # elif dnn == 'lstman4':
+            #     optimizer.synchronize()
+            #     torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 400)
             
             train_loss = trainer.loss
             train_ppl = trainer.ppl
@@ -2005,7 +2025,8 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             layer_bp_timestamps = {}
             
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-        val_ppl = trainer.test(epoch)
+        val_ppl, test_loss = trainer.test(epoch)
+        result_dict["test_loss"] = test_loss
         result_dict["val_ppl"] = val_ppl
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
@@ -2135,7 +2156,8 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
             ExpTool.upload()    
             
         #logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-        val_ppl = trainer.test(epoch)
+        val_ppl, test_loss = trainer.test(epoch)
+        result_dict["test_loss"] = test_loss
         result_dict["val_ppl"] = val_ppl
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
@@ -2177,9 +2199,12 @@ if __name__ == '__main__':
     parser.add_argument('--overlap_scalar', type=float, default=2, help='Overlap scalar for TopK sparsification, default is 0.1')
     parser.add_argument('--nsteps_localsgd', type=int, default=10)
     parser.add_argument('--optimizer_name',type=str, default=None, help='Optimizer used in the training, default to be SGD.')
+    parser.add_argument('--adam_beta1',type=float, default=0.9, help='.')
+    parser.add_argument('--adam_beta2',type=float, default=0.999, help='.')
+    parser.add_argument('--weight_decay',type=float, default=0.0001, help='.')
 
     parser.add_argument('--model_dir', type=str, default='./model', help='')
-
+    parser.add_argument('--load_pretrain', type=str, default='False', help='')
 
     parser.add_argument('--interface', default='eno0', help='Network interface, choosing from eno0-1G, ens5f0-10G')
     parser.add_argument('--alg', type=str,default='localsgd',help='Algorithms including desync, sgd, localsgd, layerwise.')
@@ -2312,7 +2337,7 @@ if __name__ == '__main__':
              args.check_param_diversity, args.nsteps_param_diversity)
     elif (args.alg == 'transformer_localsgd'):
         logger.info("Alg used: transformer training.")
-        transformer_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, model_dir=args.model_name_or_path, 
+        transformer_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
              check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
     if (args.alg == 'time_measure'):
         logger.info("Alg used: localsgd.")
