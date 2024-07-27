@@ -32,9 +32,9 @@ case "$cluster_name" in
         case "$dnn" in
             # "gpt2") data_dir="/mnt/raid/tangzichen/gpt2" ;;
             # "bert-base-uncased") data_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
-            "gpt2") data_dir="/data2/share/zhtang/gpt2" ;;
-            "bert-base-uncased") data_dir="/data2/share/zhtang/bert-base-uncased" ;;
-            "llama2-124M") data_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
+            "gpt2") model_dir="/data2/share/zhtang/gpt2" ;;
+            "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
+            "llama2-124M") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
         esac
         ;;
     "scigpu")

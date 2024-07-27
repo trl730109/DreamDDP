@@ -13,7 +13,9 @@ model_dir="/mnt/raid/tangzichen/bert-base-uncased"
 # data_dir="/home/tangzhenheng/wikitext2"
 # model_dir="/home/tangzhenheng/gpt2"
 # PY="/mnt/raid/tangzhenheng/anaconda3/bin/python"
-PY="/mnt/raid/tangzhenheng/anaconda3/envs/fusionai/bin/python"
+PY="/home/tangzhenheng/anaconda3/envs/fusionai/bin/python"
+# PY="/home/tangzhenheng/anaconda3/bin/python"
+
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
@@ -47,14 +49,16 @@ max_epochs=3
 # add_noise=True
 extra_name='gpt-load-pretrain'
 
-enable_wandb=True
+enable_wandb=False
 wandb_offline=false
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 check_param_diversity=false
 nsteps_param_diversity=5
 exp_name=$exp_name
-cluster_name=GZ4090ZHTANG
+# cluster_name=GZ4090ZHTANG
+cluster_name=GZ4090
+
 
 # hosts=('10.0.0.20')
 hosts=('localhost')
