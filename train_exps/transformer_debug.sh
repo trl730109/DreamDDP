@@ -45,11 +45,11 @@ dnn=llama2-124M
 
 
 
-max_epochs=3
+max_epochs=20
 # add_noise=True
 extra_name='gpt-load-pretrain'
 
-enable_wandb=False
+enable_wandb=True
 wandb_offline=false
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
@@ -177,6 +177,23 @@ source train_exps/debug_launch_transformer.sh
 
 
 
+
+dnn=llama2-124M
+model_dir="/data2/share/zhtang/llama-2-7b-hf"
+extra_name='llama2-124M-Notload'
+load_pretrain=False
+
+weight_decays=(0.0001 0.001 0.01)
+lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+for weight_decay in "${weight_decays[@]}"
+do
+    for lr in "${lrs[@]}"
+    do
+        # weight_decay=weight_decay
+        # lr=lr
+        source train_exps/debug_launch_transformer.sh
+    done
+done
 
 
 
