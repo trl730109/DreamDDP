@@ -44,6 +44,7 @@ master_host=${hosts[$node_rank]}
 
 dnn="${dnn:-resnet18}"
 lr="${lr:-0.1}"
+lr_decay="${lr_decay:-general}"
 weight_decay="${weight_decay:-0.0001}"
 adam_beta1="${adam_beta1:-0.9}"
 adam_beta2="${adam_beta2:-0.999}"

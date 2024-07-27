@@ -84,19 +84,20 @@ def clip_grad(model, dnn, max_norm):
 
 
 
-def param_diversity(model):
-    if isinstance(model, dict):
-        avg_params = deepcopy(model)
-    else:
-        avg_params = deepcopy(model.state_dict())
+def param_diversity(model, avg_params=None):
+    if avg_params is None:
+        if isinstance(model, dict):
+            avg_params = deepcopy(model)
+        else:
+            avg_params = deepcopy(model.state_dict())
 
-    # for name, module in model.name_modules():
-    # for name, param in model.name_parameters():
-    for name, param in avg_params.items():
-        if "weight" in name:
-            # dist.all_reduce(param, op=dist.ReduceOp.SUM)
-            # param.float() /= dist.get_world_size()
-            dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
+        # for name, module in model.name_modules():
+        # for name, param in model.name_parameters():
+        for name, param in avg_params.items():
+            if "weight" in name:
+                dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
+                avg_params[name] = avg_params[name] / dist.get_world_size()
+                # dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
 
     if is_root():
         named_diversitys = {}
@@ -106,24 +107,34 @@ def param_diversity(model):
             for name, param in model.items():
                 if "weight" in name and ("bn" not in name ):
                     diff = (avg_params[name] - param.data)
+                    # diff = avg_params[name]
                     if param.dtype == torch.long:
+                        logging.info(f"!!!!!!!!!!!!!!!!name is type torch.long!!!!!!!!!!!!!!!!")
                         diff = diff.float()
                     # named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[name] = diff.norm()
                     named_diversitys[name] = diff.norm() / math.sqrt(diff.numel())
+                    named_diversitys[name] = named_diversitys[name].item()
+                    # named_diversitys[name] = param.data.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversitys.append(named_diversitys[name].item())
+                    total_diversitys.append(named_diversitys[name])
             # return named_diversitys, total_diversity
             return named_diversitys, np.mean(total_diversitys)
         else:
             for name, param in model.state_dict().items():
                 if "weight" in name and ("bn" not in name ):
                     diff = (avg_params[name] - param.data)
+                    # diff = avg_params[name]
                     if param.dtype == torch.long:
+                        logging.info(f"!!!!!!!!!!!!!!!!name is type torch.long!!!!!!!!!!!!!!!!")
                         diff = diff.float()
                     # named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
+                    # named_diversitys[name] = diff.norm()
                     named_diversitys[name] = diff.norm() / math.sqrt(diff.numel())
+                    named_diversitys[name] = named_diversitys[name].item()
+                    # named_diversitys[name] = param.data.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversitys.append(named_diversitys[name].item())
+                    total_diversitys.append(named_diversitys[name])
             # return named_diversitys, total_diversity
             return named_diversitys, np.mean(total_diversitys)
     else:

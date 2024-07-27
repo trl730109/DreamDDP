@@ -43,6 +43,7 @@ master_host=${hosts[$node_rank]}
 
 dnn="${dnn:-resnet18}"
 lr="${lr:-0.1}"
+lr_decay="${lr_decay:-general}"
 batch_size="${batch_size:-128}"
 
 max_epochs="${max_epochs:-181}"

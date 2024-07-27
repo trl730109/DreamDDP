@@ -86,29 +86,29 @@ lr_decay='fixed'
 # lr=0.1
 # source train_exps/launch_mul.sh
 
-dnn=bert-base-uncased
-model_dir="/mnt/raid/tangzichen/bert-base-uncased"
-extra_name='bert-load-pretrain'
-load_pretrain=True
+# dnn=bert-base-uncased
+# model_dir="/mnt/raid/tangzichen/bert-base-uncased"
+# extra_name='bert-load-pretrain'
+# load_pretrain=True
 
 
-weight_decays=(0.0001 0.001 0.01)
-lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
-for weight_decay in "${weight_decays[@]}"
-do
-    for lr in "${lrs[@]}"
-    do
-        # weight_decay=weight_decay
-        # lr=lr
-        source train_exps/launch_transformer.sh
+# weight_decays=(0.0001 0.001 0.01)
+# lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+# for weight_decay in "${weight_decays[@]}"
+# do
+#     for lr in "${lrs[@]}"
+#     do
+#         # weight_decay=weight_decay
+#         # lr=lr
+#         source train_exps/launch_transformer.sh
 
-    done
-done
-
-
+#     done
+# done
 
 
-dnn=gp2
+
+
+dnn=gpt2
 model_dir="/mnt/raid/tangzichen/gpt2"
 extra_name='gpt2-load-pretrain'
 load_pretrain=True
@@ -130,29 +130,29 @@ done
 
 
 
-dnn=bert-base-uncased
-model_dir="/mnt/raid/tangzichen/bert-base-uncased"
-extra_name='bert-Notload'
-load_pretrain=False
+# dnn=bert-base-uncased
+# model_dir="/mnt/raid/tangzichen/bert-base-uncased"
+# extra_name='bert-Notload'
+# load_pretrain=False
 
 
-weight_decays=(0.0001 0.001 0.01)
-lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
-for weight_decay in "${weight_decays[@]}"
-do
-    for lr in "${lrs[@]}"
-    do
-        # weight_decay=weight_decay
-        # lr=lr
-        source train_exps/launch_transformer.sh
+# weight_decays=(0.0001 0.001 0.01)
+# lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+# for weight_decay in "${weight_decays[@]}"
+# do
+#     for lr in "${lrs[@]}"
+#     do
+#         # weight_decay=weight_decay
+#         # lr=lr
+#         source train_exps/launch_transformer.sh
 
-    done
-done
-
-
+#     done
+# done
 
 
-dnn=gp2
+
+
+dnn=gpt2
 model_dir="/mnt/raid/tangzichen/gpt2"
 extra_name='gpt2-Notload'
 load_pretrain=False

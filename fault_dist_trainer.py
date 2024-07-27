@@ -103,9 +103,10 @@ def param_diversity(model, avg_params=None):
                     # named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[name] = diff.norm()
                     named_diversitys[name] = diff.norm() / math.sqrt(diff.numel())
+                    named_diversitys[name] = named_diversitys[name].item()
                     # named_diversitys[name] = param.data.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversitys.append(named_diversitys[name].item())
+                    total_diversitys.append(named_diversitys[name])
             # return named_diversitys, total_diversity
             return named_diversitys, np.mean(total_diversitys)
         else:
@@ -119,9 +120,10 @@ def param_diversity(model, avg_params=None):
                     # named_diversitys[f"diver/{name}"] = diff.norm() / math.sqrt(diff.numel())
                     # named_diversitys[name] = diff.norm()
                     named_diversitys[name] = diff.norm() / math.sqrt(diff.numel())
+                    named_diversitys[name] = named_diversitys[name].item()
                     # named_diversitys[name] = param.data.norm() / math.sqrt(diff.numel())
                     # named_diversitys[f"diver/{name}"] = diff.norm()
-                    total_diversitys.append(named_diversitys[name].item())
+                    total_diversitys.append(named_diversitys[name])
             # return named_diversitys, total_diversity
             return named_diversitys, np.mean(total_diversitys)
     else:
@@ -587,7 +589,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-dir', type=str, default='./data', help='Specify the data root path')
     parser.add_argument('--saved-dir', type=str, default='.', help='Specify the saved weights or gradients root path')
     parser.add_argument('--lr', type=float, default=0.1, help='Default learning rate')
-    parser.add_argument('--lr_decay', type=str, default=None,help='learning rate decay methods, choosing from None,cosine,step')
+    parser.add_argument('--lr_decay', type=str, default='general',help='learning rate decay methods, choosing from None,cosine,step')
     parser.add_argument('--max-epochs', type=int, default=settings.MAX_EPOCHS, help='Default maximum epochs to train')
     parser.add_argument('--pretrain', type=str, default=None, help='Specify the pretrain path')
     parser.add_argument('--num-steps', type=int, default=35)

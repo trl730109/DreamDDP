@@ -128,6 +128,59 @@ print(f"encoded_dataset -- origin_tokens: {origin_tokens}")
 
 
 
+from transformers import LlamaTokenizerFast
+
+tokenizer = LlamaTokenizerFast.from_pretrained("hf-internal-testing/llama-tokenizer")
+
+config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+if kwargs["load_pretrain"]:
+    net = AutoModelForCausalLM.from_pretrained(
+        pretrained_model_name_or_path=dnn,
+        cache_dir=kwargs["model_dir"],
+        from_tf=False, 
+        config=config,
+        low_cpu_mem_usage=True, 
+        trust_remote_code=False
+    )
+else:
+    net = AutoModelForCausalLM.from_config(config)
+    
+elif dnn == 'bert-base-uncased':
+config = BertConfig.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+if kwargs["load_pretrain"]:
+    net = AutoModelForCausalLM.from_pretrained(
+        pretrained_model_name_or_path=dnn,
+        cache_dir=kwargs["model_dir"],
+        from_tf=False, 
+        config=config,
+        low_cpu_mem_usage=True, 
+        trust_remote_code=False
+    )
+else:
+    net = AutoModelForCausalLM.from_config(config)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
