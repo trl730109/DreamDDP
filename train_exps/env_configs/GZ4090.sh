@@ -25,12 +25,16 @@ case "$cluster_name" in
     "GZ4090")
         case "$dataset" in
             "cifar10") data_dir="/data2/share/cifar10" ;;
-            "cifar100") data_dir="/data2/share/cifar100" ;;
-            "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
+            # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            "wikitext2") data_dir="/data2/share/zhtang/wikitext2" ;;
         esac
         case "$dnn" in
-            "gpt2") data_dir="/mnt/raid/tangzichen/gpt2" ;;
-            "bert-base-uncased") data_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
+            # "gpt2") data_dir="/mnt/raid/tangzichen/gpt2" ;;
+            # "bert-base-uncased") data_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
+            "gpt2") data_dir="/data2/share/zhtang/gpt2" ;;
+            "bert-base-uncased") data_dir="/data2/share/zhtang/bert-base-uncased" ;;
+            "llama2-124M") data_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
         esac
         ;;
     "scigpu")

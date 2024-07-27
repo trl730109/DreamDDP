@@ -39,11 +39,11 @@ pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
 optimizer_name=Adam
-dnn=gpt2
+dnn=llama2-124M
 
 
 
-max_epochs=20
+max_epochs=3
 # add_noise=True
 extra_name='gpt-load-pretrain'
 
@@ -74,7 +74,9 @@ lr=0.0001
 weight_decay=0.0001
 
 lr_decay='fixed'
-# source train_exps/launch_transformer.sh
+source train_exps/debug_launch_transformer.sh
+
+
 
 # lr_decay='cosine'
 # node_rank=1
@@ -108,23 +110,23 @@ lr_decay='fixed'
 
 
 
-dnn=gpt2
-model_dir="/mnt/raid/tangzichen/gpt2"
-extra_name='gpt2-load-pretrain'
-load_pretrain=True
+# dnn=gpt2
+# model_dir="/mnt/raid/tangzichen/gpt2"
+# extra_name='gpt2-load-pretrain'
+# load_pretrain=True
 
 
-weight_decays=(0.0001 0.001 0.01)
-lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
-for weight_decay in "${weight_decays[@]}"
-do
-    for lr in "${lrs[@]}"
-    do
-        # weight_decay=weight_decay
-        # lr=lr
-        source train_exps/launch_transformer.sh
-    done
-done
+# weight_decays=(0.0001 0.001 0.01)
+# lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+# for weight_decay in "${weight_decays[@]}"
+# do
+#     for lr in "${lrs[@]}"
+#     do
+#         # weight_decay=weight_decay
+#         # lr=lr
+#         source train_exps/launch_transformer.sh
+#     done
+# done
 
 
 
@@ -152,22 +154,22 @@ done
 
 
 
-dnn=gpt2
-model_dir="/mnt/raid/tangzichen/gpt2"
-extra_name='gpt2-Notload'
-load_pretrain=False
+# dnn=gpt2
+# model_dir="/mnt/raid/tangzichen/gpt2"
+# extra_name='gpt2-Notload'
+# load_pretrain=False
 
-weight_decays=(0.0001 0.001 0.01)
-lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
-for weight_decay in "${weight_decays[@]}"
-do
-    for lr in "${lrs[@]}"
-    do
-        # weight_decay=weight_decay
-        # lr=lr
-        source train_exps/launch_transformer.sh
-    done
-done
+# weight_decays=(0.0001 0.001 0.01)
+# lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
+# for weight_decay in "${weight_decays[@]}"
+# do
+#     for lr in "${lrs[@]}"
+#     do
+#         # weight_decay=weight_decay
+#         # lr=lr
+#         source train_exps/debug_launch_transformer.sh
+#     done
+# done
 
 
 

@@ -18,6 +18,7 @@ import torch.cuda as ct
 import settings
 from transformers import (BertConfig, 
                           GPT2Config, 
+                          LlamaConfig,
                           BertForSequenceClassification, 
                           GPT2LMHeadModel, 
                           Trainer, 
@@ -90,7 +91,11 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
         'transformer', "gpt2",
-        "bert-base-uncased"]
+        "bert-base-uncased", "llama2-124M"]
+
+
+LLAMA2_7B_HF = "meta-llama/llama-2-7b-hf"
+
 
 
 # gpt_path = "/workspace/gpt2"
@@ -143,8 +148,24 @@ def create_net(dnn='gpt2', **kwargs):
             )
         else:
             net = AutoModelForCausalLM.from_config(config)
-            
-
+    elif dnn == 'llama2-124M':
+        config = LlamaConfig.from_pretrained(LLAMA2_7B_HF, cache_dir=kwargs["model_dir"])
+        config.max_position_embeddings = 764
+        config.num_hidden_layers = 8
+        config.hidden_size = 512
+        config.num_attention_heads = 8
+        config.num_key_value_heads = 8
+        if kwargs["load_pretrain"]:
+            net = AutoModelForCausalLM.from_pretrained(
+                pretrained_model_name_or_path=LLAMA2_7B_HF,
+                cache_dir=kwargs["model_dir"],
+                from_tf=False, 
+                config=config,
+                low_cpu_mem_usage=True, 
+                trust_remote_code=False
+            )
+        else:
+            net = AutoModelForCausalLM.from_config(config)
         # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
         # net = AutoModelForCausalLM.from_pretrained(
         #     pretrained_model_name_or_path="openai-community/gpt2",
@@ -160,6 +181,15 @@ def create_net(dnn='gpt2', **kwargs):
         errstr = 'Unsupport neural network %s' % dnn
         logger.error(errstr)
         raise errstr 
+
+    def get_parameter_number(model):
+        total_num = sum(p.numel() for p in model.parameters())
+        trainable_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        return {'Total': total_num, 'Trainable': trainable_num, "Total-M": total_num/1000000}
+    number_params = get_parameter_number(net)
+
+    logger.info(f"get_parameter_number of Model : {number_params}")
+
     return net, ext
 
 
@@ -214,7 +244,7 @@ class LLMTrainer:
         else:
             self.dnn = dnn
             # TODO: Refact these codes!
-            if self.dnn in ['gpt2', "bert-base-uncased"]:
+            if self.dnn in ['gpt2', "bert-base-uncased", "llama2-124M"]:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
@@ -359,7 +389,12 @@ class LLMTrainer:
 
     def wikitext2_prepare(self):
         # Data loading code
-        tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+        if self.dnn in ['gpt2', "bert-base-uncased"]:
+            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+        elif self.dnn in ["llama2-124M"]:
+            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, cache_dir=self.model_dir)
+        else:
+            raise NotImplementedError
         # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
 
         # dataset = load_from_disk(wikitext_path)
