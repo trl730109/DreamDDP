@@ -95,9 +95,9 @@ def param_diversity(model, avg_params=None):
         # for name, param in model.name_parameters():
         for name, param in avg_params.items():
             if "weight" in name:
-                dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
-                avg_params[name] = avg_params[name] / dist.get_world_size()
-                # dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
+                # dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
+                # avg_params[name] = avg_params[name] / dist.get_world_size()
+                dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
 
     if is_root():
         named_diversitys = {}

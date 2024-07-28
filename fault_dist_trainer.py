@@ -86,9 +86,9 @@ def param_diversity(model, avg_params=None):
         # for name, param in model.name_parameters():
         for name, param in avg_params.items():
             if "weight" in name:
-                dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
-                avg_params[name] = avg_params[name] / dist.get_world_size()
-                # dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
+                # dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
+                # avg_params[name] = avg_params[name] / dist.get_world_size()
+                dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
 
     if is_root():
         named_diversitys = {}
@@ -96,7 +96,7 @@ def param_diversity(model, avg_params=None):
         total_diversitys = []
         if isinstance(model, dict):
             for name, param in model.items():
-                if "weight" in name and ("bn" not in name ):
+                if "weight" in name and ("bn" not in name ) and ("lm_head" not in name):
                     diff = (avg_params[name] - param.data)
                     # diff = avg_params[name]
                     if param.dtype == torch.long:
@@ -113,7 +113,7 @@ def param_diversity(model, avg_params=None):
             return named_diversitys, np.mean(total_diversitys)
         else:
             for name, param in model.state_dict().items():
-                if "weight" in name and ("bn" not in name ):
+                if "weight" in name and ("bn" not in name ) and ("lm_head" not in name):
                     diff = (avg_params[name] - param.data)
                     # diff = avg_params[name]
                     if param.dtype == torch.long:
@@ -144,7 +144,7 @@ def get_grad_norm(model):
                     total_norms.append(named_norms[name].item())
             if getattr(model, "lm_head", None):
                 name = "lm_head.weight"
-                grad = model.lm_1head.weight.grad 
+                grad = model.lm_head.weight.grad
                 named_norms[name] = grad.norm() / math.sqrt(grad.numel())
                 total_norms.append(named_norms[name].item())
             return named_norms, np.mean(total_norms)
@@ -157,7 +157,7 @@ def get_grad_norm(model):
 
             if getattr(model, "lm_head", None):
                 name = "lm_head.weight"
-                grad = model.lm_head.weight.grad 
+                grad = model.lm_head.weight.grad
                 named_norms[name] = grad.norm() / math.sqrt(grad.numel())
                 total_norms.append(named_norms[name].item())
             return named_norms, np.mean(total_norms)
@@ -213,12 +213,12 @@ def allreduce_model_weights(model):
         # handle = dist.all_reduce(state_dict[name], op=dist.ReduceOp.SUM, async_op=True)
         # handle = dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG, async_op=True)
         # handles.append(handle)
-        # dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG)
-        dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.SUM)
+        dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.AVG)
+        # dist.all_reduce(state_dict[name].data, op=dist.ReduceOp.SUM)
     # for handle in handles:
     #     handle.wait()
-    for name, p in state_dict.items():
-        state_dict[name].data = state_dict[name].data / dist.get_world_size()
+    # for name, p in state_dict.items():
+    #     state_dict[name].data = state_dict[name].data / dist.get_world_size()
 
     return state_dict
 
@@ -232,9 +232,9 @@ def allreduce_model_weights_not_inplace(model):
     # for name, module in model.name_modules():
     # for name, param in model.name_parameters():
     for name, param in avg_params.items():
-        # dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
-        dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
-        avg_params[name] = avg_params[name] / dist.get_world_size()
+        dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG)
+        # dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM)
+        # avg_params[name] = avg_params[name] / dist.get_world_size()
     return avg_params
 
 def allreduce_model_weights_not_inplace_async(model, _handles):
@@ -247,8 +247,8 @@ def allreduce_model_weights_not_inplace_async(model, _handles):
     # for name, param in model.name_parameters():
     for name, param in avg_params.items():
     # for name, param in model.name_parameters():
-        handle = dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM, async_op=True)
-        # handle = dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG, async_op=True)
+        # handle = dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM, async_op=True)
+        handle = dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG, async_op=True)
         _handles[name] = (handle, None, 1)
         # avg_params[name] = avg_params[name] / dist.get_world_size()
     return avg_params
@@ -520,8 +520,8 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 if param_sync_async_op:
                     synchronize_all_reduced_models()
                     # avg_params[name] = avg_params[name] / dist.get_world_size()
-                    for name, p in avg_params.items():
-                        avg_params[name] = avg_params[name] / dist.get_world_size()
+                    # for name, p in avg_params.items():
+                    #     avg_params[name] = avg_params[name] / dist.get_world_size()
                 else:
                     pass
                 named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)

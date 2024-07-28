@@ -20,10 +20,10 @@ i=0
 while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
-    args="HF_ENDPOINT=https://hf-mirror.com  $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count \
+    args="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com  $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count \
         --node_rank=$i --master_addr=$master_host \
         --master_port=12229 \
-        debug_hf_model.py "
+        allreduce_hf_model.py "
     echo "$host: $args"
     cmd="cd $directory; $args"
     if [ $(expr $i + 1) -eq $node_count ]; then
