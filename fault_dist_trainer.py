@@ -17,6 +17,7 @@ from copy import deepcopy
 
 import torch.distributed as dist
 from dl_trainer import DLTrainer, _support_datasets, _support_dnns
+from llm_trainer import LLMTrainer, _support_datasets, _support_dnns, _llms
 from dist_utils import *
 import dist_optimizer as dist_optim
 # if settings.ORIGINAL_HOROVOD:
@@ -80,6 +81,7 @@ def param_diversity(model, avg_params=None):
         else:
             avg_params = deepcopy(model.state_dict())
 
+
         # for name, module in model.name_modules():
         # for name, param in model.name_parameters():
         for name, param in avg_params.items():
@@ -140,6 +142,11 @@ def get_grad_norm(model):
                 if "weight" in name and ("bn" not in name ):
                     named_norms[name] = param.grad.data.norm() / math.sqrt(param.grad.data.numel())
                     total_norms.append(named_norms[name].item())
+            if getattr(model, "lm_head", None):
+                name = "lm_head.weight"
+                grad = model.lm_1head.weight.grad 
+                named_norms[name] = grad.norm() / math.sqrt(grad.numel())
+                total_norms.append(named_norms[name].item())
             return named_norms, np.mean(total_norms)
         else:
             # for name, param in model.state_dict().items():
@@ -147,6 +154,12 @@ def get_grad_norm(model):
                 if "weight" in name and ("bn" not in name ):
                     named_norms[name] = param.grad.data.norm() / math.sqrt(param.grad.data.numel())
                     total_norms.append(named_norms[name].item())
+
+            if getattr(model, "lm_head", None):
+                name = "lm_head.weight"
+                grad = model.lm_head.weight.grad 
+                named_norms[name] = grad.norm() / math.sqrt(grad.numel())
+                total_norms.append(named_norms[name].item())
             return named_norms, np.mean(total_norms)
     else:
         return None, None
@@ -163,8 +176,10 @@ def record_param_diversity_with_period(model, global_iters, nsteps_param_diversi
                 new_named_diversitys[f"diver/{layer}"] = diversity
             ExpTool.record(new_named_diversitys)
             ExpTool.record({"total_diversity": total_diversity})
-            # logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
+            logger.info(f'==============Params have diversity: {total_diversity} !!!!!!!!.==============')
             # logger.info(f'!!!!!!!!!!!!!==================named_diversitys: {named_diversitys}!!!!!!!!!!!!!==================')
+            # name = "lm_head.weight"
+            # logger.info(f'Param{name} have diversity: {named_diversitys[name]} in Record !!!!!!!!.')
 
 
 
@@ -233,6 +248,7 @@ def allreduce_model_weights_not_inplace_async(model, _handles):
     for name, param in avg_params.items():
     # for name, param in model.name_parameters():
         handle = dist.all_reduce(avg_params[name], op=dist.ReduceOp.SUM, async_op=True)
+        # handle = dist.all_reduce(avg_params[name], op=dist.ReduceOp.AVG, async_op=True)
         _handles[name] = (handle, None, 1)
         # avg_params[name] = avg_params[name] / dist.get_world_size()
     return avg_params
@@ -242,7 +258,7 @@ def allreduce_model_weights_not_inplace_async(model, _handles):
 
 
 def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
-                   nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None):
+                   nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None, args=None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
         
@@ -250,8 +266,12 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
-                        lr_decay='general')
+    if dnn in _llms:
+        trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name=optimizer_name, lr_decay='general',
+                             args=args)
+    else:
+        trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
+                            lr_decay='general')
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -301,6 +321,8 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
         result_dict = {}
         train_epoch_loss = 0.0
         train_epoch_acc = 0.0
+        train_epoch_ppl = 0.0
+
         for i in range(iters_per_epoch//nsteps_update):
             global_iters += 1
             result_dict = {}
@@ -315,15 +337,16 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            for param in trainer.net.parameters():
-                if param.requires_grad:
-                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-                    param.grad.data /= dist.get_world_size()
-                    if (str2bool(add_noise)):
-                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
             # if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
             #     named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            for param in trainer.net.parameters():
+                if param.requires_grad:
+                    # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+                    # param.grad.data /= dist.get_world_size()
+                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
+                    if (str2bool(add_noise)):
+                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
 
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
@@ -336,6 +359,9 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
             train_acc = np.mean(trainer.train_acc_top1)
             train_epoch_loss += train_loss
             train_epoch_acc += train_acc
+            if dnn in _llms:
+                train_ppl = trainer.ppl
+                train_epoch_ppl += train_ppl
 
             trainer.update_model()
             times.append(time.time()-s)
@@ -346,6 +372,8 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                 times = []
                 result_dict["time_per_iter"] = time_per_iter
                 result_dict["samples_per_seconds"] = samples_per_seconds
+            if dnn in _llms:
+                result_dict["train_ppl"] = train_ppl
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
@@ -360,10 +388,15 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
 
             ExpTool.upload()
 
-
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-        val_acc = trainer.test(epoch)
-        result_dict["val_acc"] = val_acc
+        if dnn in _llms:
+            val_ppl, test_loss = trainer.test(epoch)
+            result_dict["val_ppl"] = val_ppl
+            result_dict["test_loss"] = test_loss
+            result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+        else:
+            val_acc = trainer.test(epoch)
+            result_dict["val_acc"] = val_acc
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
@@ -374,7 +407,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
 
 
 def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
-                        nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None, param_sync_async_op=False): 
+                        nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None, param_sync_async_op=False, args=None): 
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
         
@@ -382,8 +415,12 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
-                        lr_decay='general')
+    if dnn in _llms:
+        trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name=optimizer_name, lr_decay='general',
+                             args=args)
+    else:
+        trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
+                            lr_decay='general')
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -434,6 +471,8 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
         result_dict = {}
         train_epoch_loss = 0.0
         train_epoch_acc = 0.0
+        train_epoch_ppl = 0.0
+
         for i in range(iters_per_epoch//nsteps_update):
             global_iters += 1
             result_dict = {}
@@ -448,17 +487,17 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            for param in trainer.net.parameters():
-                if param.requires_grad:
-                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-                    param.grad.data /= dist.get_world_size()
-                    if (str2bool(add_noise)):
-                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
 
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             if (global_iters % new_nsteps_param_sync == 0):
                 named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
-
+            for param in trainer.net.parameters():
+                if param.requires_grad:
+                    # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+                    # param.grad.data /= dist.get_world_size()
+                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
+                    if (str2bool(add_noise)):
+                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
 
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
@@ -471,9 +510,11 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             train_acc = np.mean(trainer.train_acc_top1)
             train_epoch_loss += train_loss
             train_epoch_acc += train_acc
+            if dnn in _llms:
+                train_ppl = trainer.ppl
+                train_epoch_ppl += train_ppl
             # if is_root():
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-
             # calculate divergence before updating model.
             if (global_iters % new_nsteps_param_sync == 0):
                 if param_sync_async_op:
@@ -484,6 +525,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 else:
                     pass
                 named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)
+                # trainer.net.load_state_dict(dict(avg_params))
                 if is_root():
                     layers = list(named_diversitys.keys())
                     diversitys = list(named_diversitys.values())
@@ -498,7 +540,20 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     max_error_per_iter = diverge_per_iter
                     # logger.info(f'named_diversitys: {named_diversitys}')
                     # logger.info(f'named_gradnorms: {named_gradnorms}')
-                    
+                    # for key in named_gradnorms.keys():
+                    #     if key not in named_diversitys:
+                    #         logger.info(f"key: {key} in named_gradnorms. not in named_diversitys")
+
+                    # for key in named_diversitys.keys():
+                    #     if key not in named_gradnorms:
+                    #         logger.info(f"key: {key} in named_diversitys. not in named_gradnorms")
+
+                    # for key, param in trainer.net.named_parameters():
+                    #     logger.info(f"named_parameters key: {key}")
+
+                    # for key, param in trainer.net.state_dict().items():
+                    #     logger.info(f"state_dict  key: {key}")
+
                     grad_norm = named_gradnorms[argmax_layer]
                     # est_tolerance_iters = (grad_norm /10) // max_error_per_iter
                     est_tolerance_iters = grad_norm // max_error_per_iter
@@ -513,6 +568,8 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                         # new_nsteps_param_sync = torch.ones(1) * new_nsteps_param_sync
                         new_nsteps_param_sync = (torch.ones(1).to(selected_gpu) * new_nsteps_param_sync).to(selected_gpu)
                     logger.info(f'Params have diversity: {total_diversity} after sync params !!!!!!!!.')
+                    # name = "lm_head.weight"
+                    # logger.info(f'Param{name} have diversity: {named_diversitys[name]} after sync params !!!!!!!!.')
                     logger.info(f"total_diversity: {total_diversity}, total_gradnorm: {total_gradnorm} "
                         f'max_diversity: {max_diversity},  min_diversity: {min_diversity}   '
                         f'max_error_per_iter: {max_error_per_iter.item()}  argmax_error_grad_norm: {grad_norm.item()},'
@@ -524,6 +581,14 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
 
                     # avg_params = allreduce_model_weights(trainer.net)
                 trainer.net.load_state_dict(dict(avg_params))
+                # for name, param in trainer.net.named_parameters():
+                #     param.data = avg_params[name]
+                # if getattr(trainer.net, "lm_head", None):
+                #     name = "lm_head.weight"
+                #     # grad = model.lm_head.weight.grad 
+                #     trainer.net.lm_head.weight.data = avg_params[name]
+                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+
                 dist.broadcast(new_nsteps_param_sync, src=0)
                 logger.info(f'have new_nsteps_param_sync: {new_nsteps_param_sync} !!!!!!!!.')
 
@@ -537,6 +602,8 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 times = []
                 result_dict["time_per_iter"] = time_per_iter
                 result_dict["samples_per_seconds"] = samples_per_seconds
+            if dnn in _llms:
+                result_dict["train_ppl"] = train_ppl
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_acc": train_acc})
@@ -553,8 +620,14 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
 
 
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-        val_acc = trainer.test(epoch)
-        result_dict["val_acc"] = val_acc
+        if dnn in _llms:
+            val_ppl, test_loss = trainer.test(epoch)
+            result_dict["val_ppl"] = val_ppl
+            result_dict["test_loss"] = test_loss
+            result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+        else:
+            val_acc = trainer.test(epoch)
+            result_dict["val_acc"] = val_acc
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
@@ -721,14 +794,14 @@ if __name__ == '__main__':
     elif (args.alg == 'sgd'):
         logger.info("Alg used: sgd.")
         ssgd_with_dist(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
-                       args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync)
+                       args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync, args)
     # elif (args.alg == 'pipe'):
     #     logger.info("Alg used: pipelined seq.")
     #     ssgd_with_pipe(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix)
     elif (args.alg == 'sgd_with_sync'):
         logger.info("Alg used: pipe_seq_localsgd.")
         ssgd_with_param_sync(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
-                       args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync, args.param_sync_async_op)
+                       args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync, args.param_sync_async_op, args)
 
     ExpTool.finish(args)
 

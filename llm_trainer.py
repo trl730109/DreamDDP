@@ -93,6 +93,9 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'transformer', "gpt2",
         "bert-base-uncased", "llama2-124M"]
 
+_llms = ['transformer', "gpt2",
+        "bert-base-uncased", "llama2-124M"]
+
 
 LLAMA2_7B_HF = "meta-llama/llama-2-7b-hf"
 
@@ -188,7 +191,7 @@ def create_net(dnn='gpt2', **kwargs):
         return {'Total': total_num, 'Trainable': trainable_num, "Total-M": total_num/1000000}
     number_params = get_parameter_number(net)
 
-    logger.info(f"get_parameter_number of Model : {number_params}")
+    logger.info(f"dnn:{dnn}@!!!!! get_parameter_number of Model : {number_params}")
 
     return net, ext
 

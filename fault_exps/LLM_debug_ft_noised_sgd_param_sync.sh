@@ -3,14 +3,30 @@
 master_port=12345
 
 alg=sgd_with_sync
+# alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
-optimizer_name=SGD
-dnn=resnet18
-lr=0.1
-batch_size=32
+optimizer_name=Adam
+lr=0.0001
 
-max_epochs=3
+dataset='wikitext2'
+
+
+# optimizer_name=SGD
+# dnn=resnet18
+# lr=0.1
+# batch_size=32
+
+optimizer_name=SGD
+lr=0.01
+
+batch_size=4
+
+
+
+
+
+max_epochs=20
 
 add_noise=True
 # add_noise=False
@@ -30,14 +46,19 @@ hosts=('localhost')
 # cluster_name=esetstore
 # hosts=('gpu3')
 param_sync_async_op=False
-param_sync=detect_base
-# param_sync=fix
+# param_sync=detect_base
+param_sync=fix
 
 nsteps_param_diversity=1
 nsteps_param_sync=5
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
+
+# dnn=llama2-124M
+# model_dir="/data2/share/zhtang/llama-2-7b-hf"
+dnn=gpt2
+model_dir="/data2/share/zhtang/gpt2"
 
 
 values=(5)
@@ -66,9 +87,11 @@ do
     # gaussian_std=1.0
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     # source fault_exps/launch.sh
+
     gaussian_std=100.0
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch.sh
+
 done
 # gaussian_std=10.0
 # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"

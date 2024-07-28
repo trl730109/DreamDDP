@@ -2,7 +2,7 @@ import random
 import pandas as pd
 from datasets import load_dataset, load_from_disk, ClassLabel
 from itertools import chain
-
+import torch
 
 from transformers import (BertConfig, 
                           GPT2Config, 
@@ -209,11 +209,19 @@ print(config)
 # config["num_key_value_heads"] = 8
 
 
-config.max_position_embeddings = 764
-config.num_hidden_layers = 8
-config.hidden_size = 512
-config.num_attention_heads = 8
-config.num_key_value_heads = 8
+# config.max_position_embeddings = 764
+# config.num_hidden_layers = 8
+# config.hidden_size = 512
+# config.num_attention_heads = 8
+# config.num_key_value_heads = 8
+
+
+config.max_position_embeddings = 32
+config.num_hidden_layers = 2
+config.hidden_size = 32
+config.num_attention_heads = 2
+config.num_key_value_heads = 2
+
 
 # LlamaConfig {
 #   "_name_or_path": "meta-llama/Llama-2-7b-hf",
@@ -259,7 +267,37 @@ def get_parameter_number(model):
 # 
 number_params = get_parameter_number(net)
 
+from torch.nn import Module
+
 print(f"get_parameter_number: {number_params}")
+
+print(f"type(net): {type(net)}, isinstance(net, torch.Module):{isinstance(net, Module)}")
+print(f"net: {net}")
+
+print(f"type(net.model): {type(net.model)}, isinstance(net.model, torch.Module):{isinstance(net.model, Module)}")
+
+print(f"type(net.model.layers[0]):{type(net.model.layers[0])}, ")
+
+print(f"net.model.layers[0]:{net.model.layers[0]}")
+
+print(f"net.model.layers[0].mlp:{net.model.layers[0].mlp}")
+
+print(f"====================================")
+print(f"net.model.layers[0].mlp.gate_proj.weight[0,:10]:{net.model.layers[0].mlp.gate_proj.weight[0,:10]}")
+print(f"====================================")
+
+from copy import deepcopy
+# new_net = net.state_dict()
+new_net = deepcopy(net)
+def modify_net(net):
+    for name, param in net.named_parameters():
+        shape = param.data.shape
+        param.data = param.data + torch.normal(mean=1.0, std=0.001, size=shape, device=param.data.device)
+modify_net(new_net)
+print(f"net.model.layers[0].mlp.gate_proj.weight[0,:10]:{net.model.layers[0].mlp.gate_proj.weight[0,:10]}")
+
+net.load_state_dict(new_net.state_dict())
+print(f"net.model.layers[0].mlp.gate_proj.weight[0,:10]:{net.model.layers[0].mlp.gate_proj.weight[0,:10]}")
 
 
 
