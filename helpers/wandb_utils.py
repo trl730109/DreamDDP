@@ -23,8 +23,8 @@ class wandb_tool:
         cls.args = args
         cls.enable = args.enable_wandb
         cls.exp_name = args.exp_name
-        # if args.wandb_key is not None:
-        #     wandb.login('allow', args.wandb_key)
+        if args.wandb_key is not None:
+            wandb.login('allow', args.wandb_key)
         if cls.enable:
             wandb_args = {
                 "entity": args.wandb_entity,

@@ -127,6 +127,7 @@ def create_net(dnn='gpt2', **kwargs):
     if dnn == 'gpt2':
         config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
         if kwargs["load_pretrain"]:
+            logger.info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=dnn,
                 cache_dir=kwargs["model_dir"],
@@ -136,6 +137,7 @@ def create_net(dnn='gpt2', **kwargs):
                 trust_remote_code=False
             )
         else:
+            logger.info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
             
     elif dnn == 'bert-base-uncased':
@@ -334,6 +336,7 @@ class LLMTrainer:
         self.timer = 0.0
         self.forwardtime = 0.0
         self.backwardtime = 0.0
+        self.backwardtime_tmp = 0.0
         self.iotime = 0.0
         self.epochs_info = []
         self.distributions = {}
