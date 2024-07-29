@@ -37,7 +37,7 @@ exp_name=$exp_name
 cluster_name=shenzhen
 
 #hosts=('10.0.0.20')
-hosts=('10.0.0.19')
+hosts=('10.0.0.16' '10.0.0.17')
 #
 
 node_count=${#hosts[@]}

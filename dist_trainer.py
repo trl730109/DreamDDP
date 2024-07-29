@@ -217,16 +217,16 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
     backward_time_acc = 0.0
     
 
-    # layer_bp_timestamps = {}
-    # def add_backward_hook(layer, name):
-    #     def backward_hook(module, grad_input, grad_output):
-    #         # Record the current time as the end time for this layer's backward computation
-    #         torch.cuda.synchronize()
-    #         layer_bp_timestamps[name] = time.time()
-    #     layer.register_full_backward_hook(backward_hook)
-    # for name, module in trainer.net.named_modules():
-    #     if len(list(module.children())) == 0: 
-    #         add_backward_hook(module, name)
+    layer_bp_timestamps = {}
+    def add_backward_hook(layer, name):
+        def backward_hook(module, grad_input, grad_output):
+            # Record the current time as the end time for this layer's backward computation
+            torch.cuda.synchronize()
+            layer_bp_timestamps[name] = time.time()
+        layer.register_full_backward_hook(backward_hook)
+    for name, module in trainer.net.named_modules():
+        if len(list(module.children())) == 0: 
+            add_backward_hook(module, name)
             
     for epoch in range(max_epochs):
         bp_dict = {}
@@ -298,29 +298,29 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
 
-            # previous_time = trainer.backward_stamp
-            # for name in layer_bp_timestamps:
-            #     current_stamp = layer_bp_timestamps[name]
-            #     bp_dict[name].append(current_stamp - previous_time)
-            #     previous_time = current_stamp
-            # layer_bp_timestamps = {}
+            previous_time = trainer.backward_stamp
+            for name in layer_bp_timestamps:
+                current_stamp = layer_bp_timestamps[name]
+                bp_dict[name].append(current_stamp - previous_time)
+                previous_time = current_stamp
+            layer_bp_timestamps = {}
             
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_acc = trainer.test(epoch)
         result_dict["val_acc"] = val_acc
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-        # avg_bp_dict = {}
-        # for name in bp_dict:
-        #     avg_bp_dict[name] = np.mean(bp_dict[name])
-        # logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
+        avg_bp_dict = {}
+        for name in bp_dict:
+            avg_bp_dict[name] = np.mean(bp_dict[name])
+        logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
         
-        # filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-        # save_path = os.path.join('./time/bp/', filename)
-        # import json
-        # os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        # with open(save_path, 'w') as file:
-        #     json.dump(avg_bp_dict, file, indent=4)
+        filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+        save_path = os.path.join('./time/bp/', filename)
+        import json
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, 'w') as file:
+            json.dump(avg_bp_dict, file, indent=4)
             
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
@@ -704,17 +704,23 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
                 start = time.time()
                 for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
                     if len(list(module.children())) == 0:  
-                        torch.cuda.synchronize()
-                        ls = time.time()
+                        # torch.cuda.synchronize()
+                        # ls = time.time()
                         for param in module.parameters():
                             dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
-                        torch.cuda.synchronize()
-                        layer_time = time.time() - ls
+                        # torch.cuda.synchronize()
+                        # layer_time = time.time() - ls
                         # comm_dict[name].append(layer_time)
+                        # for state in trainer.optimizer.state.values():
+                        #     for k, v in state.items():
+                        #         if isinstance(v, torch.Tensor):
+                        #             dist.all_reduce(v, op=dist.ReduceOp.AVG)
                     else:
                         pass
                 comm_time = time.time() - start
                 comm_time_acc += comm_time
+                # optimizer_state = trainer.optimizer.state_dict()
+                
             else:
                 pass
             iteration_time_acc += (time.time() - s)

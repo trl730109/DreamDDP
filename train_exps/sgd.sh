@@ -23,6 +23,7 @@ alg='sgd'
 # 10.0.0.26 gpu16
 optimizer_name=SGD
 dnn=resnet18
+dataset=cifar10
 max_epochs=1
 # add_noise=True
 extra_name='707'
@@ -36,9 +37,9 @@ exp_name=$exp_name
 cluster_name=shenzhen
 check_param_diversity=false
 nsteps_param_diversity=5
-#hosts=('10.0.0.22')
+hosts=('10.0.0.12')
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
-hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.26')
+# hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.26')
 # #
 
 node_count=${#hosts[@]}
