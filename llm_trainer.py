@@ -93,6 +93,9 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'transformer', "gpt2",
         "bert-base-uncased", "llama2-124M"]
 
+_llms = ['transformer', "gpt2",
+        "bert-base-uncased", "llama2-124M"]
+
 
 LLAMA2_7B_HF = "meta-llama/llama-2-7b-hf"
 
@@ -124,6 +127,7 @@ def create_net(dnn='gpt2', **kwargs):
     if dnn == 'gpt2':
         config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
         if kwargs["load_pretrain"]:
+            logger.info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=dnn,
                 cache_dir=kwargs["model_dir"],
@@ -133,6 +137,7 @@ def create_net(dnn='gpt2', **kwargs):
                 trust_remote_code=False
             )
         else:
+            logger.info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
             
     elif dnn == 'bert-base-uncased':
@@ -188,7 +193,7 @@ def create_net(dnn='gpt2', **kwargs):
         return {'Total': total_num, 'Trainable': trainable_num, "Total-M": total_num/1000000}
     number_params = get_parameter_number(net)
 
-    logger.info(f"get_parameter_number of Model : {number_params}")
+    logger.info(f"dnn:{dnn}@!!!!! get_parameter_number of Model : {number_params}")
 
     return net, ext
 
@@ -331,6 +336,7 @@ class LLMTrainer:
         self.timer = 0.0
         self.forwardtime = 0.0
         self.backwardtime = 0.0
+        self.backwardtime_tmp = 0.0
         self.iotime = 0.0
         self.epochs_info = []
         self.distributions = {}

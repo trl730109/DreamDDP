@@ -23,6 +23,7 @@ echo "model_dir: $model_dir"
 pre_cmd="${pre_cmd:-}"
 echo "pre_cmd: $pre_cmd"
 
+# export NCCL_DEBUG=TRACE
 
 
 nworkers="${nworkers:-4}"

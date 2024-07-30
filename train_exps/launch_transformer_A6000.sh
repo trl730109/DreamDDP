@@ -2,7 +2,7 @@
 
 # Set Python and script environment
 directory=$(pwd)
-script="${script:-dist_trainer.py}"  # Assuming this is the PyTorch distributed training script
+script="${script:-dist_trainer_transformer.py}"  # Assuming this is the PyTorch distributed training script
 params="${params:-}"
 echo "launch dir: $directory"
 
@@ -14,9 +14,6 @@ echo "cluster name: $cluster_name"
 source train_exps/env_configs/$cluster_name.sh
 echo "dataset dir: $data_dir"
 echo "model_dir: $model_dir"
-
-pre_cmd="${pre_cmd:-}"
-echo "pre_cmd: $pre_cmd"
 
 export NCCL_DEBUG=TRACE
 
@@ -55,20 +52,12 @@ optimizer_name="${optimizer_name:-SGD}"
 sync="${sync:-avg}"
 alg="${alg:-sgd}"
 GRADSPATH=./logs/tzc
-lr="${lr:-0.0001}"
 lr_decay="${lr_decay:-None}"
-weight_decay="${weight_decay:-0.0001}"
-adam_beta1="${adam_beta1:-0.9}"
-adam_beta2="${adam_beta2:-0.999}"
-batch_size="${batch_size:-128}"
-
 dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 model_dir="${model_dir:-/mnt/raid/gpt2}"
-load_pretrain="${load_pretrain:-False}"
-
 group_num="${group_num:-6}"
-
+host_ip='haigpu2'
 check_param_diversity="${check_param_diversity:-false}"
 nsteps_param_diversity=5
 
@@ -79,8 +68,6 @@ elif [ "$interface" = "ens5f0" ]; then
 else
     bandwidth="100G"
 fi
-
-
 
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
@@ -110,14 +97,15 @@ if [ -z "$exp_name" ]; then
 fi
 # Loop to launch training on each node
 i=0
-
+host_port=30737
+host_ip="haigpu2"
 project_name=DDP-Train
-
+master_port="${master_port:-2395}"
 while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
-    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2384 $script \
+    args="$pre_cmd  $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
@@ -131,12 +119,8 @@ do
         --nworkers $nworkers \
         --data-dir $data_dir \
         --model_dir $model_dir \
-        --load_pretrain $load_pretrain \
         --lr $lr \
         --lr_decay $lr_decay \
-        --weight_decay $weight_decay \
-        --adam_beta1 $adam_beta1 \
-        --adam_beta2 $adam_beta2 \
         --group_num $group_num \
         --nsteps-update $nstepsupdate \
         --nwpernode $nwpernode \
@@ -152,11 +136,13 @@ do
         --wandb_key $wandb_key"
     echo "$host: $args"
     cmd="cd $directory; $args"
+    echo "$host"
     if [ $(expr $i + 1) -eq $node_count ]; then
-        ssh  $host $cmd   # return until finished or interrupted
+        ssh -p $host_port $host $cmd   # return until finished or interrupted
     else
-        ssh $host $cmd &
+        ssh -p $host_port $host $cmd &
     fi
     node_rank=$(expr $node_rank + 1)
     i=$(expr $i + 1)
 done
+

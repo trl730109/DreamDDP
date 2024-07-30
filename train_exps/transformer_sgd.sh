@@ -1,6 +1,6 @@
 lr=0.00001
 batch_size=4
-alg='transformer_localsgd'
+alg='transformer_sgd'
 dataset='wikitext2'
 
 data_dir="/mnt/raid/tangzichen/wikitext2"
@@ -9,7 +9,7 @@ data_dir="/mnt/raid/tangzichen/wikitext2"
 model_dir="/mnt/raid/tangzichen/bert-base-uncased"
 # model_dir="/workspace/models/gpt2"
 # "/workspace/models/gpt2"
-å
+
 # data_dir="/home/tangzhenheng/wikitext2"
 # model_dir="/home/tangzhenheng/gpt2"
 # PY="/mnt/raid/tangzhenheng/anaconda3/bin/python"
@@ -23,11 +23,11 @@ optimizer_name=Adam
 # dnn=llama2-124M
 dnn=gpt2
 
-max_epochs=10
+max_epochs=2
 # add_noise=True
 extra_name='gpt-load-pretrain'
 
-enable_wandb=true
+enable_wandb=false
 wandb_offline=false
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
@@ -40,16 +40,15 @@ cluster_name=A6000
 
 # hosts=('10.0.0.20')
 # hosts=('30332' '30737')
-hosts=(30737)
-host_ip=haigpu4
-# hosts=("haigpu4")
+hosts=("haigpu4")
 #
 master_port=2280
 node_count=${#hosts[@]}
 nworkers=$((8 * node_count))
 nwpernode=8
-nsteps_localsgd=10
 ngpu_per_node=$nwpernode
+nsteps_localsgd=10
+
 # lr_decay=None
 
 adam_beta1=0.9
@@ -60,7 +59,6 @@ weight_decay=0.0001
 
 lr_decay='fixed'
 source train_exps/launch_transformer_A6000.sh
-
 
 # /workspace/DDP-Train/train_exps/launch_transformer_A6000.sh
 # dnn=llama2-124M

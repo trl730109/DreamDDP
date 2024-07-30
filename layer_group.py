@@ -1,3 +1,9 @@
+resnet50_4_H1 = {'linear': 0, 'layer4.2.shortcut': 0, 'layer4.2.bn3': 0, 'layer4.2.conv3': 0, 'layer4.2.bn2': 0, 'layer4.2.conv2': 0, 'layer4.2.bn1': 0, 'layer4.2.conv1': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn3': 0, 'layer4.1.conv3': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 0, 'layer4.1.conv1': 0, 'layer4.0.shortcut.1': 0, 'layer4.0.shortcut.0': 0, 'layer4.0.bn3': 0, 'layer4.0.conv3': 0, 'layer4.0.bn2': 0, 'layer4.0.conv2': 0, 'layer4.0.bn1': 0, 'layer4.0.conv1': 0, 'layer3.5.shortcut': 0, 'layer3.5.bn3': 0, 'layer3.5.conv3': 0, 'layer3.5.bn2': 0, 'layer3.5.conv2': 0, 'layer3.5.bn1': 0, 'layer3.5.conv1': 0, 'layer3.4.shortcut': 0, 'layer3.4.bn3': 0, 'layer3.4.conv3': 0, 'layer3.4.bn2': 0, 'layer3.4.conv2': 0, 'layer3.4.bn1': 0, 'layer3.4.conv1': 0, 'layer3.3.shortcut': 0, 'layer3.3.bn3': 0, 'layer3.3.conv3': 0, 'layer3.3.bn2': 0, 'layer3.3.conv2': 0, 'layer3.3.bn1': 0, 'layer3.3.conv1': 0, 'layer3.2.shortcut': 0, 'layer3.2.bn3': 0, 'layer3.2.conv3': 0, 'layer3.2.bn2': 0, 'layer3.2.conv2': 0, 'layer3.2.bn1': 0, 'layer3.2.conv1': 0, 'layer3.1.shortcut': 0, 'layer3.1.bn3': 0, 'layer3.1.conv3': 0, 'layer3.1.bn2': 0, 'layer3.1.conv2': 0, 'layer3.1.bn1': 0, 'layer3.1.conv1': 0, 'layer3.0.shortcut.1': 0, 'layer3.0.shortcut.0': 0, 'layer3.0.bn3': 0, 'layer3.0.conv3': 0, 'layer3.0.bn2': 0, 'layer3.0.conv2': 0, 'layer3.0.bn1': 0, 'layer3.0.conv1': 0, 'layer2.3.shortcut': 0, 'layer2.3.bn3': 0, 'layer2.3.conv3': 0, 'layer2.3.bn2': 0, 'layer2.3.conv2': 0, 'layer2.3.bn1': 0, 'layer2.3.conv1': 0, 'layer2.2.shortcut': 0, 'layer2.2.bn3': 0, 'layer2.2.conv3': 0, 'layer2.2.bn2': 0, 'layer2.2.conv2': 0, 'layer2.2.bn1': 0, 'layer2.2.conv1': 0, 'layer2.1.shortcut': 0, 'layer2.1.bn3': 0, 'layer2.1.conv3': 0, 'layer2.1.bn2': 0, 'layer2.1.conv2': 0, 'layer2.1.bn1': 0, 'layer2.1.conv1': 0, 'layer2.0.shortcut.1': 0, 'layer2.0.shortcut.0': 0, 'layer2.0.bn3': 0, 'layer2.0.conv3': 0, 'layer2.0.bn2': 0, 'layer2.0.conv2': 0, 'layer2.0.bn1': 0, 'layer2.0.conv1': 0, 'layer1.2.shortcut': 0, 'layer1.2.bn3': 0, 'layer1.2.conv3': 0, 'layer1.2.bn2': 0, 'layer1.2.conv2': 0, 'layer1.2.bn1': 0, 'layer1.2.conv1': 0, 'layer1.1.shortcut': 0, 'layer1.1.bn3': 0, 'layer1.1.conv3': 0, 'layer1.1.bn2': 0, 'layer1.1.conv2': 0, 'layer1.1.bn1': 0, 'layer1.1.conv1': 0, 'layer1.0.shortcut.1': 0, 'layer1.0.shortcut.0': 0, 'layer1.0.bn3': 0, 'layer1.0.conv3': 0, 'layer1.0.bn2': 0, 'layer1.0.conv2': 0, 'layer1.0.bn1': 0, 'layer1.0.conv1': 0, 'bn1': 0, 'conv1': 0}
+# resnet50_4_H6 = {'linear': 0, 'layer4.2.shortcut': 0, 'layer4.2.bn3': 0, 'layer4.2.conv3': 0, 'layer4.2.bn2': 0, 'layer4.2.conv2': 0, 'layer4.2.bn1': 0, 'layer4.2.conv1': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn3': 0, 'layer4.1.conv3': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 0, 'layer4.1.conv1': 0, 'layer4.0.shortcut.1': 0, 'layer4.0.shortcut.0': 0, 'layer4.0.bn3': 0, 'layer4.0.conv3': 0, 'layer4.0.bn2': 0, 'layer4.0.conv2': 0, 'layer4.0.bn1': 0, 'layer4.0.conv1': 0, 'layer3.5.shortcut': 0, 'layer3.5.bn3': 0, 'layer3.5.conv3': 0, 'layer3.5.bn2': 0, 'layer3.5.conv2': 0, 'layer3.5.bn1': 0, 'layer3.5.conv1': 0, 'layer3.4.shortcut': 0, 'layer3.4.bn3': 0, 'layer3.4.conv3': 0, 'layer3.4.bn2': 0, 'layer3.4.conv2': 0, 'layer3.4.bn1': 0, 'layer3.4.conv1': 0, 'layer3.3.shortcut': 0, 'layer3.3.bn3': 0, 'layer3.3.conv3': 0, 'layer3.3.bn2': 0, 'layer3.3.conv2': 0, 'layer3.3.bn1': 0, 'layer3.3.conv1': 0, 'layer3.2.shortcut': 0, 'layer3.2.bn3': 0, 'layer3.2.conv3': 0, 'layer3.2.bn2': 0, 'layer3.2.conv2': 0, 'layer3.2.bn1': 0, 'layer3.2.conv1': 0, 'layer3.1.shortcut': 0, 'layer3.1.bn3': 0, 'layer3.1.conv3': 0, 'layer3.1.bn2': 0, 'layer3.1.conv2': 0, 'layer3.1.bn1': 0, 'layer3.1.conv1': 0, 'layer3.0.shortcut.1': 0, 'layer3.0.shortcut.0': 0, 'layer3.0.bn3': 0, 'layer3.0.conv3': 0, 'layer3.0.bn2': 0, 'layer3.0.conv2': 0, 'layer3.0.bn1': 0, 'layer3.0.conv1': 0, 'layer2.3.shortcut': 0, 'layer2.3.bn3': 0, 'layer2.3.conv3': 0, 'layer2.3.bn2': 0, 'layer2.3.conv2': 0, 'layer2.3.bn1': 0, 'layer2.3.conv1': 0, 'layer2.2.shortcut': 0, 'layer2.2.bn3': 0, 'layer2.2.conv3': 0, 'layer2.2.bn2': 0, 'layer2.2.conv2': 0, 'layer2.2.bn1': 0, 'layer2.2.conv1': 0, 'layer2.1.shortcut': 0, 'layer2.1.bn3': 0, 'layer2.1.conv3': 0, 'layer2.1.bn2': 0, 'layer2.1.conv2': 0, 'layer2.1.bn1': 0, 'layer2.1.conv1': 0, 'layer2.0.shortcut.1': 0, 'layer2.0.shortcut.0': 0, 'layer2.0.bn3': 0, 'layer2.0.conv3': 0, 'layer2.0.bn2': 0, 'layer2.0.conv2': 0, 'layer2.0.bn1': 0, 'layer2.0.conv1': 0, 'layer1.2.shortcut': 0, 'layer1.2.bn3': 0, 'layer1.2.conv3': 0, 'layer1.2.bn2': 0, 'layer1.2.conv2': 0, 'layer1.2.bn1': 0, 'layer1.2.conv1': 0, 'layer1.1.shortcut': 0, 'layer1.1.bn3': 0, 'layer1.1.conv3': 0, 'layer1.1.bn2': 0, 'layer1.1.conv2': 0, 'layer1.1.bn1': 0, 'layer1.1.conv1': 0, 'layer1.0.shortcut.1': 0, 'layer1.0.shortcut.0': 0, 'layer1.0.bn3': 0, 'layer1.0.conv3': 0, 'layer1.0.bn2': 0, 'layer1.0.conv2': 0, 'layer1.0.bn1': 0, 'layer1.0.conv1': 0, 'bn1': 0, 'conv1': 0}
+# resnet50_4_H8 = {'linear': 0, 'layer4.2.shortcut': 0, 'layer4.2.bn3': 0, 'layer4.2.conv3': 0, 'layer4.2.bn2': 0, 'layer4.2.conv2': 0, 'layer4.2.bn1': 0, 'layer4.2.conv1': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn3': 0, 'layer4.1.conv3': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 0, 'layer4.1.conv1': 0, 'layer4.0.shortcut.1': 0, 'layer4.0.shortcut.0': 0, 'layer4.0.bn3': 0, 'layer4.0.conv3': 0, 'layer4.0.bn2': 0, 'layer4.0.conv2': 0, 'layer4.0.bn1': 0, 'layer4.0.conv1': 0, 'layer3.5.shortcut': 0, 'layer3.5.bn3': 0, 'layer3.5.conv3': 0, 'layer3.5.bn2': 0, 'layer3.5.conv2': 0, 'layer3.5.bn1': 0, 'layer3.5.conv1': 0, 'layer3.4.shortcut': 0, 'layer3.4.bn3': 0, 'layer3.4.conv3': 0, 'layer3.4.bn2': 0, 'layer3.4.conv2': 0, 'layer3.4.bn1': 0, 'layer3.4.conv1': 0, 'layer3.3.shortcut': 0, 'layer3.3.bn3': 0, 'layer3.3.conv3': 0, 'layer3.3.bn2': 0, 'layer3.3.conv2': 0, 'layer3.3.bn1': 0, 'layer3.3.conv1': 0, 'layer3.2.shortcut': 0, 'layer3.2.bn3': 0, 'layer3.2.conv3': 0, 'layer3.2.bn2': 0, 'layer3.2.conv2': 0, 'layer3.2.bn1': 0, 'layer3.2.conv1': 0, 'layer3.1.shortcut': 0, 'layer3.1.bn3': 0, 'layer3.1.conv3': 0, 'layer3.1.bn2': 0, 'layer3.1.conv2': 0, 'layer3.1.bn1': 0, 'layer3.1.conv1': 0, 'layer3.0.shortcut.1': 0, 'layer3.0.shortcut.0': 0, 'layer3.0.bn3': 0, 'layer3.0.conv3': 0, 'layer3.0.bn2': 0, 'layer3.0.conv2': 0, 'layer3.0.bn1': 0, 'layer3.0.conv1': 0, 'layer2.3.shortcut': 0, 'layer2.3.bn3': 0, 'layer2.3.conv3': 0, 'layer2.3.bn2': 0, 'layer2.3.conv2': 0, 'layer2.3.bn1': 0, 'layer2.3.conv1': 0, 'layer2.2.shortcut': 0, 'layer2.2.bn3': 0, 'layer2.2.conv3': 0, 'layer2.2.bn2': 0, 'layer2.2.conv2': 0, 'layer2.2.bn1': 0, 'layer2.2.conv1': 0, 'layer2.1.shortcut': 0, 'layer2.1.bn3': 0, 'layer2.1.conv3': 0, 'layer2.1.bn2': 0, 'layer2.1.conv2': 0, 'layer2.1.bn1': 0, 'layer2.1.conv1': 0, 'layer2.0.shortcut.1': 0, 'layer2.0.shortcut.0': 0, 'layer2.0.bn3': 0, 'layer2.0.conv3': 0, 'layer2.0.bn2': 0, 'layer2.0.conv2': 0, 'layer2.0.bn1': 0, 'layer2.0.conv1': 0, 'layer1.2.shortcut': 0, 'layer1.2.bn3': 0, 'layer1.2.conv3': 0, 'layer1.2.bn2': 0, 'layer1.2.conv2': 0, 'layer1.2.bn1': 0, 'layer1.2.conv1': 0, 'layer1.1.shortcut': 0, 'layer1.1.bn3': 0, 'layer1.1.conv3': 0, 'layer1.1.bn2': 0, 'layer1.1.conv2': 0, 'layer1.1.bn1': 0, 'layer1.1.conv1': 0, 'layer1.0.shortcut.1': 0, 'layer1.0.shortcut.0': 0, 'layer1.0.bn3': 0, 'layer1.0.conv3': 0, 'layer1.0.bn2': 0, 'layer1.0.conv2': 0, 'layer1.0.bn1': 0, 'layer1.0.conv1': 0, 'bn1': 0, 'conv1': 0}
+# resnet50_4_H10 = {'linear': 0, 'layer4.2.shortcut': 0, 'layer4.2.bn3': 0, 'layer4.2.conv3': 0, 'layer4.2.bn2': 0, 'layer4.2.conv2': 0, 'layer4.2.bn1': 0, 'layer4.2.conv1': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn3': 0, 'layer4.1.conv3': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 0, 'layer4.1.conv1': 0, 'layer4.0.shortcut.1': 0, 'layer4.0.shortcut.0': 0, 'layer4.0.bn3': 0, 'layer4.0.conv3': 0, 'layer4.0.bn2': 0, 'layer4.0.conv2': 0, 'layer4.0.bn1': 0, 'layer4.0.conv1': 0, 'layer3.5.shortcut': 0, 'layer3.5.bn3': 0, 'layer3.5.conv3': 0, 'layer3.5.bn2': 0, 'layer3.5.conv2': 0, 'layer3.5.bn1': 0, 'layer3.5.conv1': 0, 'layer3.4.shortcut': 0, 'layer3.4.bn3': 0, 'layer3.4.conv3': 0, 'layer3.4.bn2': 0, 'layer3.4.conv2': 0, 'layer3.4.bn1': 0, 'layer3.4.conv1': 0, 'layer3.3.shortcut': 0, 'layer3.3.bn3': 0, 'layer3.3.conv3': 0, 'layer3.3.bn2': 0, 'layer3.3.conv2': 0, 'layer3.3.bn1': 0, 'layer3.3.conv1': 0, 'layer3.2.shortcut': 0, 'layer3.2.bn3': 0, 'layer3.2.conv3': 0, 'layer3.2.bn2': 0, 'layer3.2.conv2': 0, 'layer3.2.bn1': 0, 'layer3.2.conv1': 0, 'layer3.1.shortcut': 0, 'layer3.1.bn3': 0, 'layer3.1.conv3': 0, 'layer3.1.bn2': 0, 'layer3.1.conv2': 0, 'layer3.1.bn1': 0, 'layer3.1.conv1': 0, 'layer3.0.shortcut.1': 0, 'layer3.0.shortcut.0': 0, 'layer3.0.bn3': 0, 'layer3.0.conv3': 0, 'layer3.0.bn2': 0, 'layer3.0.conv2': 0, 'layer3.0.bn1': 0, 'layer3.0.conv1': 0, 'layer2.3.shortcut': 0, 'layer2.3.bn3': 0, 'layer2.3.conv3': 0, 'layer2.3.bn2': 0, 'layer2.3.conv2': 0, 'layer2.3.bn1': 0, 'layer2.3.conv1': 0, 'layer2.2.shortcut': 0, 'layer2.2.bn3': 0, 'layer2.2.conv3': 0, 'layer2.2.bn2': 0, 'layer2.2.conv2': 0, 'layer2.2.bn1': 0, 'layer2.2.conv1': 0, 'layer2.1.shortcut': 0, 'layer2.1.bn3': 0, 'layer2.1.conv3': 0, 'layer2.1.bn2': 0, 'layer2.1.conv2': 0, 'layer2.1.bn1': 0, 'layer2.1.conv1': 0, 'layer2.0.shortcut.1': 0, 'layer2.0.shortcut.0': 0, 'layer2.0.bn3': 0, 'layer2.0.conv3': 0, 'layer2.0.bn2': 0, 'layer2.0.conv2': 0, 'layer2.0.bn1': 0, 'layer2.0.conv1': 0, 'layer1.2.shortcut': 0, 'layer1.2.bn3': 0, 'layer1.2.conv3': 0, 'layer1.2.bn2': 0, 'layer1.2.conv2': 0, 'layer1.2.bn1': 0, 'layer1.2.conv1': 0, 'layer1.1.shortcut': 0, 'layer1.1.bn3': 0, 'layer1.1.conv3': 0, 'layer1.1.bn2': 0, 'layer1.1.conv2': 0, 'layer1.1.bn1': 0, 'layer1.1.conv1': 0, 'layer1.0.shortcut.1': 0, 'layer1.0.shortcut.0': 0, 'layer1.0.bn3': 0, 'layer1.0.conv3': 0, 'layer1.0.bn2': 0, 'layer1.0.conv2': 0, 'layer1.0.bn1': 0, 'layer1.0.conv1': 0, 'bn1': 0, 'conv1': 0}
+
+
 resnet50_8_H5 = {'linear': 0, 'layer4.2.shortcut': 0, 'layer4.2.bn3': 0, 'layer4.2.conv3': 0, 'layer4.2.bn2': 0, 'layer4.2.conv2': 0, 'layer4.2.bn1': 1, 'layer4.2.conv1': 1, 'layer4.1.shortcut': 1, 'layer4.1.bn3': 1, 'layer4.1.conv3': 1, 'layer4.1.bn2': 1, 'layer4.1.conv2': 1, 'layer4.1.bn1': 2, 'layer4.1.conv1': 2, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn3': 2, 'layer4.0.conv3': 3, 'layer4.0.bn2': 3, 'layer4.0.conv2': 3, 'layer4.0.bn1': 4, 'layer4.0.conv1': 4, 'layer3.5.shortcut': 4, 'layer3.5.bn3': 4, 'layer3.5.conv3': 4, 'layer3.5.bn2': 4, 'layer3.5.conv2': 4, 'layer3.5.bn1': 4, 'layer3.5.conv1': 4, 'layer3.4.shortcut': 4, 'layer3.4.bn3': 4, 'layer3.4.conv3': 4, 'layer3.4.bn2': 4, 'layer3.4.conv2': 4, 'layer3.4.bn1': 4, 'layer3.4.conv1': 4, 'layer3.3.shortcut': 4, 'layer3.3.bn3': 4, 'layer3.3.conv3': 4, 'layer3.3.bn2': 4, 'layer3.3.conv2': 4, 'layer3.3.bn1': 4, 'layer3.3.conv1': 4, 'layer3.2.shortcut': 4, 'layer3.2.bn3': 4, 'layer3.2.conv3': 4, 'layer3.2.bn2': 4, 'layer3.2.conv2': 4, 'layer3.2.bn1': 4, 'layer3.2.conv1': 4, 'layer3.1.shortcut': 4, 'layer3.1.bn3': 4, 'layer3.1.conv3': 4, 'layer3.1.bn2': 4, 'layer3.1.conv2': 4, 'layer3.1.bn1': 4, 'layer3.1.conv1': 4, 'layer3.0.shortcut.1': 4, 'layer3.0.shortcut.0': 4, 'layer3.0.bn3': 4, 'layer3.0.conv3': 4, 'layer3.0.bn2': 4, 'layer3.0.conv2': 4, 'layer3.0.bn1': 4, 'layer3.0.conv1': 4, 'layer2.3.shortcut': 4, 'layer2.3.bn3': 4, 'layer2.3.conv3': 4, 'layer2.3.bn2': 4, 'layer2.3.conv2': 4, 'layer2.3.bn1': 4, 'layer2.3.conv1': 4, 'layer2.2.shortcut': 4, 'layer2.2.bn3': 4, 'layer2.2.conv3': 4, 'layer2.2.bn2': 4, 'layer2.2.conv2': 4, 'layer2.2.bn1': 4, 'layer2.2.conv1': 4, 'layer2.1.shortcut': 4, 'layer2.1.bn3': 4, 'layer2.1.conv3': 4, 'layer2.1.bn2': 4, 'layer2.1.conv2': 4, 'layer2.1.bn1': 4, 'layer2.1.conv1': 4, 'layer2.0.shortcut.1': 4, 'layer2.0.shortcut.0': 4, 'layer2.0.bn3': 4, 'layer2.0.conv3': 4, 'layer2.0.bn2': 4, 'layer2.0.conv2': 4, 'layer2.0.bn1': 4, 'layer2.0.conv1': 4, 'layer1.2.shortcut': 4, 'layer1.2.bn3': 4, 'layer1.2.conv3': 4, 'layer1.2.bn2': 4, 'layer1.2.conv2': 4, 'layer1.2.bn1': 4, 'layer1.2.conv1': 4, 'layer1.1.shortcut': 4, 'layer1.1.bn3': 4, 'layer1.1.conv3': 4, 'layer1.1.bn2': 4, 'layer1.1.conv2': 4, 'layer1.1.bn1': 4, 'layer1.1.conv1': 4, 'layer1.0.shortcut.1': 4, 'layer1.0.shortcut.0': 4, 'layer1.0.bn3': 4, 'layer1.0.conv3': 4, 'layer1.0.bn2': 4, 'layer1.0.conv2': 4, 'layer1.0.bn1': 4, 'layer1.0.conv1': 4, 'bn1': 4, 'conv1': 4}
 resnet50_8_H6 = {'linear': 0, 'layer4.2.shortcut': 0, 'layer4.2.bn3': 0, 'layer4.2.conv3': 0, 'layer4.2.bn2': 0, 'layer4.2.conv2': 0, 'layer4.2.bn1': 1, 'layer4.2.conv1': 1, 'layer4.1.shortcut': 1, 'layer4.1.bn3': 1, 'layer4.1.conv3': 1, 'layer4.1.bn2': 1, 'layer4.1.conv2': 1, 'layer4.1.bn1': 2, 'layer4.1.conv1': 2, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn3': 2, 'layer4.0.conv3': 3, 'layer4.0.bn2': 3, 'layer4.0.conv2': 3, 'layer4.0.bn1': 4, 'layer4.0.conv1': 4, 'layer3.5.shortcut': 4, 'layer3.5.bn3': 4, 'layer3.5.conv3': 4, 'layer3.5.bn2': 4, 'layer3.5.conv2': 4, 'layer3.5.bn1': 4, 'layer3.5.conv1': 4, 'layer3.4.shortcut': 5, 'layer3.4.bn3': 5, 'layer3.4.conv3': 5, 'layer3.4.bn2': 5, 'layer3.4.conv2': 5, 'layer3.4.bn1': 5, 'layer3.4.conv1': 5, 'layer3.3.shortcut': 5, 'layer3.3.bn3': 5, 'layer3.3.conv3': 5, 'layer3.3.bn2': 5, 'layer3.3.conv2': 5, 'layer3.3.bn1': 5, 'layer3.3.conv1': 5, 'layer3.2.shortcut': 5, 'layer3.2.bn3': 5, 'layer3.2.conv3': 5, 'layer3.2.bn2': 5, 'layer3.2.conv2': 5, 'layer3.2.bn1': 5, 'layer3.2.conv1': 5, 'layer3.1.shortcut': 5, 'layer3.1.bn3': 5, 'layer3.1.conv3': 5, 'layer3.1.bn2': 5, 'layer3.1.conv2': 5, 'layer3.1.bn1': 5, 'layer3.1.conv1': 5, 'layer3.0.shortcut.1': 5, 'layer3.0.shortcut.0': 5, 'layer3.0.bn3': 5, 'layer3.0.conv3': 5, 'layer3.0.bn2': 5, 'layer3.0.conv2': 5, 'layer3.0.bn1': 5, 'layer3.0.conv1': 5, 'layer2.3.shortcut': 5, 'layer2.3.bn3': 5, 'layer2.3.conv3': 5, 'layer2.3.bn2': 5, 'layer2.3.conv2': 5, 'layer2.3.bn1': 5, 'layer2.3.conv1': 5, 'layer2.2.shortcut': 5, 'layer2.2.bn3': 5, 'layer2.2.conv3': 5, 'layer2.2.bn2': 5, 'layer2.2.conv2': 5, 'layer2.2.bn1': 5, 'layer2.2.conv1': 5, 'layer2.1.shortcut': 5, 'layer2.1.bn3': 5, 'layer2.1.conv3': 5, 'layer2.1.bn2': 5, 'layer2.1.conv2': 5, 'layer2.1.bn1': 5, 'layer2.1.conv1': 5, 'layer2.0.shortcut.1': 5, 'layer2.0.shortcut.0': 5, 'layer2.0.bn3': 5, 'layer2.0.conv3': 5, 'layer2.0.bn2': 5, 'layer2.0.conv2': 5, 'layer2.0.bn1': 5, 'layer2.0.conv1': 5, 'layer1.2.shortcut': 5, 'layer1.2.bn3': 5, 'layer1.2.conv3': 5, 'layer1.2.bn2': 5, 'layer1.2.conv2': 5, 'layer1.2.bn1': 5, 'layer1.2.conv1': 5, 'layer1.1.shortcut': 5, 'layer1.1.bn3': 5, 'layer1.1.conv3': 5, 'layer1.1.bn2': 5, 'layer1.1.conv2': 5, 'layer1.1.bn1': 5, 'layer1.1.conv1': 5, 'layer1.0.shortcut.1': 5, 'layer1.0.shortcut.0': 5, 'layer1.0.bn3': 5, 'layer1.0.conv3': 5, 'layer1.0.bn2': 5, 'layer1.0.conv2': 5, 'layer1.0.bn1': 5, 'layer1.0.conv1': 5, 'bn1': 5, 'conv1': 5}
 resnet50_8_H8 = {'linear': 0, 'layer4.2.shortcut': 0, 'layer4.2.bn3': 0, 'layer4.2.conv3': 0, 'layer4.2.bn2': 0, 'layer4.2.conv2': 0, 'layer4.2.bn1': 1, 'layer4.2.conv1': 1, 'layer4.1.shortcut': 1, 'layer4.1.bn3': 1, 'layer4.1.conv3': 1, 'layer4.1.bn2': 1, 'layer4.1.conv2': 1, 'layer4.1.bn1': 2, 'layer4.1.conv1': 2, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn3': 2, 'layer4.0.conv3': 3, 'layer4.0.bn2': 3, 'layer4.0.conv2': 3, 'layer4.0.bn1': 4, 'layer4.0.conv1': 4, 'layer3.5.shortcut': 4, 'layer3.5.bn3': 4, 'layer3.5.conv3': 4, 'layer3.5.bn2': 4, 'layer3.5.conv2': 4, 'layer3.5.bn1': 4, 'layer3.5.conv1': 4, 'layer3.4.shortcut': 5, 'layer3.4.bn3': 5, 'layer3.4.conv3': 5, 'layer3.4.bn2': 5, 'layer3.4.conv2': 5, 'layer3.4.bn1': 5, 'layer3.4.conv1': 5, 'layer3.3.shortcut': 5, 'layer3.3.bn3': 5, 'layer3.3.conv3': 5, 'layer3.3.bn2': 5, 'layer3.3.conv2': 5, 'layer3.3.bn1': 6, 'layer3.3.conv1': 6, 'layer3.2.shortcut': 6, 'layer3.2.bn3': 6, 'layer3.2.conv3': 6, 'layer3.2.bn2': 6, 'layer3.2.conv2': 6, 'layer3.2.bn1': 6, 'layer3.2.conv1': 6, 'layer3.1.shortcut': 7, 'layer3.1.bn3': 7, 'layer3.1.conv3': 7, 'layer3.1.bn2': 7, 'layer3.1.conv2': 7, 'layer3.1.bn1': 7, 'layer3.1.conv1': 7, 'layer3.0.shortcut.1': 7, 'layer3.0.shortcut.0': 7, 'layer3.0.bn3': 7, 'layer3.0.conv3': 7, 'layer3.0.bn2': 7, 'layer3.0.conv2': 7, 'layer3.0.bn1': 7, 'layer3.0.conv1': 7, 'layer2.3.shortcut': 7, 'layer2.3.bn3': 7, 'layer2.3.conv3': 7, 'layer2.3.bn2': 7, 'layer2.3.conv2': 7, 'layer2.3.bn1': 7, 'layer2.3.conv1': 7, 'layer2.2.shortcut': 7, 'layer2.2.bn3': 7, 'layer2.2.conv3': 7, 'layer2.2.bn2': 7, 'layer2.2.conv2': 7, 'layer2.2.bn1': 7, 'layer2.2.conv1': 7, 'layer2.1.shortcut': 7, 'layer2.1.bn3': 7, 'layer2.1.conv3': 7, 'layer2.1.bn2': 7, 'layer2.1.conv2': 7, 'layer2.1.bn1': 7, 'layer2.1.conv1': 7, 'layer2.0.shortcut.1': 7, 'layer2.0.shortcut.0': 7, 'layer2.0.bn3': 7, 'layer2.0.conv3': 7, 'layer2.0.bn2': 7, 'layer2.0.conv2': 7, 'layer2.0.bn1': 7, 'layer2.0.conv1': 7, 'layer1.2.shortcut': 7, 'layer1.2.bn3': 7, 'layer1.2.conv3': 7, 'layer1.2.bn2': 7, 'layer1.2.conv2': 7, 'layer1.2.bn1': 7, 'layer1.2.conv1': 7, 'layer1.1.shortcut': 7, 'layer1.1.bn3': 7, 'layer1.1.conv3': 7, 'layer1.1.bn2': 7, 'layer1.1.conv2': 7, 'layer1.1.bn1': 7, 'layer1.1.conv1': 7, 'layer1.0.shortcut.1': 7, 'layer1.0.shortcut.0': 7, 'layer1.0.bn3': 7, 'layer1.0.conv3': 7, 'layer1.0.bn2': 7, 'layer1.0.conv2': 7, 'layer1.0.bn1': 7, 'layer1.0.conv1': 7, 'bn1': 7, 'conv1': 7}
@@ -16,7 +22,7 @@ resnet50_32_H5 = {'linear': 0, 'layer4.2.shortcut': 0, 'layer4.2.bn3': 0, 'layer
 resnet50_groups_8 = {5: resnet50_8_H5, 6: resnet50_8_H6, 8: resnet50_8_H8, 10: resnet50_8_H10}
 resnet50_groups_16 = {5: resnet50_16_H5, 6: resnet50_16_H6, 8: resnet50_16_H8, 10: resnet50_16_H10}
 resnet50_groups_32 = {5: resnet50_32_H5, 6: resnet50_32_H6, 8: resnet50_32_H8, 10: resnet50_32_H10}
-resnet50_groups_4 = {}
+resnet50_groups_4 = {1: resnet50_4_H1}
 resnet50_groups = {4: resnet50_groups_4, 8: resnet50_groups_8, 16: resnet50_groups_16, 32: resnet50_groups_32}
 
 resnet18_8_H15 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 1, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn2': 2, 'layer4.0.conv2': 3, 'layer4.0.bn1': 4, 'layer4.0.conv1': 4, 'layer3.1.shortcut': 5, 'layer3.1.bn2': 5, 'layer3.1.conv2': 6, 'layer3.1.bn1': 7, 'layer3.1.conv1': 8, 'layer3.0.shortcut.1': 9, 'layer3.0.shortcut.0': 9, 'layer3.0.bn2': 9, 'layer3.0.conv2': 10, 'layer3.0.bn1': 11, 'layer3.0.conv1': 11, 'layer2.1.shortcut': 11, 'layer2.1.bn2': 11, 'layer2.1.conv2': 12, 'layer2.1.bn1': 12, 'layer2.1.conv1': 12, 'layer2.0.shortcut.1': 13, 'layer2.0.shortcut.0': 13, 'layer2.0.bn2': 13, 'layer2.0.conv2': 13, 'layer2.0.bn1': 13, 'layer2.0.conv1': 13, 'layer1.1.shortcut': 14, 'layer1.1.bn2': 14, 'layer1.1.conv2': 14, 'layer1.1.bn1': 14, 'layer1.1.conv1': 14, 'layer1.0.shortcut': 14, 'layer1.0.bn2': 14, 'layer1.0.conv2': 14, 'layer1.0.bn1': 14, 'layer1.0.conv1': 14, 'bn1': 14, 'conv1': 14}
@@ -28,20 +34,23 @@ resnet18_16_H15 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'laye
 resnet18_16_H12 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 1, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn2': 2, 'layer4.0.conv2': 3, 'layer4.0.bn1': 4, 'layer4.0.conv1': 4, 'layer3.1.shortcut': 5, 'layer3.1.bn2': 5, 'layer3.1.conv2': 5, 'layer3.1.bn1': 6, 'layer3.1.conv1': 6, 'layer3.0.shortcut.1': 7, 'layer3.0.shortcut.0': 7, 'layer3.0.bn2': 7, 'layer3.0.conv2': 7, 'layer3.0.bn1': 8, 'layer3.0.conv1': 8, 'layer2.1.shortcut': 9, 'layer2.1.bn2': 9, 'layer2.1.conv2': 9, 'layer2.1.bn1': 9, 'layer2.1.conv1': 9, 'layer2.0.shortcut.1': 10, 'layer2.0.shortcut.0': 10, 'layer2.0.bn2': 10, 'layer2.0.conv2': 10, 'layer2.0.bn1': 11, 'layer2.0.conv1': 11, 'layer1.1.shortcut': 11, 'layer1.1.bn2': 11, 'layer1.1.conv2': 11, 'layer1.1.bn1': 11, 'layer1.1.conv1': 11, 'layer1.0.shortcut': 11, 'layer1.0.bn2': 11, 'layer1.0.conv2': 11, 'layer1.0.bn1': 11, 'layer1.0.conv1': 11, 'bn1': 11, 'conv1': 11}
 resnet18_16_H10 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 1, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn2': 2, 'layer4.0.conv2': 3, 'layer4.0.bn1': 4, 'layer4.0.conv1': 4, 'layer3.1.shortcut': 5, 'layer3.1.bn2': 5, 'layer3.1.conv2': 5, 'layer3.1.bn1': 6, 'layer3.1.conv1': 6, 'layer3.0.shortcut.1': 7, 'layer3.0.shortcut.0': 7, 'layer3.0.bn2': 7, 'layer3.0.conv2': 7, 'layer3.0.bn1': 8, 'layer3.0.conv1': 8, 'layer2.1.shortcut': 9, 'layer2.1.bn2': 9, 'layer2.1.conv2': 9, 'layer2.1.bn1': 9, 'layer2.1.conv1': 9, 'layer2.0.shortcut.1': 9, 'layer2.0.shortcut.0': 9, 'layer2.0.bn2': 9, 'layer2.0.conv2': 9, 'layer2.0.bn1': 9, 'layer2.0.conv1': 9, 'layer1.1.shortcut': 9, 'layer1.1.bn2': 9, 'layer1.1.conv2': 9, 'layer1.1.bn1': 9, 'layer1.1.conv1': 9, 'layer1.0.shortcut': 9, 'layer1.0.bn2': 9, 'layer1.0.conv2': 9, 'layer1.0.bn1': 9, 'layer1.0.conv1': 9, 'bn1': 9, 'conv1': 9}
 resnet18_16_H5 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 1, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn2': 2, 'layer4.0.conv2': 2, 'layer4.0.bn1': 3, 'layer4.0.conv1': 3, 'layer3.1.shortcut': 4, 'layer3.1.bn2': 4, 'layer3.1.conv2': 4, 'layer3.1.bn1': 4, 'layer3.1.conv1': 4, 'layer3.0.shortcut.1': 4, 'layer3.0.shortcut.0': 4, 'layer3.0.bn2': 4, 'layer3.0.conv2': 4, 'layer3.0.bn1': 4, 'layer3.0.conv1': 4, 'layer2.1.shortcut': 4, 'layer2.1.bn2': 4, 'layer2.1.conv2': 4, 'layer2.1.bn1': 4, 'layer2.1.conv1': 4, 'layer2.0.shortcut.1': 4, 'layer2.0.shortcut.0': 4, 'layer2.0.bn2': 4, 'layer2.0.conv2': 4, 'layer2.0.bn1': 4, 'layer2.0.conv1': 4, 'layer1.1.shortcut': 4, 'layer1.1.bn2': 4, 'layer1.1.conv2': 4, 'layer1.1.bn1': 4, 'layer1.1.conv1': 4, 'layer1.0.shortcut': 4, 'layer1.0.bn2': 4, 'layer1.0.conv2': 4, 'layer1.0.bn1': 4, 'layer1.0.conv1': 4, 'bn1': 4, 'conv1': 4}
+resnet18_16_H8 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 1, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn2': 2, 'layer4.0.conv2': 2, 'layer4.0.bn1': 3, 'layer4.0.conv1': 3, 'layer3.1.shortcut': 4, 'layer3.1.bn2': 4, 'layer3.1.conv2': 4, 'layer3.1.bn1': 5, 'layer3.1.conv1': 5, 'layer3.0.shortcut.1': 6, 'layer3.0.shortcut.0': 6, 'layer3.0.bn2': 6, 'layer3.0.conv2': 6, 'layer3.0.bn1': 7, 'layer3.0.conv1': 7, 'layer2.1.shortcut': 7, 'layer2.1.bn2': 7, 'layer2.1.conv2': 7, 'layer2.1.bn1': 7, 'layer2.1.conv1': 7, 'layer2.0.shortcut.1': 7, 'layer2.0.shortcut.0': 7, 'layer2.0.bn2': 7, 'layer2.0.conv2': 7, 'layer2.0.bn1': 7, 'layer2.0.conv1': 7, 'layer1.1.shortcut': 7, 'layer1.1.bn2': 7, 'layer1.1.conv2': 7, 'layer1.1.bn1': 7, 'layer1.1.conv1': 7, 'layer1.0.shortcut': 7, 'layer1.0.bn2': 7, 'layer1.0.conv2': 7, 'layer1.0.bn1': 7, 'layer1.0.conv1': 7, 'bn1': 7, 'conv1': 7}
+
 
 resnet18_32_H15 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 2, 'layer4.0.shortcut.1': 3, 'layer4.0.shortcut.0': 3, 'layer4.0.bn2': 3, 'layer4.0.conv2': 4, 'layer4.0.bn1': 5, 'layer4.0.conv1': 5, 'layer3.1.shortcut': 6, 'layer3.1.bn2': 6, 'layer3.1.conv2': 6, 'layer3.1.bn1': 7, 'layer3.1.conv1': 7, 'layer3.0.shortcut.1': 8, 'layer3.0.shortcut.0': 8, 'layer3.0.bn2': 8, 'layer3.0.conv2': 9, 'layer3.0.bn1': 10, 'layer3.0.conv1': 10, 'layer2.1.shortcut': 11, 'layer2.1.bn2': 11, 'layer2.1.conv2': 11, 'layer2.1.bn1': 11, 'layer2.1.conv1': 11, 'layer2.0.shortcut.1': 12, 'layer2.0.shortcut.0': 12, 'layer2.0.bn2': 12, 'layer2.0.conv2': 12, 'layer2.0.bn1': 13, 'layer2.0.conv1': 13, 'layer1.1.shortcut': 13, 'layer1.1.bn2': 13, 'layer1.1.conv2': 13, 'layer1.1.bn1': 14, 'layer1.1.conv1': 14, 'layer1.0.shortcut': 14, 'layer1.0.bn2': 14, 'layer1.0.conv2': 14, 'layer1.0.bn1': 14, 'layer1.0.conv1': 14, 'bn1': 14, 'conv1': 14}
 resnet18_32_H12 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 1, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn2': 2, 'layer4.0.conv2': 3, 'layer4.0.bn1': 4, 'layer4.0.conv1': 4, 'layer3.1.shortcut': 5, 'layer3.1.bn2': 5, 'layer3.1.conv2': 5, 'layer3.1.bn1': 6, 'layer3.1.conv1': 6, 'layer3.0.shortcut.1': 7, 'layer3.0.shortcut.0': 7, 'layer3.0.bn2': 7, 'layer3.0.conv2': 7, 'layer3.0.bn1': 8, 'layer3.0.conv1': 8, 'layer2.1.shortcut': 9, 'layer2.1.bn2': 9, 'layer2.1.conv2': 9, 'layer2.1.bn1': 9, 'layer2.1.conv1': 9, 'layer2.0.shortcut.1': 10, 'layer2.0.shortcut.0': 10, 'layer2.0.bn2': 10, 'layer2.0.conv2': 10, 'layer2.0.bn1': 11, 'layer2.0.conv1': 11, 'layer1.1.shortcut': 11, 'layer1.1.bn2': 11, 'layer1.1.conv2': 11, 'layer1.1.bn1': 11, 'layer1.1.conv1': 11, 'layer1.0.shortcut': 11, 'layer1.0.bn2': 11, 'layer1.0.conv2': 11, 'layer1.0.bn1': 11, 'layer1.0.conv1': 11, 'bn1': 11, 'conv1': 11}
 resnet18_32_H10 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 1, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn2': 2, 'layer4.0.conv2': 3, 'layer4.0.bn1': 4, 'layer4.0.conv1': 4, 'layer3.1.shortcut': 5, 'layer3.1.bn2': 5, 'layer3.1.conv2': 5, 'layer3.1.bn1': 6, 'layer3.1.conv1': 6, 'layer3.0.shortcut.1': 7, 'layer3.0.shortcut.0': 7, 'layer3.0.bn2': 7, 'layer3.0.conv2': 7, 'layer3.0.bn1': 8, 'layer3.0.conv1': 8, 'layer2.1.shortcut': 9, 'layer2.1.bn2': 9, 'layer2.1.conv2': 9, 'layer2.1.bn1': 9, 'layer2.1.conv1': 9, 'layer2.0.shortcut.1': 9, 'layer2.0.shortcut.0': 9, 'layer2.0.bn2': 9, 'layer2.0.conv2': 9, 'layer2.0.bn1': 9, 'layer2.0.conv1': 9, 'layer1.1.shortcut': 9, 'layer1.1.bn2': 9, 'layer1.1.conv2': 9, 'layer1.1.bn1': 9, 'layer1.1.conv1': 9, 'layer1.0.shortcut': 9, 'layer1.0.bn2': 9, 'layer1.0.conv2': 9, 'layer1.0.bn1': 9, 'layer1.0.conv1': 9, 'bn1': 9, 'conv1': 9}
 resnet18_32_H5 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 1, 'layer4.1.conv1': 1, 'layer4.0.shortcut.1': 2, 'layer4.0.shortcut.0': 2, 'layer4.0.bn2': 2, 'layer4.0.conv2': 2, 'layer4.0.bn1': 3, 'layer4.0.conv1': 3, 'layer3.1.shortcut': 4, 'layer3.1.bn2': 4, 'layer3.1.conv2': 4, 'layer3.1.bn1': 4, 'layer3.1.conv1': 4, 'layer3.0.shortcut.1': 4, 'layer3.0.shortcut.0': 4, 'layer3.0.bn2': 4, 'layer3.0.conv2': 4, 'layer3.0.bn1': 4, 'layer3.0.conv1': 4, 'layer2.1.shortcut': 4, 'layer2.1.bn2': 4, 'layer2.1.conv2': 4, 'layer2.1.bn1': 4, 'layer2.1.conv1': 4, 'layer2.0.shortcut.1': 4, 'layer2.0.shortcut.0': 4, 'layer2.0.bn2': 4, 'layer2.0.conv2': 4, 'layer2.0.bn1': 4, 'layer2.0.conv1': 4, 'layer1.1.shortcut': 4, 'layer1.1.bn2': 4, 'layer1.1.conv2': 4, 'layer1.1.bn1': 4, 'layer1.1.conv1': 4, 'layer1.0.shortcut': 4, 'layer1.0.bn2': 4, 'layer1.0.conv2': 4, 'layer1.0.bn1': 4, 'layer1.0.conv1': 4, 'bn1': 4, 'conv1': 4}
 
-resnet18_4_H5 = {}
-resnet18_4_H10 = {}
-resnet18_4_H12 = {}
-resnet18_4_H15 = {}
+resnet18_4_H1 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 0, 'layer4.1.conv1': 0, 'layer4.0.shortcut.1': 0, 'layer4.0.shortcut.0': 0, 'layer4.0.bn2': 0, 'layer4.0.conv2': 0, 'layer4.0.bn1': 0, 'layer4.0.conv1': 0, 'layer3.1.shortcut': 0, 'layer3.1.bn2': 0, 'layer3.1.conv2': 0, 'layer3.1.bn1': 0, 'layer3.1.conv1': 0, 'layer3.0.shortcut.1': 0, 'layer3.0.shortcut.0': 0, 'layer3.0.bn2': 0, 'layer3.0.conv2': 0, 'layer3.0.bn1': 0, 'layer3.0.conv1': 0, 'layer2.1.shortcut': 0, 'layer2.1.bn2': 0, 'layer2.1.conv2': 0, 'layer2.1.bn1': 0, 'layer2.1.conv1': 0, 'layer2.0.shortcut.1': 0, 'layer2.0.shortcut.0': 0, 'layer2.0.bn2': 0, 'layer2.0.conv2': 0, 'layer2.0.bn1': 0, 'layer2.0.conv1': 0, 'layer1.1.shortcut': 0, 'layer1.1.bn2': 0, 'layer1.1.conv2': 0, 'layer1.1.bn1': 0, 'layer1.1.conv1': 0, 'layer1.0.shortcut': 0, 'layer1.0.bn2': 0, 'layer1.0.conv2': 0, 'layer1.0.bn1': 0, 'layer1.0.conv1': 0, 'bn1': 0, 'conv1': 0}
+# resnet18_4_H10 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 0, 'layer4.1.conv1': 0, 'layer4.0.shortcut.1': 0, 'layer4.0.shortcut.0': 0, 'layer4.0.bn2': 0, 'layer4.0.conv2': 0, 'layer4.0.bn1': 0, 'layer4.0.conv1': 0, 'layer3.1.shortcut': 0, 'layer3.1.bn2': 0, 'layer3.1.conv2': 0, 'layer3.1.bn1': 0, 'layer3.1.conv1': 0, 'layer3.0.shortcut.1': 0, 'layer3.0.shortcut.0': 0, 'layer3.0.bn2': 0, 'layer3.0.conv2': 0, 'layer3.0.bn1': 0, 'layer3.0.conv1': 0, 'layer2.1.shortcut': 0, 'layer2.1.bn2': 0, 'layer2.1.conv2': 0, 'layer2.1.bn1': 0, 'layer2.1.conv1': 0, 'layer2.0.shortcut.1': 0, 'layer2.0.shortcut.0': 0, 'layer2.0.bn2': 0, 'layer2.0.conv2': 0, 'layer2.0.bn1': 0, 'layer2.0.conv1': 0, 'layer1.1.shortcut': 0, 'layer1.1.bn2': 0, 'layer1.1.conv2': 0, 'layer1.1.bn1': 0, 'layer1.1.conv1': 0, 'layer1.0.shortcut': 0, 'layer1.0.bn2': 0, 'layer1.0.conv2': 0, 'layer1.0.bn1': 0, 'layer1.0.conv1': 0, 'bn1': 0, 'conv1': 0}
+# resnet18_4_H12 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 0, 'layer4.1.conv1': 0, 'layer4.0.shortcut.1': 0, 'layer4.0.shortcut.0': 0, 'layer4.0.bn2': 0, 'layer4.0.conv2': 0, 'layer4.0.bn1': 0, 'layer4.0.conv1': 0, 'layer3.1.shortcut': 0, 'layer3.1.bn2': 0, 'layer3.1.conv2': 0, 'layer3.1.bn1': 0, 'layer3.1.conv1': 0, 'layer3.0.shortcut.1': 0, 'layer3.0.shortcut.0': 0, 'layer3.0.bn2': 0, 'layer3.0.conv2': 0, 'layer3.0.bn1': 0, 'layer3.0.conv1': 0, 'layer2.1.shortcut': 0, 'layer2.1.bn2': 0, 'layer2.1.conv2': 0, 'layer2.1.bn1': 0, 'layer2.1.conv1': 0, 'layer2.0.shortcut.1': 0, 'layer2.0.shortcut.0': 0, 'layer2.0.bn2': 0, 'layer2.0.conv2': 0, 'layer2.0.bn1': 0, 'layer2.0.conv1': 0, 'layer1.1.shortcut': 0, 'layer1.1.bn2': 0, 'layer1.1.conv2': 0, 'layer1.1.bn1': 0, 'layer1.1.conv1': 0, 'layer1.0.shortcut': 0, 'layer1.0.bn2': 0, 'layer1.0.conv2': 0, 'layer1.0.bn1': 0, 'layer1.0.conv1': 0, 'bn1': 0, 'conv1': 0}
+# resnet18_4_H15 = {'linear': 0, 'layer4.1.shortcut': 0, 'layer4.1.bn2': 0, 'layer4.1.conv2': 0, 'layer4.1.bn1': 0, 'layer4.1.conv1': 0, 'layer4.0.shortcut.1': 0, 'layer4.0.shortcut.0': 0, 'layer4.0.bn2': 0, 'layer4.0.conv2': 0, 'layer4.0.bn1': 0, 'layer4.0.conv1': 0, 'layer3.1.shortcut': 0, 'layer3.1.bn2': 0, 'layer3.1.conv2': 0, 'layer3.1.bn1': 0, 'layer3.1.conv1': 0, 'layer3.0.shortcut.1': 0, 'layer3.0.shortcut.0': 0, 'layer3.0.bn2': 0, 'layer3.0.conv2': 0, 'layer3.0.bn1': 0, 'layer3.0.conv1': 0, 'layer2.1.shortcut': 0, 'layer2.1.bn2': 0, 'layer2.1.conv2': 0, 'layer2.1.bn1': 0, 'layer2.1.conv1': 0, 'layer2.0.shortcut.1': 0, 'layer2.0.shortcut.0': 0, 'layer2.0.bn2': 0, 'layer2.0.conv2': 0, 'layer2.0.bn1': 0, 'layer2.0.conv1': 0, 'layer1.1.shortcut': 0, 'layer1.1.bn2': 0, 'layer1.1.conv2': 0, 'layer1.1.bn1': 0, 'layer1.1.conv1': 0, 'layer1.0.shortcut': 0, 'layer1.0.bn2': 0, 'layer1.0.conv2': 0, 'layer1.0.bn1': 0, 'layer1.0.conv1': 0, 'bn1': 0, 'conv1': 0}
 
-resnet18_groups_4 = {5: resnet18_4_H5, 10: resnet18_4_H10, 12: resnet18_4_H12, 15: resnet18_4_H5}
+
+resnet18_groups_4 = {1: resnet18_4_H1}
 resnet18_groups_8 = {5: resnet18_8_H5, 10: resnet18_8_H10, 12: resnet18_8_H12, 15: resnet18_8_H5}
-resnet18_groups_16 = {5: resnet18_16_H5, 10: resnet18_16_H10, 12: resnet18_16_H12, 15: resnet18_16_H5}
+resnet18_groups_16 = {5: resnet18_16_H5, 8: resnet18_16_H8, 10: resnet18_16_H10, 12: resnet18_16_H12, 15: resnet18_16_H5}
 resnet18_groups_32 = {5: resnet18_32_H5, 10: resnet18_32_H10, 12: resnet18_32_H12, 15: resnet18_32_H5}
 
 resnet18_groups = {4: resnet18_groups_4, 8: resnet18_groups_8, 16: resnet18_groups_16, 32: resnet18_groups_32}
@@ -1385,10 +1394,130 @@ resnet50_32_H5_dream = {'linear': [0, 4],
  'bn1': [4],
  'conv1': [4]}
 
+resnet50_4_H1_dream = {'linear': [0],
+ 'layer4.2.shortcut': [0],
+ 'layer4.2.bn3': [0],
+ 'layer4.2.conv3': [0],
+ 'layer4.2.bn2': [0],
+ 'layer4.2.conv2': [0],
+ 'layer4.2.bn1': [0],
+ 'layer4.2.conv1': [0],
+ 'layer4.1.shortcut': [0],
+ 'layer4.1.bn3': [0],
+ 'layer4.1.conv3': [0],
+ 'layer4.1.bn2': [0],
+ 'layer4.1.conv2': [0],
+ 'layer4.1.bn1': [0],
+ 'layer4.1.conv1': [0],
+ 'layer4.0.shortcut.1': [0],
+ 'layer4.0.shortcut.0': [0],
+ 'layer4.0.bn3': [0],
+ 'layer4.0.conv3': [0],
+ 'layer4.0.bn2': [0],
+ 'layer4.0.conv2': [0],
+ 'layer4.0.bn1': [0],
+ 'layer4.0.conv1': [0],
+ 'layer3.5.shortcut': [0],
+ 'layer3.5.bn3': [0],
+ 'layer3.5.conv3': [0],
+ 'layer3.5.bn2': [0],
+ 'layer3.5.conv2': [0],
+ 'layer3.5.bn1': [0],
+ 'layer3.5.conv1': [0],
+ 'layer3.4.shortcut': [0],
+ 'layer3.4.bn3': [0],
+ 'layer3.4.conv3': [0],
+ 'layer3.4.bn2': [0],
+ 'layer3.4.conv2': [0],
+ 'layer3.4.bn1': [0],
+ 'layer3.4.conv1': [0],
+ 'layer3.3.shortcut': [0],
+ 'layer3.3.bn3': [0],
+ 'layer3.3.conv3': [0],
+ 'layer3.3.bn2': [0],
+ 'layer3.3.conv2': [0],
+ 'layer3.3.bn1': [0],
+ 'layer3.3.conv1': [0],
+ 'layer3.2.shortcut': [0],
+ 'layer3.2.bn3': [0],
+ 'layer3.2.conv3': [0],
+ 'layer3.2.bn2': [0],
+ 'layer3.2.conv2': [0],
+ 'layer3.2.bn1': [0],
+ 'layer3.2.conv1': [0],
+ 'layer3.1.shortcut': [0],
+ 'layer3.1.bn3': [0],
+ 'layer3.1.conv3': [0],
+ 'layer3.1.bn2': [0],
+ 'layer3.1.conv2': [0],
+ 'layer3.1.bn1': [0],
+ 'layer3.1.conv1': [0],
+ 'layer3.0.shortcut.1': [0],
+ 'layer3.0.shortcut.0': [0],
+ 'layer3.0.bn3': [0],
+ 'layer3.0.conv3': [0],
+ 'layer3.0.bn2': [0],
+ 'layer3.0.conv2': [0],
+ 'layer3.0.bn1': [0],
+ 'layer3.0.conv1': [0],
+ 'layer2.3.shortcut': [0],
+ 'layer2.3.bn3': [0],
+ 'layer2.3.conv3': [0],
+ 'layer2.3.bn2': [0],
+ 'layer2.3.conv2': [0],
+ 'layer2.3.bn1': [0],
+ 'layer2.3.conv1': [0],
+ 'layer2.2.shortcut': [0],
+ 'layer2.2.bn3': [0],
+ 'layer2.2.conv3': [0],
+ 'layer2.2.bn2': [0],
+ 'layer2.2.conv2': [0],
+ 'layer2.2.bn1': [0],
+ 'layer2.2.conv1': [0],
+ 'layer2.1.shortcut': [0],
+ 'layer2.1.bn3': [0],
+ 'layer2.1.conv3': [0],
+ 'layer2.1.bn2': [0],
+ 'layer2.1.conv2': [0],
+ 'layer2.1.bn1': [0],
+ 'layer2.1.conv1': [0],
+ 'layer2.0.shortcut.1': [0],
+ 'layer2.0.shortcut.0': [0],
+ 'layer2.0.bn3': [0],
+ 'layer2.0.conv3': [0],
+ 'layer2.0.bn2': [0],
+ 'layer2.0.conv2': [0],
+ 'layer2.0.bn1': [0],
+ 'layer2.0.conv1': [0],
+ 'layer1.2.shortcut': [0],
+ 'layer1.2.bn3': [0],
+ 'layer1.2.conv3': [0],
+ 'layer1.2.bn2': [0],
+ 'layer1.2.conv2': [0],
+ 'layer1.2.bn1': [0],
+ 'layer1.2.conv1': [0],
+ 'layer1.1.shortcut': [0],
+ 'layer1.1.bn3': [0],
+ 'layer1.1.conv3': [0],
+ 'layer1.1.bn2': [0],
+ 'layer1.1.conv2': [0],
+ 'layer1.1.bn1': [0],
+ 'layer1.1.conv1': [0],
+ 'layer1.0.shortcut.1': [0],
+ 'layer1.0.shortcut.0': [0],
+ 'layer1.0.bn3': [0],
+ 'layer1.0.conv3': [0],
+ 'layer1.0.bn2': [0],
+ 'layer1.0.conv2': [0],
+ 'layer1.0.bn1': [0],
+ 'layer1.0.conv1': [0],
+ 'bn1': [0],
+ 'conv1': [0]}
+
 resnet50_groups_8_dream = {5: resnet50_8_H5_dream, 6: resnet50_8_H6_dream, 8: resnet50_8_H8_dream, 10: resnet50_8_H10_dream}
 resnet50_groups_16_dream = {5: resnet50_16_H5_dream, 6: resnet50_16_H6_dream, 8: resnet50_16_H8_dream, 10: resnet50_16_H10_dream}
 resnet50_groups_32_dream = {5: resnet50_32_H5_dream, 6: resnet50_32_H6_dream, 8: resnet50_32_H8_dream, 10: resnet50_32_H10_dream}
-resnet50_groups_4_dream = {}
+resnet50_groups_4_dream = {1: resnet50_4_H1_dream}
 resnet50_groups_dream = {4: resnet50_groups_4_dream, 8: resnet50_groups_8_dream, 16: resnet50_groups_16_dream, 32: resnet50_groups_32_dream}
 
 resnet18_8_H15_dream = {'linear': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
@@ -1714,6 +1843,56 @@ resnet18_16_H10_dream = {'linear': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
  'layer1.0.conv1': [9],
  'bn1': [9],
  'conv1': [9]}
+
+resnet18_16_H8_dream = {'linear': [0, 1, 2, 3, 4, 5, 6, 7],
+ 'layer4.1.shortcut': [0, 1, 2, 3, 4, 5, 6, 7],
+ 'layer4.1.bn2': [0, 1, 2, 3, 4, 5, 6, 7],
+ 'layer4.1.conv2': [0],
+ 'layer4.1.bn1': [1],
+ 'layer4.1.conv1': [1],
+ 'layer4.0.shortcut.1': [2],
+ 'layer4.0.shortcut.0': [2],
+ 'layer4.0.bn2': [2],
+ 'layer4.0.conv2': [2],
+ 'layer4.0.bn1': [3],
+ 'layer4.0.conv1': [3],
+ 'layer3.1.shortcut': [4],
+ 'layer3.1.bn2': [4],
+ 'layer3.1.conv2': [4],
+ 'layer3.1.bn1': [5],
+ 'layer3.1.conv1': [5],
+ 'layer3.0.shortcut.1': [6],
+ 'layer3.0.shortcut.0': [6],
+ 'layer3.0.bn2': [6],
+ 'layer3.0.conv2': [6],
+ 'layer3.0.bn1': [7],
+ 'layer3.0.conv1': [7],
+ 'layer2.1.shortcut': [7],
+ 'layer2.1.bn2': [7],
+ 'layer2.1.conv2': [7],
+ 'layer2.1.bn1': [7],
+ 'layer2.1.conv1': [7],
+ 'layer2.0.shortcut.1': [7],
+ 'layer2.0.shortcut.0': [7],
+ 'layer2.0.bn2': [7],
+ 'layer2.0.conv2': [7],
+ 'layer2.0.bn1': [7],
+ 'layer2.0.conv1': [7],
+ 'layer1.1.shortcut': [7],
+ 'layer1.1.bn2': [7],
+ 'layer1.1.conv2': [7],
+ 'layer1.1.bn1': [7],
+ 'layer1.1.conv1': [7],
+ 'layer1.0.shortcut': [7],
+ 'layer1.0.bn2': [7],
+ 'layer1.0.conv2': [7],
+ 'layer1.0.bn1': [7],
+ 'layer1.0.conv1': [7],
+ 'bn1': [7],
+ 'conv1': [7]}
+
+
+
 resnet18_16_H5_dream = {'linear': [0, 1, 2, 3, 4],
  'layer4.1.shortcut': [0, 1, 2, 3, 4],
  'layer4.1.bn2': [0, 1, 2, 3, 4],
@@ -1946,14 +2125,56 @@ resnet18_32_H5_dream = {'linear': [0, 1, 2, 3, 4],
  'bn1': [4],
  'conv1': [4]}
 
-resnet18_4_H5_dream = {}
-resnet18_4_H10_dream = {}
-resnet18_4_H12_dream = {}
-resnet18_4_H15_dream = {}
+resnet18_4_H1_dream = {'linear': [0],
+ 'layer4.1.shortcut': [0],
+ 'layer4.1.bn2': [0],
+ 'layer4.1.conv2': [0],
+ 'layer4.1.bn1': [0],
+ 'layer4.1.conv1': [0],
+ 'layer4.0.shortcut.1': [0],
+ 'layer4.0.shortcut.0': [0],
+ 'layer4.0.bn2': [0],
+ 'layer4.0.conv2': [0],
+ 'layer4.0.bn1': [0],
+ 'layer4.0.conv1': [0],
+ 'layer3.1.shortcut': [0],
+ 'layer3.1.bn2': [0],
+ 'layer3.1.conv2': [0],
+ 'layer3.1.bn1': [0],
+ 'layer3.1.conv1': [0],
+ 'layer3.0.shortcut.1': [0],
+ 'layer3.0.shortcut.0': [0],
+ 'layer3.0.bn2': [0],
+ 'layer3.0.conv2': [0],
+ 'layer3.0.bn1': [0],
+ 'layer3.0.conv1': [0],
+ 'layer2.1.shortcut': [0],
+ 'layer2.1.bn2': [0],
+ 'layer2.1.conv2': [0],
+ 'layer2.1.bn1': [0],
+ 'layer2.1.conv1': [0],
+ 'layer2.0.shortcut.1': [0],
+ 'layer2.0.shortcut.0': [0],
+ 'layer2.0.bn2': [0],
+ 'layer2.0.conv2': [0],
+ 'layer2.0.bn1': [0],
+ 'layer2.0.conv1': [0],
+ 'layer1.1.shortcut': [0],
+ 'layer1.1.bn2': [0],
+ 'layer1.1.conv2': [0],
+ 'layer1.1.bn1': [0],
+ 'layer1.1.conv1': [0],
+ 'layer1.0.shortcut': [0],
+ 'layer1.0.bn2': [0],
+ 'layer1.0.conv2': [0],
+ 'layer1.0.bn1': [0],
+ 'layer1.0.conv1': [0],
+ 'bn1': [0],
+ 'conv1': [0]}
 
-resnet18_groups_4_dream = {5: resnet18_4_H5_dream, 10: resnet18_4_H10_dream, 12: resnet18_4_H12_dream, 15: resnet18_4_H5_dream}
+resnet18_groups_4_dream = {1: resnet18_4_H1_dream}
 resnet18_groups_8_dream = {5: resnet18_8_H5_dream, 10: resnet18_8_H10_dream, 12: resnet18_8_H12_dream, 15: resnet18_8_H5_dream}
-resnet18_groups_16_dream = {5: resnet18_16_H5_dream, 10: resnet18_16_H10_dream, 12: resnet18_16_H12_dream, 15: resnet18_16_H5_dream}
+resnet18_groups_16_dream = {5: resnet18_16_H5_dream, 8:resnet18_16_H8_dream, 10: resnet18_16_H10_dream, 12: resnet18_16_H12_dream, 15: resnet18_16_H5_dream}
 resnet18_groups_32_dream = {5: resnet18_32_H5_dream, 10: resnet18_32_H10_dream, 12: resnet18_32_H12_dream, 15: resnet18_32_H5_dream}
 
 resnet18_groups_dream = {4: resnet18_groups_4_dream, 8: resnet18_groups_8_dream, 16: resnet18_groups_16_dream, 32: resnet18_groups_32_dream}

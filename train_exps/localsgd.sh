@@ -26,7 +26,7 @@ interface=eno0
 optimizer_name=SGD
 dnn=resnet50
 dataset=cifar100
-max_epochs=121
+max_epochs=181
 # add_noise=True
 extra_name="${node_count}Nodes"
 
@@ -40,8 +40,9 @@ exp_name=$exp_name
 cluster_name=shenzhen
 
 # hosts=('10.0.0.19' '10.0.0.16' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
-hosts=('10.0.0.19' '10.0.0.11' '10.0.0.12' '10.0.0.20' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' )
+# hosts=('10.0.0.11' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' '10.0.0.26')
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
+hosts=('10.0.0.11' '10.0.0.12')
 #
 
 node_count=${#hosts[@]}
@@ -52,12 +53,48 @@ nsteps_localsgd=10
 # lr=0.1
 # lr=$(echo "$lr * sqrt($scalar)" | bc -l)
 
+node_rank=1
+nsteps_localsgd=5
+lr_decay='exp'
+lr=0.1
+alg='localsgd'
+source train_exps/launch_mul.sh
+
+dnn=resnet18
+dataset=cifar10
+node_rank=1
+nsteps_localsgd=5
+lr_decay='exp'
+lr=0.1
+source train_exps/launch_mul.sh
+
 # source train_exps/launch_mul.sh
 # node_rank=1
+# nsteps_localsgd=20
 # lr_decay='exp'
 # lr=0.1
 # source train_exps/launch_mul.sh
 
+# source train_exps/launch_mul.sh
+# node_rank=1
+# nsteps_localsgd=40
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# source train_exps/launch_mul.sh
+# node_rank=1
+# nsteps_localsgd=80
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# source train_exps/launch_mul.sh
+# node_rank=1
+# nsteps_localsgd=5
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
 # node_rank=1
 # lr_decay='exp'
 # lr=0.1
@@ -70,12 +107,12 @@ nsteps_localsgd=10
 # lr=0.2
 # source train_exps/launch_mul.sh
 
-node_rank=1
-lr_decay='exp'
-lr=0.2
-scalar=2
-lr=$(echo "$lr * sqrt($scalar)" | bc -l)
-source train_exps/launch_mul.sh
+# node_rank=1
+# lr_decay='exp'
+# lr=0.2
+# scalar=2
+# lr=$(echo "$lr * sqrt($scalar)" | bc -l)
+# source train_exps/launch_mul.sh
 
 # node_rank=1
 # lr_decay='exp'
