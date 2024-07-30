@@ -154,6 +154,7 @@ def create_net(dnn='gpt2', **kwargs):
         else:
             net = AutoModelForCausalLM.from_config(config)
     elif dnn == 'llama2-124M':
+        logger.info(f'Creating the llama2.')
         config = LlamaConfig.from_pretrained(LLAMA2_7B_HF, cache_dir=kwargs["model_dir"])
         config.max_position_embeddings = 764
         config.num_hidden_layers = 8
@@ -161,6 +162,7 @@ def create_net(dnn='gpt2', **kwargs):
         config.num_attention_heads = 8
         config.num_key_value_heads = 8
         if kwargs["load_pretrain"]:
+            logger.info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=LLAMA2_7B_HF,
                 cache_dir=kwargs["model_dir"],
@@ -170,6 +172,7 @@ def create_net(dnn='gpt2', **kwargs):
                 trust_remote_code=False
             )
         else:
+            logger.info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
         # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
         # net = AutoModelForCausalLM.from_pretrained(
@@ -253,7 +256,7 @@ class LLMTrainer:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
-                self.net, self.ext = create_net(dnn='gpt2', model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
+                self.net, self.ext = create_net(dnn='llama2-124M', model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
                 logger.info(f"Finish preparing loading model")
             elif self.dnn == 'bert':
                 pass
@@ -398,7 +401,8 @@ class LLMTrainer:
         if self.dnn in ['gpt2', "bert-base-uncased"]:
             tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
         elif self.dnn in ["llama2-124M"]:
-            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, cache_dir=self.model_dir)
+            token = "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"
+            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
         else:
             raise NotImplementedError
         # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
@@ -920,8 +924,10 @@ class LLMTrainer:
             outputs = self.net(**device_batch)
             loss = outputs.loss
             self.forwardtime += (time.time() - sforward)
-        
+            
+            torch.cuda.synchronize()
             sbackward = time.time()
+            self.backward_stamp = sbackward
             if self.amp_handle is not None:
                 with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
                     scaled_loss.backward()

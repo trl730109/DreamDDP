@@ -38,7 +38,7 @@ from mpi4py import MPI
 
 from helpers.exp_path import ExpTool
 import layer_group
-from layer_group import resnet_groups, resnet_groups_dream
+from layer_group import resnet_groups, resnet_groups_dream, llm_groups_dream, llm_groups_dream_enlarge
 comm = MPI.COMM_WORLD
 writer = None
 
@@ -214,22 +214,27 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
     backward_time_acc = 0.0
     
 
-    # layer_bp_timestamps = {}
-    # def add_backward_hook(layer, name):
-    #     def backward_hook(module, grad_input, grad_output):
-    #         # Record the current time as the end time for this layer's backward computation
-    #         torch.cuda.synchronize()
-    #         layer_bp_timestamps[name] = time.time()
-    #     layer.register_full_backward_hook(backward_hook)
-    # for name, module in trainer.net.named_modules():
-    #     if len(list(module.children())) == 0: 
-    #         add_backward_hook(module, name)
+    layer_bp_timestamps = {}
+    def add_backward_hook(layer, name):
+        def backward_hook(module, grad_input, grad_output):
+            # Record the current time as the end time for this layer's backward computation
+            # if ('mlp.gate_proj' in name):
+            #     logger.info(f'Hook registered on self_attn.rotary_emb is triggered')
+            torch.cuda.synchronize()
+            layer_bp_timestamps[name] = time.time()
+                
+        layer.register_full_backward_hook(backward_hook)
+    for name, module in trainer.net.named_modules():
+        if len(list(module.children())) == 0: 
+            add_backward_hook(module, name)
+            # if ('self_attn.rotary_emb' in name):
+            #     logger.info(f'Hook registered on self_attn.rotary_emb layers')
             
     for epoch in range(max_epochs):
-        # bp_dict = {}
-        # for name, module in trainer.net.named_modules():
-        #     if len(list(module.children())) == 0: 
-        #         bp_dict[name] = []
+        bp_dict = {}
+        for name, module in trainer.net.named_modules():
+            if len(list(module.children())) == 0: 
+                bp_dict[name] = []
         hidden = None
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
@@ -297,16 +302,16 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_ppl": train_ppl, "total train time": train_time_acc,
                         "total comm time": comm_time_acc, "total iteration time": iter_time_acc})
-            logger.info(f'check_param_diversity {check_param_diversity}')
+            # logger.info(f'check_param_diversity {check_param_diversity}')
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
 
-            # previous_time = trainer.backward_stamp
-            # for name in layer_bp_timestamps:
-            #     current_stamp = layer_bp_timestamps[name]
-            #     bp_dict[name].append(current_stamp - previous_time)
-            #     previous_time = current_stamp
-            # layer_bp_timestamps = {}
+            previous_time = trainer.backward_stamp
+            for name in layer_bp_timestamps:
+                current_stamp = layer_bp_timestamps[name]
+                bp_dict[name].append(current_stamp - previous_time)
+                previous_time = current_stamp
+            layer_bp_timestamps = {}
             
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_ppl, test_loss = trainer.test(epoch)
@@ -317,17 +322,19 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
         
         
-        # avg_bp_dict = {}
-        # for name in bp_dict:
-        #     avg_bp_dict[name] = np.mean(bp_dict[name])
+        avg_bp_dict = {}
+        for name in bp_dict:
+            if ('self_attn.rotary_emb' in name):
+                logger.info(f'self_attn.rotary_emb time:{bp_dict[name]}')
+            avg_bp_dict[name] = np.mean(bp_dict[name])
         # logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
         
-        # filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-        # save_path = os.path.join('./time/bp/', filename)
-        # import json
-        # os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        # with open(save_path, 'w') as file:
-        #     json.dump(avg_bp_dict, file, indent=4)
+        filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+        save_path = os.path.join('./time/bp/', filename)
+        import json
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, 'w') as file:
+            json.dump(avg_bp_dict, file, indent=4)
             
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
@@ -481,10 +488,10 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     comm_time_acc = 0
     iteration_time_acc = 0
     
-    # comm_dict = {}
-    # for name, module in trainer.net.named_modules():
-    #     if len(list(module.children())) == 0: 
-    #         comm_dict[name] = []
+    comm_dict = {}
+    for name, module in trainer.net.named_modules():
+        if len(list(module.children())) == 0: 
+            comm_dict[name] = []
     
     for epoch in range(max_epochs):
         trainer.net.train()
@@ -533,8 +540,17 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             
             if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
                 start = time.time()
-                for param in trainer.net.parameters():
-                    dist.all_reduce(param.data, op=dist.ReduceOp.AVG)
+                for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
+                    if len(list(module.children())) == 0:  
+                        torch.cuda.synchronize()
+                        ls = time.time()
+                        for param in module.parameters():
+                            dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
+                        torch.cuda.synchronize()
+                        layer_time = time.time() - ls
+                        comm_dict[name].append(layer_time)
+                    else:
+                        pass
                 comm_time_acc += (time.time() - start)
             else:
                 pass
@@ -553,9 +569,20 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
+    avg_comm_dict = {}
+    for name in comm_dict:
+        avg_comm_dict[name] = np.mean(comm_dict[name])
+    logger.info(f'Each layer comm time is {avg_comm_dict}')
+    
+    filename = 'comm' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+    save_path = os.path.join('./time/comm/', filename)
+    import json
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    with open(save_path, 'w') as file:
+        json.dump(avg_comm_dict, file, indent=4)
 
-def transformer_pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, tokenizer_name=None, nsteps_localsgd=1, lr_decay = None,
-                         nsteps_param_diversity=None, check_param_diversity=None, args=None):
+def transformer_pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
+             check_param_diversity=None, nsteps_param_diversity=None, args=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -738,8 +765,8 @@ def transformer_pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_si
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
 
-def transformer_full_pipe_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None, group_num=6,
-             check_param_diversity=None, nsteps_param_diversity=None):
+def transformer_full_pipe_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
+             check_param_diversity=None, nsteps_param_diversity=None, args=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -824,11 +851,11 @@ def transformer_full_pipe_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_s
             if is_root():
                 logger.info(f"name: {name}, module id: {id(module)}")
             # logger.info(f"name: {name}, module id: {id(module)}")
-            group_index = resnet_groups[dnn][nworkers][group_num][name]
+            group_index = resnet_groups[dnn][nworkers][args.group_num][name]
             for param in module.parameters():
                 p_tmp = param.expand_as(param)
                 grad_acc = p_tmp.grad_fn.next_functions[0][0]
-                grad_acc.register_hook(_make_hook(module, param, group_index, gap_iters=group_num, name=name, layer_index=layer_index))
+                grad_acc.register_hook(_make_hook(module, param, group_index, gap_iters=args.group_num, name=name, layer_index=layer_index))
                 grad_accs.append(grad_acc)
         else:
             pass
@@ -923,8 +950,8 @@ def transformer_full_pipe_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_s
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
         
-def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None, group_num=6,
-             check_param_diversity=None, nsteps_param_diversity=None):
+def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
+             check_param_diversity=None, nsteps_param_diversity=None, args=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -1007,13 +1034,17 @@ def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nste
         if (len(list(module.children()))) == 0: 
             if is_root():
                 logger.info(f"name: {name}, module id: {id(module)}")
-
-            group_index_list = resnet_groups_dream[dnn][nworkers][group_num][name]
+            if(args.enlarge == False):
+                logger.info(f'using the original schedule.')
+                group_index_list = llm_groups_dream[dnn][nworkers][args.group_num][name]
+            else:
+                logger.info(f'using the enlarge schedule.')
+                group_index_list = llm_groups_dream_enlarge[dnn][nworkers][args.group_num][name]
             # group_index = resnet_groups[group_num][name]
             for param in module.parameters():
                 p_tmp = param.expand_as(param)
                 grad_acc = p_tmp.grad_fn.next_functions[0][0]
-                grad_acc.register_hook(_make_hook(module, param, group_index_list, gap_iters=group_num, name=name, layer_index=layer_index))
+                grad_acc.register_hook(_make_hook(module, param, group_index_list, gap_iters=args.group_num, name=name, layer_index=layer_index))
 
                 grad_accs.append(grad_acc)
         else:
@@ -1145,12 +1176,13 @@ if __name__ == '__main__':
     parser.add_argument('--adam_beta2',type=float, default=0.999, help='.')
     parser.add_argument('--weight_decay',type=float, default=0.0001, help='.')
 
+    parser.add_argument('--enlarge', type = str, default='False',help='')
     parser.add_argument('--model_dir', type=str, default='./model', help='')
     parser.add_argument('--load_pretrain', type=str, default='False', help='')
 
     parser.add_argument('--interface', default='eno0', help='Network interface, choosing from eno0-1G, ens5f0-10G')
     parser.add_argument('--alg', type=str,default='localsgd',help='Algorithms including desync, sgd, localsgd, layerwise.')
-    parser.add_argument('--local_rank', type=int, default=0,help='local rank for distributed training')
+    parser.add_argument('--local-rank', type=int, default=0,help='local rank for distributed training')
     parser.add_argument('--group_num',type=int, default='6', help='Number of iterations to achieve full synchronziation in full_pipe_Seq.')
     parser.add_argument('--config_name', type=str, default='', help='Model configurations.')
     parser.add_argument('--model_name_or_path', type=str,default='',help='Local model path for GPT or Bert.')
@@ -1192,7 +1224,7 @@ if __name__ == '__main__':
     elif (args.alg == 'transformer_localsgd'):
         directory_path = os.path.join('./test/transformer_localsgd', args.dnn)
 
-    elif(args.alg == 'pipe_sgd'):
+    elif(args.alg == 'transformer_pipe_sgd'):
         directory_path = os.path.join('./test/pipeline', args.dnn)
         
     elif(args.alg == 'transformer_pipe_seq_localsgd'):
@@ -1231,7 +1263,7 @@ if __name__ == '__main__':
         os.environ['WANDB_MODE'] = 'offline'
         #logger.info(f"NCCL_SOCKET_IFNAME is set to: {os.environ.get('NCCL_SOCKET_IFNAME')}")
         dist.init_process_group(backend='nccl', init_method='env://')
-        args.local_rank = int(os.environ['LOCAL_RANK'])
+        # args.local-rank = int(os.environ['LOCAL_RANK'])
         rank = dist.get_rank()
         #logger.info(f'The rank is consistent {rank == args.local_rank}')
         #print("The Torch.distributed is initialized by rank: ", rank)
@@ -1259,19 +1291,24 @@ if __name__ == '__main__':
         transformer_ssgd(args.optimizer_name, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, lr_decay=args.lr_decay,
                         check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
         
+    elif (args.alg == 'transformer_pipe_sgd'):
+        logger.info("Alg used: transformer_pipe_sgd.")
+        transformer_pipe_sgd(args.optimizer_name, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, lr_decay=args.lr_decay,
+                        check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
+            
     elif (args.alg == 'transformer_pipe_seq_localsgd'):
         logger.info("Alg used: transformer_pipe_seq_localsgd.")
-        transformer_pipe_seq_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size,args.nsteps_update, args.max_epochs, args.nwpernode, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
+        transformer_pipe_seq_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size,args.max_epochs, args.nwpernode,args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
              check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
         
     elif (args.alg == 'transformer_full_pipe_localsgd'):
         logger.info("Alg used: transformer_full_pipe_localsgd.")
-        transformer_full_pipe_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
+        transformer_full_pipe_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size,args.max_epochs, args.nwpernode,args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
              check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
         
     elif (args.alg == 'transformer_dream_ddp'):
         logger.info("Alg used: transformer_dream_ddp.")
-        transformer_dream_ddp(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
+        transformer_dream_ddp(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size,args.max_epochs, args.nwpernode,args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
              check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
     ExpTool.finish(args)
 

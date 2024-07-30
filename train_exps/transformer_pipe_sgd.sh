@@ -1,6 +1,6 @@
 lr=0.00001
 batch_size=4
-alg='transformer_pipe_seq_localsgd'
+alg='transformer_pipe_sgd'
 dataset='wikitext2'
 
 data_dir="/mnt/raid/tangzichen/wikitext2"
@@ -53,38 +53,12 @@ nsteps_localsgd=10
 adam_beta1=0.9
 # lr=0.00001
 lr=0.0001
+
 weight_decay=0.0001
+node_rank=1
 lr_decay='fixed'
-
-node_rank=1
-nsteps_localsgd=5
 source train_exps/launch_transformer_A6000.sh
 
-node_rank=1
-nsteps_localsgd=10
-source train_exps/launch_transformer_A6000.sh
-
-node_rank=1
-nsteps_localsgd=20
-source train_exps/launch_transformer_A6000.sh
-
-# /workspace/DDP-Train/train_exps/launch_transformer_A6000.sh
-# dnn=llama2-124M
-# model_dir="/data2/share/zhtang/llama-2-7b-hf"
-# extra_name='llama2-124M-Notload'
-# load_pretrain=False
-
-# weight_decays=(0.0001 0.001 0.01)
-# lrs=(0.00001 0.00003 0.0001 0.0003 0.001)
-# for weight_decay in "${weight_decays[@]}"
-# do
-#     for lr in "${lrs[@]}"
-#     do
-#         # weight_decay=weight_decay
-#         # lr=lr
-#         source train_exps/debug_launch_transformer.sh
-#     done
-# done
 
 
 

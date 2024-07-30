@@ -1,12 +1,12 @@
 lr=0.00001
 batch_size=4
-alg='transformer_pipe_seq_localsgd'
+alg='transformer_dream_ddp'
 dataset='wikitext2'
 
 data_dir="/mnt/raid/tangzichen/wikitext2"
 # model_dir="/mnt/raid/tangzichen/gpt2"
 
-model_dir="/mnt/raid/tangzichen/bert-base-uncased"
+model_dir="/workspace/models/gpt2"
 # model_dir="/workspace/models/gpt2"
 # "/workspace/models/gpt2"
 
@@ -38,35 +38,58 @@ exp_name=$exp_name
 cluster_name=A6000
 
 
+# hosts=('10.0.0.20')
+# hosts=('30332' '30737')
+# hosts=("haigpu4")
 hosts=('ibgpu4' 'ibgpu5' 'ibgpu3' 'ibgpu1')
 ports=(30737 30958 31709 30715)
 #
 master_port=2229
 node_count=${#hosts[@]}
+echo "$node_count"
 nwpernode=8
 nworkers=$((nwpernode * node_count))
-ngpu_per_node=$nwpernode
 nsteps_localsgd=10
-
+ngpu_per_node=$nwpernode
 # lr_decay=None
 
 adam_beta1=0.9
 # lr=0.00001
 lr=0.0001
+
 weight_decay=0.0001
+
 lr_decay='fixed'
-
+# source train_exps/launch_transformer_A6000.sh
+enlarge=false
 node_rank=1
-nsteps_localsgd=5
+group_num=5
 source train_exps/launch_transformer_A6000.sh
 
 node_rank=1
-nsteps_localsgd=10
+group_num=10
 source train_exps/launch_transformer_A6000.sh
 
 node_rank=1
-nsteps_localsgd=20
+group_num=20
 source train_exps/launch_transformer_A6000.sh
+
+enlarge=true
+extra_name='llama2-124M-enlarge'
+node_rank=1
+group_num=5
+source train_exps/launch_transformer_A6000.sh
+
+node_rank=1
+group_num=10
+source train_exps/launch_transformer_A6000.sh
+
+node_rank=1
+group_num=20
+source train_exps/launch_transformer_A6000.sh
+
+# nsteps_localsgd=40
+# source train_exps/launch_transformer_A6000.sh
 
 # /workspace/DDP-Train/train_exps/launch_transformer_A6000.sh
 # dnn=llama2-124M

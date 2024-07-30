@@ -57,6 +57,7 @@ dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 model_dir="${model_dir:-/mnt/raid/gpt2}"
 group_num="${group_num:-6}"
+enlarge="${enlarge:-false}"
 host_ip='haigpu2'
 check_param_diversity="${check_param_diversity:-false}"
 nsteps_param_diversity=5
@@ -80,6 +81,9 @@ elif [ "$alg" = "localsgd" ]; then
 elif [ "$alg" = "transformer_localsgd" ]; then
     exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
+elif [ "$alg" = "transformer_dream_ddp" ]; then
+    exp_name="${extra_name}-${alg}-${dnn}-${enlarge}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    echo "Exp name: $exp_name"
 elif [ "$alg" = "full_pipe_seq" ]; then
     exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
@@ -90,7 +94,6 @@ else
     exp_name="${extra_name}-${alg}-${dnn}-${dataset}-nstepsupdate${nstepsupdate}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
 fi
-
 if [ -z "$exp_name" ]; then
     echo "Error: exp_name is empty."
     exit 1
@@ -104,8 +107,9 @@ master_port="${master_port:-2395}"
 while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
+    port=${ports[$node_rank]}
     echo "Entering node: $host"
-    args="$pre_cmd  $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
+    args="$pre_cmd  $PY -m torch.distributed.launch --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
@@ -129,6 +133,7 @@ do
         --interface $interface \
         --threshold $threshold \
         --saved-dir $GRADSPATH \
+        --enlarge $enlarge \
         --check_param_diversity $check_param_diversity \
         --nsteps_param_diversity $nsteps_param_diversity \
         --momentum-correction $momentum_correction \
@@ -138,9 +143,9 @@ do
     cmd="cd $directory; $args"
     echo "$host"
     if [ $(expr $i + 1) -eq $node_count ]; then
-        ssh -p $host_port $host $cmd   # return until finished or interrupted
+        ssh -p $port $host $cmd   # return until finished or interrupted
     else
-        ssh -p $host_port $host $cmd &
+        ssh -p $port $host $cmd &
     fi
     node_rank=$(expr $node_rank + 1)
     i=$(expr $i + 1)

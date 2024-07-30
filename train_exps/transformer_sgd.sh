@@ -21,14 +21,14 @@ pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
 optimizer_name=Adam
 # dnn=llama2-124M
-dnn=gpt2
+dnn=llama2-124M
 
-max_epochs=2
+max_epochs=1
 # add_noise=True
-extra_name='gpt-load-pretrain'
+extra_name='llama2-124M'
 
 enable_wandb=false
-wandb_offline=false
+wandb_offline=true
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 check_param_diversity=false
@@ -38,14 +38,13 @@ exp_name=$exp_name
 cluster_name=A6000
 
 
-# hosts=('10.0.0.20')
-# hosts=('30332' '30737')
-hosts=("haigpu4")
+hosts=('ibgpu4' 'ibgpu5' 'ibgpu3' 'ibgpu1')
+ports=(30737 30958 31709 30715)
 #
-master_port=2280
+master_port=2229
 node_count=${#hosts[@]}
-nworkers=$((8 * node_count))
-nwpernode=8
+nwpernode=4
+nworkers=$((nwpernode * node_count))
 ngpu_per_node=$nwpernode
 nsteps_localsgd=10
 
@@ -53,10 +52,10 @@ nsteps_localsgd=10
 
 adam_beta1=0.9
 # lr=0.00001
-lr=0.00001
+lr=0.0001
 
 weight_decay=0.0001
-
+node_rank=1
 lr_decay='fixed'
 source train_exps/launch_transformer_A6000.sh
 

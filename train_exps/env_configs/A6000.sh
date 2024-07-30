@@ -49,7 +49,7 @@ case "$cluster_name" in
             # "bert-base-uncased") data_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
             "gpt2") model_dir="/workspace/models/gpt2" ;;
             "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
-            "llama2-124M") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
+            "llama2-124M") model_dir="/workspace/models/Llama-2-7b-hf" ;;
         esac
         ;;
     "scigpu")

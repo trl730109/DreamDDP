@@ -21,13 +21,13 @@ pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
 optimizer_name=Adam
 # dnn=llama2-124M
-dnn=gpt2
+dnn=llama2-124M
 
-max_epochs=10
+max_epochs=3
 # add_noise=True
-extra_name='gpt-load-pretrain'
+extra_name='llama2-124M'
 
-enable_wandb=true
+enable_wandb=false
 wandb_offline=true
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
@@ -41,12 +41,14 @@ cluster_name=A6000
 # hosts=('10.0.0.20')
 # hosts=('30332' '30737')
 # hosts=("haigpu4")
-hosts=('ibgpu4')
+hosts=('ibgpu4' 'ibgpu5' 'ibgpu3' 'ibgpu1')
+ports=(30737 30958 31709 30715)
 #
-master_port=2276
+master_port=2228
 node_count=${#hosts[@]}
-nworkers=$((8 * node_count))
-nwpernode=8
+echo "$node_count"
+nwpernode=1
+nworkers=$((nwpernode * node_count))
 nsteps_localsgd=10
 ngpu_per_node=$nwpernode
 # lr_decay=None
@@ -60,14 +62,16 @@ weight_decay=0.0001
 lr_decay='fixed'
 source train_exps/launch_transformer_A6000.sh
 
-nsteps_localsgd=20
-source train_exps/launch_transformer_A6000.sh
+# node_rank=1
+# nsteps_localsgd=20
+# source train_exps/launch_transformer_A6000.sh
 
-nsteps_localsgd=5
-source train_exps/launch_transformer_A6000.sh
+# node_rank=1
+# nsteps_localsgd=5
+# source train_exps/launch_transformer_A6000.sh
 
-nsteps_localsgd=40
-source train_exps/launch_transformer_A6000.sh
+# nsteps_localsgd=40
+# source train_exps/launch_transformer_A6000.sh
 
 # /workspace/DDP-Train/train_exps/launch_transformer_A6000.sh
 # dnn=llama2-124M
