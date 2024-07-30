@@ -34,7 +34,8 @@ nsteps_param_diversity=5
 nsteps_param_sync=20
 
 
-values=(5 10 50 100)
+values=(5 10 50)
+# values=(5 10 50 100)
 # values=(10 50)
 # nsteps_param_sync=100
 
@@ -56,9 +57,9 @@ do
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch.sh
 
-    gaussian_std=1.0
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
+    # gaussian_std=1.0
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch.sh
 done
 # gaussian_std=10.0
 # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"

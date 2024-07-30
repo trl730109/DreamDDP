@@ -56,9 +56,9 @@ extra_name="nstd$gaussian_std"
 source fault_exps/launch.sh
 
 
-gaussian_std=1.0
-extra_name="nstd$gaussian_std"
-source fault_exps/launch.sh
+# gaussian_std=1.0
+# extra_name="nstd$gaussian_std"
+# source fault_exps/launch.sh
 
 
 # alg=sgd_with_sync
