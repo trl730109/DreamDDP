@@ -62,13 +62,20 @@ def set_seed(seed=3000):
 from settings import logger, formatter
 
 
-def add_nose_to_param_grad(param, gaussian_mu, gaussian_std):
+def add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters):
     shape = param.grad.data.size()
     # gaussian_mu, gaussian_std
     # gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std*gaussian_noise, size=shape, device=param.grad.data.device)
     # gaussian_noise = torch.normal(mean=gaussian_mu, std=torch.max(gaussian_std*param.grad.data.abs(), torch.tensor(0.0001)))
-    gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.grad.data.device)
+    if args.noise_type == "burst" and (global_iters % args.burst_freq == 0):
+        # logger.info(f"======= Busrt gradient magnitude is adjusted as {args.burst_magnitude} ======= ")
+        gaussian_noise = torch.normal(mean=gaussian_mu, std=args.burst_magnitude, size=shape, device=param.grad.data.device)
+    else:
+        # logger.info(f"======= Busrt gradient magnitude is adjusted as {gaussian_std} ======= ")
+        gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.grad.data.device)
     param.grad.data += gaussian_noise
+
+
 
 def check_model_diff(model1, model2):
     pass
@@ -346,7 +353,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                     # param.grad.data /= dist.get_world_size()
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
                     if (str2bool(add_noise)):
-                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
+                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
 
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
@@ -497,7 +504,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     # param.grad.data /= dist.get_world_size()
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
                     if (str2bool(add_noise)):
-                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std)
+                        add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
 
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
@@ -685,6 +692,10 @@ if __name__ == '__main__':
     parser.add_argument('--gaussian_mu', type=float, default=0.0, help='Mean of the Gaussian Noise Mean.')
     parser.add_argument('--gaussian_std', type=float, default=0.01, help='Std of the Gaussian Noise std.')
     parser.add_argument('--add_noise', type=str, default='false', help='Whether to add noise to the averaged gradients.')
+    parser.add_argument('--noise_type', type=str, default='fix', choices=["fix", "burst"], help='')   # fix, 
+    parser.add_argument('--burst_freq', type=int, default=100, help='')   # fix, 
+    parser.add_argument('--burst_magnitude', type=float, default=1.0, help='')   # fix, 
+
     parser.add_argument('--alg', type=str,default='localsgd',help='Algorithms including desync, sgd, localsgd, layerwise.')
     parser.add_argument('--local_rank', type=int, default=0,help='local rank for distributed training')
     parser.add_argument('--sync',type=str,default='sum',help='synchronization ways, sum or avg')

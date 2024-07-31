@@ -1,5 +1,6 @@
 # PY="${PY:-/home/comp/20481896/anaconda3/envs/py36/bin/python}"
-PY="${PY:-/mnt/raid/tangzhenheng/anaconda3/envs/fusionai/bin/python}"
+# PY="${PY:-/mnt/raid/tangzhenheng/anaconda3/envs/fusionai/bin/python}"
+PY="${PY:-/home/tangzhenheng/anaconda3/envs/fusionai/bin/python}"
 
 cluster_name=${cluster_name:-localhost}
 dataset=${dataset:-cifar10}

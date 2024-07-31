@@ -78,7 +78,10 @@ i=0
 
 
 
-
+# noise_type="${noise_type:-}"burst
+noise_type="${noise_type:-fix}"
+burst_freq="${burst_freq:-10}"
+burst_magnitude="${burst_magnitude:-1.0}"
 
 project_name=DDP-Train
 
@@ -86,7 +89,7 @@ nworkers=$(expr $nwpernode \* $node_count)
 
 extra_name="${extra_name:-}"
 
-exp_name=${alg}-noi${add_noise}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}-${extra_name}
+exp_name=${alg}-noi${add_noise}-t${noise_type}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}-${extra_name}
 echo "exp name is $exp_name !"
 
 nsteps_param_sync=${nsteps_param_sync:-20}
@@ -131,6 +134,9 @@ do
         --add_noise $add_noise \
         --gaussian_mu $gaussian_mu \
         --gaussian_std $gaussian_std \
+        --noise_type=$noise_type \
+        --burst_freq=$burst_freq \
+        --burst_magnitude=$burst_magnitude \
         --nsteps_param_sync $nsteps_param_sync \
         --check_param_diversity $check_param_diversity \
         --nsteps_param_diversity $nsteps_param_diversity \
