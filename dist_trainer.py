@@ -217,16 +217,16 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
     backward_time_acc = 0.0
     
 
-    layer_bp_timestamps = {}
-    def add_backward_hook(layer, name):
-        def backward_hook(module, grad_input, grad_output):
-            # Record the current time as the end time for this layer's backward computation
-            torch.cuda.synchronize()
-            layer_bp_timestamps[name] = time.time()
-        layer.register_full_backward_hook(backward_hook)
-    for name, module in trainer.net.named_modules():
-        if len(list(module.children())) == 0: 
-            add_backward_hook(module, name)
+    # layer_bp_timestamps = {}
+    # def add_backward_hook(layer, name):
+    #     def backward_hook(module, grad_input, grad_output):
+    #         # Record the current time as the end time for this layer's backward computation
+    #         torch.cuda.synchronize()
+    #         layer_bp_timestamps[name] = time.time()
+    #     layer.register_full_backward_hook(backward_hook)
+    # for name, module in trainer.net.named_modules():
+    #     if len(list(module.children())) == 0: 
+    #         add_backward_hook(module, name)
             
     for epoch in range(max_epochs):
         bp_dict = {}
@@ -260,14 +260,16 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
             backward_time_acc += trainer.backwardtime_tmp
             #logger.info(f'Global iteration: {global_iters} backward time: {trainer.backwardtime_tmp} train time: {train_time} \n wait time: {wait_time} total wait time: {wait_time_acc}')
             train_time_acc += (time.time() - s)
+            torch.cuda.synchronize()
             comm_s = time.time()
             for param in trainer.net.parameters():
                 if param.requires_grad:
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
                     #param.grad.data /= dist.get_world_size()
+            torch.cuda.synchronize()
             comm_time_acc += (time.time() - comm_s)
             
-            optimizer.synchronize()
+            # optimizer.synchronize()
             clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
             # if dnn in ['lstm', 'lstmwt2']:
             #     optimizer.synchronize()
@@ -298,29 +300,29 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
 
-            previous_time = trainer.backward_stamp
-            for name in layer_bp_timestamps:
-                current_stamp = layer_bp_timestamps[name]
-                bp_dict[name].append(current_stamp - previous_time)
-                previous_time = current_stamp
-            layer_bp_timestamps = {}
+            # previous_time = trainer.backward_stamp
+            # for name in layer_bp_timestamps:
+            #     current_stamp = layer_bp_timestamps[name]
+            #     bp_dict[name].append(current_stamp - previous_time)
+            #     previous_time = current_stamp
+            # layer_bp_timestamps = {}
             
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_acc = trainer.test(epoch)
         result_dict["val_acc"] = val_acc
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-        avg_bp_dict = {}
-        for name in bp_dict:
-            avg_bp_dict[name] = np.mean(bp_dict[name])
-        logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
+        # avg_bp_dict = {}
+        # for name in bp_dict:
+        #     avg_bp_dict[name] = np.mean(bp_dict[name])
+        # logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
         
-        filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-        save_path = os.path.join('./time/bp/', filename)
-        import json
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        with open(save_path, 'w') as file:
-            json.dump(avg_bp_dict, file, indent=4)
+        # filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+        # save_path = os.path.join('./time/new_bp/', filename)
+        # import json
+        # os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        # with open(save_path, 'w') as file:
+        #     json.dump(avg_bp_dict, file, indent=4)
             
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})

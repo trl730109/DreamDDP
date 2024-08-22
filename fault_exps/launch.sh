@@ -10,7 +10,7 @@ echo "launch dir: $directory"
 # Horovod-specific configurations commented out, adjust or remove if unnecessary for PyTorch
 #export HOROVOD_WITH_MPI=1
 #export HOROVOD_WITH_GLOO=1
-total_host=1
+total_host=16
 # hosts=('gpu23')
 # Model and training configurations
 dnn="${dnn:-resnet18}"
@@ -34,11 +34,11 @@ momentum_correction="${momentum_correction:-0}"
 
 # PyTorch Distributed settings
 ngpu_per_node="${ngpu_per_node:-4}"
-node_count="${node_count:-1}"
-node_rank="${node_rank:-1}"
+node_count=${#hosts[@]}
+node_rank=1
 node_rank=$(expr $node_rank - 1)  # Adjust for zero-based indexing
 if [ $(expr $node_rank + $node_count) -gt $total_host ] || [ $node_rank -lt 0 ]; then
-    echo "Required nodes are out of the range: from gpu1 to gpu$total_host"
+    echo "node_rank + node_count is $(expr $node_rank + $node_count) Required nodes are out of the range: from gpu1 to gpu$total_host"
     exit 0
 fi
 master_host=${hosts[$node_rank]}
@@ -99,6 +99,7 @@ param_sync=${param_sync:-"fix"}
 
 master_port=${master_port:-23456}
 
+wandb_offline=True
 
 while [ $i -lt $node_count ]
 do

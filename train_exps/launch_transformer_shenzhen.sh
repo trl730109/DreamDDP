@@ -80,6 +80,12 @@ elif [ "$alg" = "localsgd" ]; then
 elif [ "$alg" = "transformer_localsgd" ]; then
     exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
+elif [ "$alg" = "transformer_pipe_seq_localsgd" ]; then
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    echo "Exp name: $exp_name"
+elif [ "$alg" = "transformer_dream_ddp" ]; then
+    exp_name="${extra_name}-${alg}-${group_num}-${dnn}-${enlarge}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    echo "Exp name: $exp_name"
 elif [ "$alg" = "full_pipe_seq" ]; then
     exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
@@ -90,7 +96,6 @@ else
     exp_name="${extra_name}-${alg}-${dnn}-${dataset}-nstepsupdate${nstepsupdate}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
     echo "Exp name: $exp_name"
 fi
-
 if [ -z "$exp_name" ]; then
     echo "Error: exp_name is empty."
     exit 1
@@ -104,6 +109,7 @@ while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
+    echo "PY:$PY"
     args="$pre_cmd  $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2384 $script \
         --alg $alg \
         --exp_name $exp_name \
@@ -136,7 +142,7 @@ do
     echo "$host: $args"
     cmd="cd $directory; $args"
     if [ $(expr $i + 1) -eq $node_count ]; then
-        ssh  $host $cmd   # return until finished or interrupted
+        ssh $host $cmd   # return until finished or interrupted
     else
         ssh $host $cmd &
     fi

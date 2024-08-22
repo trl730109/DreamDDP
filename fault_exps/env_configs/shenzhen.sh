@@ -28,7 +28,6 @@ case "$cluster_name" in
             # "SVHN") data_dir="/datasets/SVHN" ;;
             # "mnist") data_dir="/datasets" ;;
         esac
-        
         ;;
     "gpuhome")
         case "$dataset" in

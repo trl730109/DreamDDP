@@ -1,19 +1,19 @@
 lr=0.00001
-batch_size=4
+batch_size=1
 alg='transformer_localsgd'
 dataset='wikitext2'
 
 data_dir="/mnt/raid/tangzichen/wikitext2"
 # model_dir="/mnt/raid/tangzichen/gpt2"
 
-model_dir="/workspace/models/gpt2"
+model_dir="/home/yinyiming/models/gpt2"
 # model_dir="/workspace/models/gpt2"
 # "/workspace/models/gpt2"
 
 # data_dir="/home/tangzhenheng/wikitext2"
 # model_dir="/home/tangzhenheng/gpt2"
 # PY="/mnt/raid/tangzhenheng/anaconda3/bin/python"
-PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
+PY="/home/yinyiming/miniconda3/envs/ddp/bin/python3"
 # PY="/home/tangzhenheng/anaconda3/bin/python"
 
 
@@ -35,7 +35,7 @@ check_param_diversity=false
 nsteps_param_diversity=5
 exp_name=$exp_name
 # cluster_name=GZ4090ZHTANG
-cluster_name=A6000
+cluster_name=shenzhen
 
 
 # hosts=('10.0.0.20')
@@ -60,7 +60,7 @@ lr=0.0001
 weight_decay=0.0001
 
 lr_decay='fixed'
-source train_exps/launch_transformer_A6000.sh
+source train_exps/launch_transformer_shenzhen.sh
 
 # node_rank=1
 # nsteps_localsgd=20
