@@ -31,7 +31,7 @@ from llm_trainer import LLMTrainer, _support_datasets, _support_dnns
 from dist_utils import *
 import dist_optimizer as dist_optim
 
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 from compression import compressors
 from profiling import benchmark
 from mpi4py import MPI
@@ -1714,8 +1714,6 @@ if __name__ == '__main__':
         directory_path = os.path.join('./test/sgd', args.dnn)
     elif (args.alg == 'localsgd'):
         directory_path = os.path.join('./test/localsgd', args.dnn)
-    # elif(args.alg == 'seq'):
-    #     directory_path = os.path.join('./test/sequential', args.dnn)
     elif(args.alg == 'pipe_sgd'):
         directory_path = os.path.join('./test/pipeline', args.dnn)
     elif(args.alg == 'pipe_seq_localsgd'):
@@ -1726,8 +1724,6 @@ if __name__ == '__main__':
         directory_path = os.path.join('./test/testing', args.dnn)
     elif(args.alg == 'dream_ddp'):
         directory_path = os.path.join('./test/dream_ddp', args.dnn)
-    elif(args.alg == 'transformer_localsgd'):
-        directory_path = os.path.join('./test/transformers_localsgd', args.dnn)
     elif(args.alg == 'time_measure'):
         directory_path = os.path.join('./test/time_measure',args.dnn)
     relative_path = os.path.join(directory_path, logdir)
@@ -1742,17 +1738,15 @@ if __name__ == '__main__':
     rank = 0
     #set_start_method('spawn')
     if args.nworkers > 1:
-        # dist.init_process_group(backend='nccl')
-        # rank = dist.get_rank()
         # os.environ['NCCL_DEBUG'] = 'INFO'
         # os.environ['NCCL_DEBUG_SUBSYS'] = 'ALL'
         # os.environ['NCCL_DEBUG'] = 'TRACE'
         
-        # os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
-        # if args.interface == 'eno0':
-        #     os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
-        # elif args.interface == 'ens5f0':
-        #     os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
+        os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
+        if args.interface == 'eno0':
+            os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
+        elif args.interface == 'ens5f0':
+            os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
         os.environ['NCCL_IGNORE_DISABLED_P2P'] = '1'
         
         #logger.info(f"NCCL_SOCKET_IFNAME is set to: {os.environ.get('NCCL_SOCKET_IFNAME')}")
@@ -1801,10 +1795,6 @@ if __name__ == '__main__':
         logger.info("Alg used: test.")
         dream_ddp(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay, args.group_num, 
              args.check_param_diversity, args.nsteps_param_diversity)
-    elif (args.alg == 'transformer_localsgd'):
-        logger.info("Alg used: transformer training.")
-        transformer_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
-             check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
     if (args.alg == 'time_measure'):
         logger.info("Alg used: localsgd.")
         localsgd_measure(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay)
