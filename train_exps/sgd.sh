@@ -26,9 +26,9 @@ dnn=resnet18
 dataset=cifar10
 max_epochs=1
 # add_noise=True
-extra_name='707'
+extra_name="${node_count}Nodes_"
 
-enable_wandb=False
+enable_wandb=true
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
@@ -37,7 +37,11 @@ exp_name=$exp_name
 cluster_name=shenzhen
 check_param_diversity=false
 nsteps_param_diversity=5
-hosts=('10.0.0.12')
+hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22')
+sync_momentum=true
+if [ "$sync_momentum" = true ]; then
+    extra_name="${extra_name}syncOpt"
+fi
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.26')
 # #

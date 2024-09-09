@@ -76,35 +76,33 @@ else
     bandwidth="100G"
 fi
 
-if [ "$alg" = "localsgd" ]; then
-    alg_name="local${optimizer_name}"
-else
-    alg_name="${optimizer_name}"
-fi
-
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
-base_name="${dnn}-${dataset}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-
-if [ "$sync_momentum" = true ] && [ "$alg" = "localsgd" ]; then
-    extra_name="${extra_name}-syncOpt"
+if [ "$alg" = "pipe_seq_localsgd" ]; then
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+elif [ "$alg" = "pipe_seq_localsgd_warmup" ]; then
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+elif [ "$alg" = "localsgd" ]; then
+    exp_name="${extra_name}-${optimizer_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+elif [ "$alg" = "transformer_localsgd" ]; then
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    echo "Exp name: $exp_name"
+elif [ "$alg" = "full_pipe_seq" ]; then
+    exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    echo "Exp name: $exp_name"
+elif [ "$alg" = "dream_ddp" ]; then
+    exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    echo "Exp name: $exp_name"
+else
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-nstepsupdate${nstepsupdate}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+    echo "Exp name: $exp_name"
 fi
-# Check specific conditions for algorithms that require different formatting
-case "$alg" in
-    "pipe_seq_localsgd"|"pipe_seq_localsgd_warmup"|"transformer_localsgd")
-        exp_name="${base_name}"
-        ;;
-    "localsgd")
-        exp_name="${extra_name}-${alg_name}-${nsteps_localsgd}-${base_name}"
-        ;;
-    "full_pipe_seq"|"dream_ddp")
-        exp_name="${extra_name}-${alg}_${group_num}-${nsteps_localsgd}-${base_name}"
-        ;;
-    *)
-        exp_name="${extra_name}-${alg_name}-nstepsupdate_${nstepsupdate}-${base_name}"
-        ;;
-esac
 
+if [ -z "$exp_name" ]; then
+    echo "Error: exp_name is empty."
+    exit 1
+fi
+# Loop to launch training on each node
 i=0
 
 project_name=DDP-Train
@@ -113,7 +111,7 @@ while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
-    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2286 $script \
+    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2287 $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \

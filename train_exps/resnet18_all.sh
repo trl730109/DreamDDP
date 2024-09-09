@@ -1,5 +1,7 @@
 lr=0.1
 batch_size=128
+alg='localsgd'
+script="dist_trainer_new.py" 
 #pipe_seq_localsgd
 # 127.0.0.1 localhost
 # 127.0.1.1 gpu9
@@ -20,163 +22,68 @@ batch_size=128
 # 10.0.0.24 gpu14
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
+interface=ens5f0
+# interface=ens5f0, eno0
 optimizer_name=SGD
 dnn=resnet18
-max_epochs=1
 dataset=cifar10
+max_epochs=120
 # add_noise=True
-# extra_name='test'
+
+
 enable_wandb=true
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
-interface=ens5f0
-exp_name=$exp_name
-cluster_name=shenzhen
 check_param_diversity=false
 nsteps_param_diversity=5
-# hosts=('10.0.0.11' '10.0.0.12' '10.0.0.16' '10.0.0.17')
-hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22' )
-#
+exp_name=$exp_name
+cluster_name=shenzhen
+sync_momentum=false
+
+# hosts=('10.0.0.19' '10.0.0.16' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
+# hosts=('10.0.0.11' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' '10.0.0.26')
+# hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
+hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22')
 #
 node_count=${#hosts[@]}
-# extra_name="Diversity_${node_count}Nodes"
-extra_name="diversity_check_${node_count}Nodes"
-ngpu_per_node=1
-nworkers=$((ngpu_per_node * node_count))
+nworkers=$((4 * node_count))
+nsteps_localsgd=10
+ngpu_per_node=$nwpernode
+extra_name="${node_count}Nodes"
 
-# alg='pipe_seq_localsgd'
-# nsteps_localsgd=10
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-
-# alg='sgd'
-# check_param_diversity=true
-# nsteps_param_diversity=5
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='pipe_seq_localsgd'
-# check_param_diversity=true
-# nsteps_param_diversity=5
-# nsteps_localsgd=5
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='pipe_seq_localsgd'
-# check_param_diversity=true
-# nsteps_param_diversity=5
-# nsteps_localsgd=50
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='localsgd'
-# check_param_diversity=true
-# nsteps_param_diversity=5
-# nsteps_localsgd=5
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='localsgd'
-# check_param_diversity=true
-# nsteps_param_diversity=5
-# nsteps_localsgd=50
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='localsgd'
-# nsteps_localsgd=5
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-alg='sgd'
 node_rank=1
+nsteps_localsgd=10
+optimizer_name=Adam
 lr_decay='exp'
 lr=0.1
+alg='sgd'
 source train_exps/launch_mul.sh
 
-# alg='pipe_sgd'
 # node_rank=1
+# nsteps_localsgd=10
 # lr_decay='exp'
+# sync_momentum=true
 # lr=0.1
+# alg='localsgd'
 # source train_exps/launch_mul.sh
 
-# alg='full_pipe_seq'
 # node_rank=1
+# nsteps_localsgd=10
 # lr_decay='exp'
-# group_num=12
+# optimizer_name=AdamW
+# sync_momentum=false
 # lr=0.1
+# alg='localsgd'
+# adam_beta1=0.9
 # source train_exps/launch_mul.sh
 
-# alg='full_pipe_seq'
 # node_rank=1
+# nsteps_localsgd=10
 # lr_decay='exp'
-# group_num=15
+# optimizer_name=Adam
+# sync_momentum=true
 # lr=0.1
+# alg='localsgd'
+# adam_beta1=0.9
 # source train_exps/launch_mul.sh
-
-# alg='full_pipe_seq'
-# node_rank=1
-# lr_decay='exp'
-# group_num=1
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='full_pipe_seq'
-# node_rank=1
-# lr_decay='exp'
-# group_num=10
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='full_pipe_seq'
-# node_rank=1
-# lr_decay='exp'
-# group_num=5
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='dream_ddp'
-# node_rank=1
-# lr_decay='exp'
-# group_num=1
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='dream_ddp'
-# node_rank=1
-# lr_decay='exp'
-# group_num=12
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='dream_ddp'
-# node_rank=1
-# lr_decay='exp'
-# group_num=12
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# alg='dream_ddp'
-# node_rank=1
-# lr_decay='exp'
-# group_num=15
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-

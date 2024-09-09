@@ -144,7 +144,8 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
                              args=args)
     else:
         trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, 
-                            data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=35, tb_writer=writer,optimizer_name=args.optimizer_name,lr_decay=lr_decay)
+                            data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=35, tb_writer=writer,optimizer_name=args.optimizer_name,lr_decay=lr_decay,
+                            args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -256,6 +257,19 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
                                 dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
                         else:
                             pass
+                    # synchronize optimizer
+                    if args.sync_momentum:
+                        if args.optimizer_name == 'SGD':
+                            for group in trainer.optimizer.param_groups:
+                                for p in group['params']:
+                                    if 'momentum_buffer' in trainer.optimizer.state[p]:
+                                        dist.all_reduce(trainer.optimizer.state[p]['momentum_buffer'], op=dist.ReduceOp.AVG, async_op=False)
+                        elif args.optimizer_name == 'Adam':
+                            for group in trainer.optimizer.param_groups:
+                                for p in group['params']:
+                                    if 'exp_avg' in trainer.optimizer.state[p] and 'exp_avg_sq' in trainer.optimizer.state[p]:
+                                        dist.all_reduce(trainer.optimizer.state[p]['exp_avg'], op=dist.ReduceOp.AVG, async_op=False)
+                                        dist.all_reduce(trainer.optimizer.state[p]['exp_avg_sq'], op=dist.ReduceOp.AVG, async_op=False)
                 else:
                     pass
             
@@ -324,6 +338,7 @@ if __name__ == '__main__':
     # Check model divergence
     parser.add_argument('--check_param_diversity', type=str, default="False")
     parser.add_argument('--nsteps_param_diversity', type=int, default=5)
+    parser.add_argument('--sync_momentum', type=str, default="False")
 
     
     # wandb, exp record related

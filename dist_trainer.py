@@ -168,7 +168,7 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay, args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -339,7 +339,7 @@ def ssgd_with_pipe(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nwork
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay, args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -446,7 +446,7 @@ def localsgd_measure(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_up
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name,lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name,lr_decay=lr_decay, args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -579,7 +579,7 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name,lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name,lr_decay=lr_decay, args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -764,7 +764,7 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay, args=args)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -965,7 +965,7 @@ def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, n
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay, args=args)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -1261,7 +1261,7 @@ def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_ep
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay, args=argss)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -1458,7 +1458,7 @@ def dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, m
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay, args=args)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)

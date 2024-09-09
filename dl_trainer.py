@@ -191,7 +191,8 @@ class DLTrainer:
 
     def __init__(self, rank, size, master='gpu10', localsgd=False, dist=True, ngpus=1, batch_size=32, 
         is_weak_scaling=True, data_dir='./data', dataset='cifar10', dnn='resnet20', 
-        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='SGD', lr_decay='step'):
+        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='SGD', lr_decay='step',
+        args=None):
 
         self.size = size
         self.rank = rank
@@ -207,6 +208,7 @@ class DLTrainer:
         self.lr_decay = lr_decay
         self.layer_backward_dict = {}
         self.time_measure = True
+        self.args=args
         if settings.EFFICIENT_IO:
             self.cached_index_images = CachedIndexImages()
         else:
@@ -326,13 +328,15 @@ class DLTrainer:
             self.optimizer = optim.Adam(
             self.net.parameters(),
             lr=lr,
-            weight_decay=weight_decay
+            betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
+            weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'AdamW'):
             self.optimizer = optim.AdamW(
             self.net.parameters(),
             lr=lr,
-            weight_decay=weight_decay
+            betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
+            weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'SGD'):
             self.optimizer = optim.SGD(self.net.parameters(), 
@@ -353,7 +357,7 @@ class DLTrainer:
         self.v = {} # 
         self.target_sparsities = [1.]
         self.sparsity = sparsity
-        logger.info('target_sparsities: %s', self.target_sparsities)
+        # logger.info('target_sparsities: %s', self.target_sparsities)
         self.avg_loss_per_epoch = 0.0
         self.timer = 0.0
         self.forwardtime = 0.0
