@@ -1,71 +1,48 @@
-lr=0.1
-batch_size=128
+lr=0.00001
+batch_size=1
 alg='sgd'
-#pipe_seq_localsgd
-# 127.0.0.1 localhost
-# 127.0.1.1 gpu9
+dataset='wikitext2'
+script='dist_trainer_new.py'
+data_dir="/data2/share/wikitext2"
+model_dir="/data2/share/tzc_gpt2/gpt2"
+PY="/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python3"
+pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
-# 10.0.0.11 gpu1
-# 10.0.0.12 gpu2
-# 10.0.0.13 gpu3
-# 10.0.0.14 gpu4
-# 10.0.0.15 gpu5
-# 10.0.0.16 gpu6
-# 10.0.0.17 gpu7
-# 10.0.0.18 gpu8
-# 10.0.0.19 gpu9
-# 10.0.0.20 gpu10
-# 10.0.0.21 gpu11
-# 10.0.0.22 gpu12
-# 10.0.0.23 gpu13
-# 10.0.0.24 gpu14
-# 10.0.0.25 gpu15
-# 10.0.0.26 gpu16
-optimizer_name=SGD
-dnn=resnet18
-dataset=cifar10
-max_epochs=1
-# add_noise=True
-extra_name="${node_count}Nodes_"
+optimizer_name=Adam
+# dnn=llama2-124M
+dnn=gpt2
+
+max_epochs=10
+
 
 enable_wandb=true
-wandb_offline=False
+wandb_offline=false
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
-
-exp_name=$exp_name
-cluster_name=shenzhen
 check_param_diversity=false
 nsteps_param_diversity=5
-hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22')
-sync_momentum=true
-if [ "$sync_momentum" = true ]; then
-    extra_name="${extra_name}syncOpt"
-fi
-# hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
-# hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.26')
-# #
+exp_name=$exp_name
+cluster_name=GZ_A6000
+sync_momentum=false
 
+
+hosts=('10.120.17.54')
+master_port=2228
 node_count=${#hosts[@]}
-nworkers=$((4 * node_count))
-interface=eno0
-# interface=ens5f0
-#nsteps_localsgd=20
+extra_name="${node_count}Nodes"
+echo "$node_count"
+nwpernode=8
+nworkers=$((nwpernode * node_count))
+nsteps_localsgd=10
+ngpu_per_node=$nwpernode
+# lr_decay=None
 
-# lr=0.1
-# lr_decay='general'
-# source train_exps/launch_mul.sh
+adam_beta1=0.9
+# lr=0.00001
+lr=0.0001
 
-lr=0.1
-interface=eno0
-node_rank=1
-lr_decay='exp'
+weight_decay=0.0001
+
+lr_decay='fixed'
 source train_exps/launch_mul.sh
 
-dnn=resnet50
-dataset=cifar100
-lr=0.1
-interface=eno0
-node_rank=1
-lr_decay='exp'
-source train_exps/launch_mul.sh

@@ -61,7 +61,7 @@ dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 model_dir="${model_dir:-/mnt/raid/gpt2}"
 load_pretrain="${load_pretrain:-False}"
-sync_momentum="${sync_momentum :-False}"
+sync_momentum="${sync_momentum:-False}"
 
 group_num="${group_num:-6}"
 
@@ -82,6 +82,11 @@ else
     alg_name="${optimizer_name}"
 fi
 
+if [ "$compressor" != "None" ]; then
+    echo "compressor is not None"
+    alg_name="${compressor}_${density}-${alg_name}"
+fi
+
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
 base_name="${dnn}-${dataset}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
@@ -89,9 +94,10 @@ base_name="${dnn}-${dataset}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${tot
 if [ "$sync_momentum" = true ] && [ "$alg" = "localsgd" ]; then
     extra_name="${extra_name}-syncOpt"
 fi
+
 # Check specific conditions for algorithms that require different formatting
 case "$alg" in
-    "pipe_seq_localsgd"|"pipe_seq_localsgd_warmup"|"transformer_localsgd")
+    "pipe_seq_localsgd"|"pipe_seq_localsgd_warmup")
         exp_name="${base_name}"
         ;;
     "localsgd")
@@ -113,7 +119,7 @@ while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
-    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2286 $script \
+    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2281 $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \

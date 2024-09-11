@@ -2,7 +2,7 @@
 
 # Set Python and script environment
 directory=$(pwd)
-script="${script:-dist_trainer_transformer.py}"  # Assuming this is the PyTorch distributed training script
+script="${script:-dist_trainer_new.py}"  # Assuming this is the PyTorch distributed training script
 params="${params:-}"
 echo "launch dir: $directory"
 
@@ -61,13 +61,14 @@ group_num="${group_num:-6}"
 check_param_diversity="${check_param_diversity:-false}"
 nsteps_param_diversity=5
 
-if [ "$interface" = "eno0" ]; then
-    bandwidth="1G"
-elif [ "$interface" = "ens5f0" ]; then
-    bandwidth="10G"
-else
-    bandwidth="100G"
-fi
+# if [ "$interface" = "eno0" ]; then
+#     bandwidth="1G"
+# elif [ "$interface" = "ens5f0" ]; then
+#     bandwidth="10G"
+# else
+#     bandwidth="100G"
+# fi
+
 
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"

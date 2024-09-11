@@ -57,6 +57,7 @@ class TopKCompressor():
         self.zero_conditions = {}
         self.values = {} 
         self.indexes = {} 
+        self.shapes = {}
 
     def compress(self, tensor, name=None, sigma_scale=2.5, ratio=0.05):
         start = time.time()
@@ -67,33 +68,35 @@ class TopKCompressor():
             self.current_ratio = ratio
 
             values, indexes = torch.topk(torch.abs(tensor.data), k=k)
+            # print(f'The dtype for the index is {indexes.dtype}')
             values = tensor.data[indexes]
 
             self.values[name] = values
             self.indexes[name] = indexes
 
-            return tensor, indexes, values
+            return k, tensor, indexes, values
+        # the original tensor, compressed indexes, compressed values (only left values are kept)
 
     def decompress(self, tensor, original_tensor_size):
         return tensor
 
 
-    def decompress_new(self, tensor, indexes, name=None, shape=None):
+    def decompress_new(self, values, indexes, name=None, shape=None):
         '''
             Just decompress, without unflatten.
             Remember to do unflatter after decompress
         '''
         if shape is None:
             decompress_tensor = torch.zeros(
-                self.shapes[name], dtype=tensor.dtype, device=tensor.device).view(-1)
-            decompress_tensor[indexes] = tensor
+                self.shapes[name], dtype=values.dtype, device=values.device).view(-1)
+            decompress_tensor[indexes] = values
             # decompress_tensor = torch.zeros(self.shapes[name]).view(-1)
             # decompress_tensor[indexes] = tensor.type(decompress_tensor.dtype)
             return decompress_tensor
         else:
             decompress_tensor = torch.zeros(
-                shape, dtype=tensor.dtype, device=tensor.device).view(-1)
-            decompress_tensor[indexes] = tensor
+                shape, dtype=values.dtype, device=values.device).view(-1)
+            decompress_tensor[indexes] = values
             return decompress_tensor
 
     def flatten(self, tensor, name=None):

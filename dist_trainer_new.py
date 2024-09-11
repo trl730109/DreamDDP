@@ -129,7 +129,7 @@ def record_param_diversity_with_period(model, global_iters, nsteps_param_diversi
             logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
             
 def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, 
-         prefix=None, nsteps_localsgd=1, lr_decay=None,
+         prefix=None, nsteps_localsgd=1, lr_decay=None, 
         check_param_diversity=None, nsteps_param_diversity=None, args = None):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -153,18 +153,7 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
     dist.broadcast(init_iter, src=0)
     trainer.set_train_epoch(int(init_epoch.item()))
     trainer.set_train_iter(int(init_iter.item()))
-    
-    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
-        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
-        if rank == 0:
-            logger.info('layerwise backward times: %s', list(layerwise_times))
-            logger.info('layerwise backward sizes: %s', list(layerwise_sizes))
-        logger.info('Bencharmked backward time: %f', np.sum(layerwise_times))
-        logger.info('Model size: %d', np.sum(layerwise_sizes))
-    else:
-        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
-
+ 
     logger.info('Broadcast parameters....')
     broadcast_parameters(trainer.net.state_dict(), root_rank=0)
     logger.info('Broadcast parameters finished....')
@@ -188,65 +177,89 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
     backward_time_acc = 0.0
     comm_time_acc = 0
     iteration_time_acc = 0
-
+    compressor = compressors[args.compressor]()
+    def sparse_allgather(param, ratio):
+        shape = param.shape
+        tensor = param.view(-1)
+        k, _, ctx, selected_values = compressor.compress(tensor, None, ratio=ratio)
+        # print(f'Index dtype is {ctx.dtype} values is {ctx}')
+        index_list = [torch.zeros(ctx.shape, dtype=ctx.dtype, device=ctx.device) for _ in range(dist.get_world_size())]
+        value_list = [torch.zeros(selected_values.shape, dtype=param.dtype, device=param.device) for _ in range(dist.get_world_size())]
+        dist.all_gather(index_list, ctx)
+        dist.all_gather(value_list, selected_values)
+        new_param = torch.zeros_like(param).view(-1)
+        for i in range(len(index_list)):
+            new_param += compressor.decompress_new(value_list[i], index_list[i], name=None, shape=shape)
+        print(f'Percentage of non zero values is {torch.count_nonzero(new_param)/new_param.numel()}')
+        new_param /= dist.get_world_size()
+        param = new_param.view(shape)
+        compressor.clear()
+        return param
+    
     for epoch in range(max_epochs):
         logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
+        trainer.net.train()
+        trainer.train_sampler.set_epoch(epoch)
         hidden = None
-        if dnn in ['lstm', 'lstmwt2']:
-            hidden = trainer.net.init_hidden()
+        # if dnn in ['lstm', 'lstmwt2']:
+        #     hidden = trainer.net.init_hidden()
         
         result_dict = {}
         train_epoch_loss = 0.0
         train_epoch_acc = 0.0
         train_epoch_ppl = 0.0
         backward_list = []
-                
+            
         for i in range(iters_per_epoch//nsteps_update):
             global_iters += 1
             result_dict = {}
             s = time.time()
             optimizer.zero_grad()
             
-            for j in range(nsteps_update):
-                if dnn in ['lstm', 'lstmwt2']:
-                        _, hidden = trainer.train(1, hidden=hidden)
-                else:
-                    trainer.train(1)
-            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
-            
+            # for j in range(nsteps_update):
+            #     if dnn in ['lstm', 'lstmwt2']:
+            #             _, hidden = trainer.train(1, hidden=hidden)
+            #     else:
+            trainer.train(1)
             # Communicate the gradients
             if args.alg == 'sgd':
                 for param in trainer.net.parameters():
                     if param.requires_grad:
                         dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
             
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            
             train_loss = trainer.loss
-            train_acc = np.mean(trainer.train_acc_top1)
             train_epoch_loss += train_loss
-            train_epoch_acc += train_acc
             if dnn in _llms:
                 train_ppl = trainer.ppl
                 train_epoch_ppl += train_ppl
-            
+            else:
+                train_acc = np.mean(trainer.train_acc_top1)
+                train_epoch_acc += train_acc
+                
             trainer.update_model()
             train_time = time.time()-s
             times.append(train_time)
             train_time_acc += train_time
-            backward_time_acc += trainer.backwardtime_tmp
-            backward_list.append(trainer.backwardtime_tmp)
+            # backward_time_acc += trainer.backwardtime_tmp
+            # backward_list.append(trainer.backwardtime_tmp)
    
             trainer.backwardtime_tmp = 0.0
             
             if i % display == 0 and i > 0: 
                 time_per_iter = np.mean(times)
-                logger.info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                logger.info('Time per iteration including communication: %f, Speed: %f samples/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
                 times = []
                 result_dict["time_per_iter"] = time_per_iter
                 result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
                 
             ExpTool.record(result_dict)
-            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc, "Backward_time": trainer.backwardtime_tmp})
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss})
+            if dnn in _llms:
+                ExpTool.record({"train_ppl":train_ppl})
+            else:
+                ExpTool.record({"train_acc": train_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
             if (args.alg == 'localsgd'):         
@@ -268,13 +281,17 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
                             for group in trainer.optimizer.param_groups:
                                 for p in group['params']:
                                     if 'exp_avg' in trainer.optimizer.state[p] and 'exp_avg_sq' in trainer.optimizer.state[p]:
-                                        dist.all_reduce(trainer.optimizer.state[p]['exp_avg'], op=dist.ReduceOp.AVG, async_op=False)
-                                        dist.all_reduce(trainer.optimizer.state[p]['exp_avg_sq'], op=dist.ReduceOp.AVG, async_op=False)
+                                        if args.density < 1:
+                                            sparse_allgather(trainer.optimizer.state[p]['exp_avg'], args.density)
+                                            sparse_allgather(trainer.optimizer.state[p]['exp_avg_sq'], args.density)
+                                        else:
+                                            dist.all_reduce(trainer.optimizer.state[p]['exp_avg'], op=dist.ReduceOp.AVG, async_op=False)
+                                            dist.all_reduce(trainer.optimizer.state[p]['exp_avg_sq'], op=dist.ReduceOp.AVG, async_op=False)
                 else:
                     pass
             
             ExpTool.record({"global_iters": global_iters, "iteration time": iteration_time_acc, "total train time": train_time_acc,
-                        "total comm time": comm_time_acc, "avg backward time": (backward_time_acc / global_iters), "total backward time": backward_time_acc})
+                        "total comm time": comm_time_acc, "avg backward time": (backward_time_acc / global_iters)})
 
         if dnn in _llms:
             val_ppl, test_loss = trainer.test(epoch)
@@ -397,13 +414,14 @@ if __name__ == '__main__':
         utils.create_path(gradient_relative_path)
     rank = 0
     #set_start_method('spawn')
-    if args.nworkers > 1:        
-        os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
-        if args.interface == 'eno0':
-            os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
-        elif args.interface == 'ens5f0':
-            os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
-        os.environ['NCCL_IGNORE_DISABLED_P2P'] = '1'
+    if args.nworkers > 1:
+        if(args.dnn == 'cifar10' or args.dnn == 'cifar100'):        
+            os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
+            if args.interface == 'eno0':
+                os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
+            elif args.interface == 'ens5f0':
+                os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
+            os.environ['NCCL_IGNORE_DISABLED_P2P'] = '1'
         
         #logger.info(f"NCCL_SOCKET_IFNAME is set to: {os.environ.get('NCCL_SOCKET_IFNAME')}")
         dist.init_process_group(backend='nccl', init_method='env://')
