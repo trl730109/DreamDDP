@@ -190,11 +190,11 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
         new_param = torch.zeros_like(param).view(-1)
         for i in range(len(index_list)):
             new_param += compressor.decompress_new(value_list[i], index_list[i], name=None, shape=shape)
-        print(f'Percentage of non zero values is {torch.count_nonzero(new_param)/new_param.numel()}')
+        # print(f'Percentage of non zero values is {torch.count_nonzero(new_param)/new_param.numel()}')
         new_param /= dist.get_world_size()
-        param = new_param.view(shape)
+        new_param = new_param.view(shape)
         compressor.clear()
-        return param
+        return new_param
     
     for epoch in range(max_epochs):
         logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
@@ -282,8 +282,12 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
                                 for p in group['params']:
                                     if 'exp_avg' in trainer.optimizer.state[p] and 'exp_avg_sq' in trainer.optimizer.state[p]:
                                         if args.density < 1:
-                                            sparse_allgather(trainer.optimizer.state[p]['exp_avg'], args.density)
-                                            sparse_allgather(trainer.optimizer.state[p]['exp_avg_sq'], args.density)
+                                            sparse_avg = sparse_allgather(trainer.optimizer.state[p]['exp_avg'], args.density)
+                                            sparse_avg_sq = sparse_allgather(trainer.optimizer.state[p]['exp_avg_sq'], args.density)
+                                            mask = sparse_avg != 0
+                                            mask_sq = sparse_avg_sq != 0
+                                            trainer.optimizer.state[p]['exp_avg'] = torch.where(mask, sparse_avg, trainer.optimizer.state[p]['exp_avg'])
+                                            trainer.optimizer.state[p]['exp_avg_sq'] = torch.where(mask_sq, sparse_avg_sq, trainer.optimizer.state[p]['exp_avg_sq'])
                                         else:
                                             dist.all_reduce(trainer.optimizer.state[p]['exp_avg'], op=dist.ReduceOp.AVG, async_op=False)
                                             dist.all_reduce(trainer.optimizer.state[p]['exp_avg_sq'], op=dist.ReduceOp.AVG, async_op=False)
@@ -383,26 +387,7 @@ if __name__ == '__main__':
 
     logdir = '%s' % (datetime.datetime.now(beijing_tz).strftime("%m-%d-%H:%M")) + '-' + prefix
 
-    if (args.alg == 'sgd'):
-        directory_path = os.path.join('./test/sgd', args.dnn)
-    elif (args.alg == 'localsgd'):
-        directory_path = os.path.join('./test/localsgd', args.dnn)
-    # elif(args.alg == 'seq'):
-    #     directory_path = os.path.join('./test/sequential', args.dnn)
-    elif(args.alg == 'pipe_sgd'):
-        directory_path = os.path.join('./test/pipeline', args.dnn)
-    elif(args.alg == 'pipe_seq_localsgd'):
-        directory_path = os.path.join('./test/pipe_seq_localsgd', args.dnn)
-    elif(args.alg == 'pipe_seq_localsgd_warmup'):
-        directory_path = os.path.join('./test/pipe_seq_localsgd_warmup', args.dnn)
-    elif(args.alg == 'full_pipe_seq'):
-        directory_path = os.path.join('./test/testing', args.dnn)
-    elif(args.alg == 'dream_ddp'):
-        directory_path = os.path.join('./test/dream_ddp', args.dnn)
-    elif(args.alg == 'transformer_localsgd'):
-        directory_path = os.path.join('./test/transformers_localsgd', args.dnn)
-    elif(args.alg == 'time_measure'):
-        directory_path = os.path.join('./test/time_measure',args.dnn)
+    directory_path = os.path.join('./test', args.alg, args.dnn)
     relative_path = os.path.join(directory_path, logdir)
 
     print(relative_path)

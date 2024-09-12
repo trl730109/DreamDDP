@@ -44,7 +44,7 @@ sync_momentum=false
 # hosts=('10.0.0.19' '10.0.0.16' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
 # hosts=('10.0.0.11' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' '10.0.0.26')
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
-hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22')
+hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' '10.0.0.26')
 #
 node_count=${#hosts[@]}
 nworkers=$((4 * node_count))
@@ -52,38 +52,22 @@ nsteps_localsgd=10
 ngpu_per_node=$nwpernode
 extra_name="${node_count}Nodes"
 
+# density=0.01
+# compressor=topk
+
+# node_rank=1
+# nsteps_localsgd=10
+# optimizer_name=Adam
+# lr_decay='exp'
+# lr=0.1
+# alg='localsgd'
+# sync_momentum=true
+# source train_exps/launch_mul.sh
+
 node_rank=1
-nsteps_localsgd=10
-optimizer_name=Adam
+optimizer_name=SGD
 lr_decay='exp'
 lr=0.1
 alg='sgd'
 source train_exps/launch_mul.sh
 
-# node_rank=1
-# nsteps_localsgd=10
-# lr_decay='exp'
-# sync_momentum=true
-# lr=0.1
-# alg='localsgd'
-# source train_exps/launch_mul.sh
-
-# node_rank=1
-# nsteps_localsgd=10
-# lr_decay='exp'
-# optimizer_name=AdamW
-# sync_momentum=false
-# lr=0.1
-# alg='localsgd'
-# adam_beta1=0.9
-# source train_exps/launch_mul.sh
-
-# node_rank=1
-# nsteps_localsgd=10
-# lr_decay='exp'
-# optimizer_name=Adam
-# sync_momentum=true
-# lr=0.1
-# alg='localsgd'
-# adam_beta1=0.9
-# source train_exps/launch_mul.sh

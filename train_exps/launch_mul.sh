@@ -78,13 +78,12 @@ fi
 
 if [ "$alg" = "localsgd" ]; then
     alg_name="local${optimizer_name}"
+    if [ "$compressor" != "None" ] && [ "$sync_momentum" = true ]; then
+        echo "compressor is not None"
+        alg_name="${compressor}_${density}-${alg_name}"
+    fi
 else
     alg_name="${optimizer_name}"
-fi
-
-if [ "$compressor" != "None" ]; then
-    echo "compressor is not None"
-    alg_name="${compressor}_${density}-${alg_name}"
 fi
 
 exp_name="${exp_name:-default}"
