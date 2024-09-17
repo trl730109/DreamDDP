@@ -3,25 +3,7 @@ batch_size=128
 alg='localsgd'
 script="dist_trainer_new.py" 
 #pipe_seq_localsgd
-# 127.0.0.1 localhost
-# 127.0.1.1 gpu9
 
-# 10.0.0.11 gpu1
-# 10.0.0.12 gpu2
-# 10.0.0.13 gpu3
-# 10.0.0.14 gpu4
-# 10.0.0.15 gpu5
-# 10.0.0.16 gpu6
-# 10.0.0.17 gpu7
-# 10.0.0.18 gpu8
-# 10.0.0.19 gpu9
-# 10.0.0.20 gpu10
-# 10.0.0.21 gpu11
-# 10.0.0.22 gpu12
-# 10.0.0.23 gpu13
-# 10.0.0.24 gpu14
-# 10.0.0.25 gpu15
-# 10.0.0.26 gpu16
 interface=ens5f0
 # interface=ens5f0, eno0
 optimizer_name=SGD
@@ -55,19 +37,47 @@ extra_name="${node_count}Nodes"
 # density=0.01
 # compressor=topk
 
+node_rank=1
+nsteps_localsgd=10
+optimizer_name=Adam
+lr_decay='exp'
+nstepsupdate=1
+lr=0.001
+# global_lr=0.1
+alg='train_with_global_momentum'
+sync_momentum=false
+# source train_exps/launch_mul.sh
+
+
+# global_lrs=(0.1 0.01)
+global_lrs=(0.1 0.01 0.003 0.001)
+for glr in "${global_lrs[@]}"
+do
+    alg='train_with_global_momentum'
+    node_rank=1
+    global_lr=$glr 
+    echo "Training with global learning rate: $glr"
+    source train_exps/launch_mul.sh
+done
+
+# # global_lrs=(0.1 0.01)
+# lrs=(0.003 0.001)
+# for llr in "${lrs[@]}"
+# do
+#     echo "Training with global learning rate: $llr"
+#     alg='localsgd'
+#     optimizer_name=Adam
+#     sync_momentum=false
+#     node_rank=1
+#     lr=$llr
+#     source train_exps/launch_mul.sh
+# done
+
+
+
 # node_rank=1
-# nsteps_localsgd=10
 # optimizer_name=Adam
 # lr_decay='exp'
 # lr=0.1
-# alg='localsgd'
-# sync_momentum=true
+# alg='sgd'
 # source train_exps/launch_mul.sh
-
-node_rank=1
-optimizer_name=SGD
-lr_decay='exp'
-lr=0.1
-alg='sgd'
-source train_exps/launch_mul.sh
-

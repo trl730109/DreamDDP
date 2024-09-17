@@ -42,7 +42,7 @@ master_host=${hosts[$node_rank]}
 wandb_key="${wandb_key:-None}"
 # Training settings
 nwpernode="${nwpernode:-4}"
-nstepsupdate=1
+nstepsupdate="${nstepsupdate:-1}"
 interface="${interface:-eno0}"
 overlap_scalar=2
 strategy='average'
@@ -52,6 +52,7 @@ sync="${sync:-avg}"
 alg="${alg:-sgd}"
 GRADSPATH=./logs/tzc
 lr="${lr:-0.0001}"
+global_lr="${global_lr:-0.01}"
 lr_decay="${lr_decay:-None}"
 weight_decay="${weight_decay:-0.0001}"
 adam_beta1="${adam_beta1:-0.9}"
@@ -76,7 +77,7 @@ else
     bandwidth="100G"
 fi
 
-if [ "$alg" = "localsgd" ]; then
+if [ "$alg" = "localsgd" ] || [ "$alg" = "train_with_global_momentum" ]; then
     alg_name="local${optimizer_name}"
     if [ "$compressor" != "None" ] && [ "$sync_momentum" = true ]; then
         echo "compressor is not None"
@@ -102,6 +103,9 @@ case "$alg" in
     "localsgd")
         exp_name="${extra_name}-${alg_name}-${nsteps_localsgd}-${base_name}"
         ;;
+    "train_with_global_momentum")
+        exp_name="${extra_name}-${alg_name}-Global_Momentum_lr_${global_lr}-${nsteps_localsgd}-${base_name}"
+        ;;
     "full_pipe_seq"|"dream_ddp")
         exp_name="${extra_name}-${alg}_${group_num}-${nsteps_localsgd}-${base_name}"
         ;;
@@ -118,7 +122,7 @@ while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
-    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2281 $script \
+    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2282 $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
@@ -134,6 +138,7 @@ do
         --model_dir $model_dir \
         --load_pretrain $load_pretrain \
         --lr $lr \
+        --global_lr $global_lr
         --sync_momentum $sync_momentum \
         --lr_decay $lr_decay \
         --weight_decay $weight_decay \
