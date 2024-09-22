@@ -184,7 +184,7 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
     comm_time_acc = 0
     iteration_time_acc = 0
     compressor = compressors[args.compressor]()
-    global_params = {name: param.data.clone().detach() for name, param in trainer.net.named_parameters()}
+    # global_params = {name: param.data.clone().detach() for name, param in trainer.net.named_parameters()}
     
     def sparse_allgather(param, ratio):
         shape = param.shape
@@ -219,16 +219,19 @@ def train(alg, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, 
         backward_list = []
             
         for i in range(iters_per_epoch//nsteps_update):
-            global_iters += 1
+            # global_iters += 1
+            if global_iters >= 10000:
+                break
             result_dict = {}
             s = time.time()
             optimizer.zero_grad()
             
-            # for j in range(nsteps_update):
+            for j in range(nsteps_update):
+                global_iters += 1
             #     if dnn in ['lstm', 'lstmwt2']:
             #             _, hidden = trainer.train(1, hidden=hidden)
             #     else:
-            trainer.train(1)
+                trainer.train(1)
             # Communicate the gradients
             if args.alg == 'sgd':
                 for param in trainer.net.parameters():
@@ -579,6 +582,7 @@ if __name__ == '__main__':
             os.environ['NCCL_IGNORE_DISABLED_P2P'] = '1'
         
         #logger.info(f"NCCL_SOCKET_IFNAME is set to: {os.environ.get('NCCL_SOCKET_IFNAME')}")
+        os.environ["WANDB_MODE"]="offline"
         dist.init_process_group(backend='nccl', init_method='env://')
         args.local_rank = int(os.environ['LOCAL_RANK'])
         rank = dist.get_rank()

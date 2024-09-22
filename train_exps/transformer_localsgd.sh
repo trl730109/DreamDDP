@@ -4,12 +4,13 @@ alg='localsgd'
 dataset='wikitext2'
 
 # data_dir="/mnt/raid/tangzichen/wikitext2"
-data_dir="/data2/share/wikitext2"
+# data_dir="/data2/share/wikitext2"
+data_dir="/workspace/wikitext2"
 # model_dir="/mnt/raid/tangzichen/gpt2"
 
 # model_dir="/home/yinyiming/models/gpt2"
-model_dir="/data2/share/tzc_gpt2/gpt2"
-# model_dir="/workspace/models/gpt2"
+# model_dir="/data2/share/tzc_gpt2/gpt2"
+model_dir="/workspace/models/gpt2"
 # "/workspace/models/gpt2"
 
 # data_dir="/home/tangzhenheng/wikitext2"
@@ -37,14 +38,14 @@ check_param_diversity=false
 nsteps_param_diversity=5
 exp_name=$exp_name
 # cluster_name=GZ4090ZHTANG
-cluster_name=GZ_A6000
+cluster_name=A6000
 
 
 # hosts=('10.0.0.20')
 # hosts=('30332' '30737')
 # hosts=("haigpu4")
 hosts=('10.120.17.54')
-ports=(30737 30958 31709 30715)
+ports=(31751)
 #
 master_port=2228
 node_count=${#hosts[@]}

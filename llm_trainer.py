@@ -78,7 +78,7 @@ if settings.EFFICIENT_IO:
 else:
     NUM_CPU_THREADS=8
 
-_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'shakespeare', 'wikitext2','cifar100']
+_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'shakespeare', 'wikitext2','cifar100', 'openwebtext']
 _support_dnns = ['alexnet', 'alexnetbn',
         'resnet18', 'resnet50', 'resnet101', 'resnet152', 
         'densenet121', 'densenet161', 'densenet201', 
@@ -396,6 +396,93 @@ class LLMTrainer:
     def get_num_of_training_samples(self):
         return len(self.trainset)
 
+    def openwebtext_prepare(self):
+        if self.dnn in ['gpt2', "bert-base-uncased"]:
+            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+        elif self.dnn in ["llama2-124M"]:
+            token = "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"
+            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+        else:
+            raise NotImplementedError
+        # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
+
+        # dataset = load_from_disk(wikitext_path)
+        # dataset = load_from_disk(self.data_dir)
+        if os.path.isdir(self.data_dir):
+            encoded_dataset = load_from_disk(self.data_dir)
+        elif os.path.isfile(self.data_dir) and self.data_dir.endswith(".json"):
+            encoded_dataset = load_dataset('json', data_files=self.data_dir)
+        
+        # if 'validation' not in dataset:
+        #     dataset = dataset["train"].train_test_split(test_size=0.0005, seed=2357, shuffle=True)
+        #     # After splitting, we will have 'train' and 'test', so we rename 'test' to 'validation'
+        #     dataset['validation'] = dataset.pop('test')
+        # print(dataset)
+        # # def tokenize(example):
+        # #     return tokenizer(example['text'], truncation=True, padding='max_length', max_length=512)
+
+        # # # Apply the encoding to the dataset
+        # # encoded_dataset = dataset.map(tokenize, batched=True)
+        # # encoded_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask'])
+
+        # column_names = dataset["train"].column_names
+        # text_column_name = "text" if "text" in column_names else column_names[0]
+        # def tokenize_function(examples):
+        #     return tokenizer(examples[text_column_name])
+
+        # tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=column_names)
+
+        # block_size = min(1024, tokenizer.model_max_length)
+    
+        # def group_texts(examples):
+        #     # Concatenate all texts.
+        #     concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        #     total_length = len(concatenated_examples[list(examples.keys())[0]])
+        #     # We drop the small remainder, and if the total_length < block_size  we exclude this batch and return an empty dict.
+        #     # We could add padding if the model supported it instead of this drop, you can customize this part to your needs.
+        #     total_length = (total_length // block_size) * block_size
+        #     # Split by chunks of max_len.
+        #     result = {
+        #         k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+        #         for k, t in concatenated_examples.items()
+        #     }
+        #     result["labels"] = result["input_ids"].copy()
+        #     return result
+
+        # encoded_dataset = tokenized_dataset.map(group_texts, batched=True)
+        # save_path = "worksapce/tokenized_openwebtext"
+        # encoded_dataset.save_to_disk(save_path)
+        # logger.info(f'Save the tokenized dataset to {save_path}')
+        
+        trainset = encoded_dataset['train']
+        valset = encoded_dataset['validation']
+        self.trainset = trainset
+
+        train_sampler = None
+        shuffle = True
+        if self.nworkers > 1: 
+            # if settings.EFFICIENT_IO:
+            #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
+            #             rank=self.rank, cached_index_images=self.cached_index_images)
+            # else:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                self.trainset, num_replicas=self.nworkers, rank=self.rank)
+            train_sampler.set_epoch(0)
+            shuffle = False
+        self.train_sampler = train_sampler
+
+        self.trainloader = torch.utils.data.DataLoader(
+            trainset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=shuffle,
+            num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
+        
+
+        self.testset = valset
+        self.testloader = torch.utils.data.DataLoader(
+            valset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=False,
+            num_workers=8, pin_memory=True)
+        
     def wikitext2_prepare(self):
         # Data loading code
         if self.dnn in ['gpt2', "bert-base-uncased"]:
@@ -476,6 +563,8 @@ class LLMTrainer:
             self.wikitext2_prepare()
         elif self.dataset == 'shakespeare':
             pass
+        elif self.dataset == 'openwebtext':
+            self.openwebtext_prepare()
         else:
             errstr = 'Unsupport dataset: %s' % self.dataset
             logger.error(errstr)

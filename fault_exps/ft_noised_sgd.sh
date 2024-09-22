@@ -38,9 +38,9 @@ nsteps_param_diversity=5
 nsteps_param_sync=20
 
 
-gaussian_std=0.0001
-extra_name="nstd$gaussian_std"
-source fault_exps/launch.sh
+# gaussian_std=0.0001
+# extra_name="nstd$gaussian_std"
+# source fault_exps/launch.sh
 
 gaussian_std=0.001
 extra_name="nstd$gaussian_std"
