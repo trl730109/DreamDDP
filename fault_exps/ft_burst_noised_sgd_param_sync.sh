@@ -1,17 +1,19 @@
-PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
+PY=/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python
+# PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
 
 
-master_port=12345
+master_port=13999
 
 alg=sgd_with_sync
 gaussian_mu=0.0
-gaussian_std=0.001
+gaussian_std=0.0001
 optimizer_name=SGD
 dnn=resnet18
 lr=0.1
 batch_size=128
 
 nworkers=8
+ngpu_per_node=8
 max_epochs=111
 
 add_noise=True
@@ -37,7 +39,7 @@ nsteps_param_sync=20
 
 
 # values=(5 10 50)
-values=(5 10 50)
+values=(5)
 
 # values=(5 10 50 100)
 # values=(10 50)
@@ -46,9 +48,57 @@ nsteps_param_diversity=5
 nsteps_param_sync=20
 noise_type=burst
 burst_freq=500
+# burst_magnitude=1.0
+
+
+
+
+
 burst_magnitude=1.0
 
 
+dnn=resnet50
+
+
+
+
+alg=sgd
+source fault_exps/launch.sh
+
+alg=sgd_with_sync
+param_sync=fix
+
+
+
+# for nsteps_param_sync in "${values[@]}"
+# do
+#     gaussian_std=0.0001
+#     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+#     source fault_exps/launch.sh
+
+# done
+
+
+# param_sync=detect_base
+# nsteps_param_sync=10
+# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+# source fault_exps/launch.sh
+
+
+# burst_magnitude=0.1
+# for nsteps_param_sync in "${values[@]}"
+# do
+#     gaussian_std=0.0001
+#     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+#     source fault_exps/launch.sh
+
+# done
+
+# param_sync=detect_base
+# nsteps_param_sync=10
+# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+# source fault_exps/launch.sh
+
 for nsteps_param_sync in "${values[@]}"
 do
     gaussian_std=0.0001
@@ -56,37 +106,22 @@ do
     source fault_exps/launch.sh
 
 done
-
-
-param_sync=detect_base
-nsteps_param_sync=10
-extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-source fault_exps/launch.sh
-
-
-burst_magnitude=0.1
-for nsteps_param_sync in "${values[@]}"
-do
-    gaussian_std=0.0001
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
-
-done
-
-param_sync=detect_base
-nsteps_param_sync=10
-extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-source fault_exps/launch.sh
-
-
-
-
-
 
 
 
 
 # hosts=('gpu23') alg=$alg add_noise=$add_noise gaussian_std=$gaussian_std  
+
+
+
+
+
+
+
+
+
+
+
 
 
 
