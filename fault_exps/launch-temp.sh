@@ -16,7 +16,7 @@ total_host=1
 dnn="${dnn:-resnet18}"
 # source fault_exps/model_configs/$dnn.conf
 echo "cluster name: $cluster_name"
-source train_exps/env_configs/$cluster_name.sh
+source fault_exps/env_configs/$cluster_name.sh
 echo "dataset dir: $data_dir"
 echo "model_dir: $model_dir"
 

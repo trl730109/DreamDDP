@@ -1049,7 +1049,7 @@ class LLMTrainer:
                 self.forwardtime = 0.0
                 self.backwardtime = 0.0
 
-        self.update_model()
+        # self.update_model()
         return num_of_iters
 
     def test(self, epoch):

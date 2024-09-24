@@ -42,11 +42,12 @@ case "$cluster_name" in
         case "$dataset" in
             "cifar10") data_dir="/data2/share/cifar10" ;;
             "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
-            "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            "wikitext2") data_dir="/data2/share/zhtang/wikitext2" ;;
         esac
         case "$dnn" in
-            "gpt2") data_dir="/mnt/raid/tangzichen/gpt2" ;;
-            "bert-base-uncased") data_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;            
+            "gpt2") model_dir="/data2/share/zhtang/gpt2" ;;
+            "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
+            "llama2-124M") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
         esac
         ;;
     "A6000")
