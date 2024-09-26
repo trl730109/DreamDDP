@@ -976,6 +976,9 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir', type=str, default='./model', help='')
     parser.add_argument('--load_pretrain', type=str, default='False', help='')
 
+    parser.add_argument('--training_type', type=str, default='pretrain', help='')   # pretrain, postpretrain, sft
+    # parser.add_argument('--dataset_sample', type=int, default=100000, help='')
+
 
     parser.add_argument('--gaussian_mu', type=float, default=0.0, help='Mean of the Gaussian Noise Mean.')
     parser.add_argument('--gaussian_std', type=float, default=0.01, help='Std of the Gaussian Noise std.')

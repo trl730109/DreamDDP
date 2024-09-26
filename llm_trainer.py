@@ -15,6 +15,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.cuda as ct
+import pandas as pd
+
 import settings
 from transformers import (BertConfig, 
                           GPT2Config, 
@@ -62,6 +64,8 @@ import ptb_reader
 import models.lstm as lstmpy
 from torch.autograd import Variable
 from itertools import chain
+
+from load_sft_data import get_dataset, process_sft_dataset
 
 #from data_sampler import CachedIndexImages, CachedSampler, CachedImageFolder
 
@@ -684,20 +688,60 @@ class LLMTrainer:
             batch_size=self.batch_size, shuffle=False,
             num_workers=8, pin_memory=True)
 
-    def data_prepare(self):
-        if self.dataset == 'wikitext2':
-            self.wikitext2_prepare()
-        elif self.dataset == 'shakespeare':
-            pass
-        elif self.dataset == 'openwebtext':
-            self.openwebtext_prepare()
-            
-        elif self.dataset == 'alpaca':
-            self.alpaca_prepare()
+
+
+    def sft_prepare(self):
+        # Data loading code
+        if self.dnn in ['gpt2', "bert-base-uncased"]:
+            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+        elif self.dnn in ["llama2-7B", "llama2-124M"]:
+            token = "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"
+            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
         else:
-            errstr = 'Unsupport dataset: %s' % self.dataset
-            logger.error(errstr)
-            raise errstr
+            raise NotImplementedError
+        trainset = get_dataset(self.dataset, self.args.data_dir)
+        trainset = process_sft_dataset(self.dataset, trainset)
+
+        self.trainset = trainset
+
+        train_sampler = None
+        shuffle = True
+        if self.nworkers > 1: 
+            # if settings.EFFICIENT_IO:
+            #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
+            #             rank=self.rank, cached_index_images=self.cached_index_images)
+            # else:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                self.trainset, num_replicas=self.nworkers, rank=self.rank)
+            train_sampler.set_epoch(0)
+            shuffle = False
+        self.train_sampler = train_sampler
+
+        self.trainloader = torch.utils.data.DataLoader(
+            trainset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=shuffle,
+            num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
+        
+        self.testset = None
+        self.testloader = None
+
+    def data_prepare(self):
+        if self.args.training_type == "pretrain":
+            if self.dataset == 'wikitext2':
+                self.wikitext2_prepare()
+            elif self.dataset == 'shakespeare':
+                pass
+            elif self.dataset == 'openwebtext':
+                self.openwebtext_prepare()
+            else:
+                errstr = 'Unsupport dataset: %s' % self.dataset
+                logger.error(errstr)
+                raise errstr
+        elif self.args.training_type == "sft":
+            self.sft_prepare()
+        else:
+            raise NotImplementedError
+
         self.data_iterator = iter(self.trainloader)
         self.num_batches_per_epoch = (self.get_num_of_training_samples()+self.batch_size*self.nworkers-1)//(self.batch_size*self.nworkers)
         #self.num_batches_per_epoch = self.get_num_of_training_samples()/(self.batch_size*self.nworkers)
