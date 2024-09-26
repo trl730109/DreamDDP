@@ -80,7 +80,7 @@ def clip_grad(model, dnn, max_norm):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.25)
     elif dnn == 'lstman4':
         torch.nn.utils.clip_grad_norm_(model.parameters(), 400)
-    elif dnn in ["gpt2", "bert-base-uncased", "llama2-124M"]:
+    elif dnn in ["gpt2", "bert-base-uncased", "llama2-7B", "llama2-124M"]:
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm, norm_type=2.0) 
 
 def param_diversity(model, avg_params=None):

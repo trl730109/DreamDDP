@@ -91,10 +91,10 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
         'transformer', "gpt2",
-        "bert-base-uncased", "llama2-124M"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M"]
 
 _llms = ['transformer', "gpt2",
-        "bert-base-uncased", "llama2-124M"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M"]
 
 
 LLAMA2_7B_HF = "meta-llama/llama-2-7b-hf"
@@ -282,7 +282,7 @@ class LLMTrainer:
         else:
             self.dnn = dnn
             # TODO: Refact these codes!
-            if self.dnn in ['gpt2', "bert-base-uncased", "llama2-124M"]:
+            if self.dnn in ['gpt2', "bert-base-uncased", "llama2-7B", "llama2-124M"]:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
@@ -429,7 +429,7 @@ class LLMTrainer:
     def openwebtext_prepare(self):
         if self.dnn in ['gpt2', "bert-base-uncased"]:
             tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
-        elif self.dnn in ["llama2-124M"]:
+        elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
         else:
@@ -517,7 +517,7 @@ class LLMTrainer:
         # Data loading code
         if self.dnn in ['gpt2', "bert-base-uncased"]:
             tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
-        elif self.dnn in ["llama2-124M"]:
+        elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
         else:
