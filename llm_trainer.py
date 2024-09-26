@@ -78,7 +78,7 @@ if settings.EFFICIENT_IO:
 else:
     NUM_CPU_THREADS=8
 
-_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'shakespeare', 'wikitext2','cifar100', 'openwebtext']
+_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'shakespeare', 'wikitext2','cifar100', 'openwebtext','alpaca']
 _support_dnns = ['alexnet', 'alexnetbn',
         'resnet18', 'resnet50', 'resnet101', 'resnet152', 
         'densenet121', 'densenet161', 'densenet201', 
@@ -426,6 +426,102 @@ class LLMTrainer:
     def get_num_of_training_samples(self):
         return len(self.trainset)
 
+    def alpaca_prepare(self):
+        if self.dnn in ['gpt2', "bert-base-uncased"]:
+            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+        elif self.dnn in ["llama2-7B", "llama2-124M"]:
+            token = "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"
+            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+        else:
+            raise NotImplementedError
+
+        # Loading the Alpaca-style dataset from the given directory
+        dataset = load_from_disk(self.data_dir)
+
+        # Split the dataset if 'validation' doesn't exist
+        if 'validation' not in dataset:
+            dataset = dataset["train"].train_test_split(test_size=0.005, seed=2357, shuffle=True)
+            dataset['validation'] = dataset.pop('test')
+
+        # Use the column names to ensure 'instruction', 'input', and 'output' are handled properly
+        column_names = dataset["train"].column_names
+        instruction_column = "instruction"
+        input_column = "input"
+        output_column = "output"
+
+        # Combine instruction and input as the input for the model, and use output as the label
+        def format_example(examples):
+            formatted_inputs = []
+            for instruction, input_data, output in zip(examples[instruction_column], examples[input_column], examples[output_column]):
+                formatted_input = f"### Instruction:\n{instruction}\n\n### Input:\n{input_data}\n\n### Response:\n"
+                formatted_inputs.append(formatted_input)
+            return {"input_texts": formatted_inputs, "output_texts": examples[output_column]}
+
+        # Format the dataset accordingly
+        formatted_dataset = dataset.map(format_example, batched=True, remove_columns=column_names)
+
+        # Tokenize the formatted instruction, input, and output
+        def tokenize_function(examples):
+            # Tokenize the concatenated instruction + input
+            inputs = tokenizer(examples["input_texts"], truncation=True, padding='max_length', max_length=512)
+            outputs = tokenizer(examples["output_texts"], truncation=True, padding='max_length', max_length=512)
+            
+            # Set up the labels using the output tokens
+            inputs['labels'] = outputs['input_ids']
+            return inputs
+
+        # Tokenize the formatted dataset
+        tokenized_dataset = formatted_dataset.map(tokenize_function, batched=True)
+
+        # Group texts into chunks of block_size
+        block_size = min(1024, tokenizer.model_max_length)
+
+        def group_texts(examples):
+            # Concatenate all texts.
+            concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+            total_length = len(concatenated_examples[list(examples.keys())[0]])
+            total_length = (total_length // block_size) * block_size
+            # Split by chunks of max_len.
+            result = {
+                k: [t[i: i + block_size] for i in range(0, total_length, block_size)]
+                for k, t in concatenated_examples.items()
+            }
+            result["labels"] = result["input_ids"].copy()
+            return result
+
+        # Apply the grouping function to tokenized dataset
+        encoded_dataset = tokenized_dataset.map(group_texts, batched=True)
+
+        # Assign to trainset and valset
+        trainset = encoded_dataset['train']
+        valset = encoded_dataset['validation']
+        self.trainset = trainset
+
+        train_sampler = None
+        shuffle = True
+        if self.nworkers > 1: 
+            # if settings.EFFICIENT_IO:
+            #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
+            #             rank=self.rank, cached_index_images=self.cached_index_images)
+            # else:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                self.trainset, num_replicas=self.nworkers, rank=self.rank)
+            train_sampler.set_epoch(0)
+            shuffle = False
+        self.train_sampler = train_sampler
+
+        self.trainloader = torch.utils.data.DataLoader(
+            trainset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=shuffle,
+            num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
+        
+
+        self.testset = valset
+        self.testloader = torch.utils.data.DataLoader(
+            valset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=False,
+            num_workers=8, pin_memory=True)
+    
     def openwebtext_prepare(self):
         if self.dnn in ['gpt2', "bert-base-uncased"]:
             tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
@@ -595,6 +691,9 @@ class LLMTrainer:
             pass
         elif self.dataset == 'openwebtext':
             self.openwebtext_prepare()
+            
+        elif self.dataset == 'alpaca':
+            self.alpaca_prepare()
         else:
             errstr = 'Unsupport dataset: %s' % self.dataset
             logger.error(errstr)

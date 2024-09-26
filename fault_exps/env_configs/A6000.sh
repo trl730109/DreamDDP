@@ -56,6 +56,7 @@ case "$cluster_name" in
             # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
             "wikitext2") data_dir="/workspace/wikitext2" ;;
             "openwebtext") data_dir="/workspace/encoded_openwebtext" ;;
+            "alpaca") data_dir="/workspace/alpaca"
             # "openwebtext") data_dir="/workspace/openwebtext" ;;
         esac
         case "$dnn" in
