@@ -99,7 +99,7 @@ param_sync=${param_sync:-"fix"}
 
 master_port=${master_port:-23456}
 
-wandb_offline=True
+wandb_offline=False
 
 while [ $i -lt $node_count ]
 do

@@ -7,7 +7,7 @@ alg=sgd_with_sync
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
-lr=0.0001
+lr=0.001
 dnn=gpt2
 dataset=wikitext2
 
@@ -59,7 +59,7 @@ PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
 # model_dir="/data2/share/zhtang/gpt2"
 nstepsupdate=4
 adam_beta1=0.9
-adam_beta2=0.95
+adam_beta2=0.99
 # lr=0.0001
 weight_decay=0.0001
 
@@ -76,13 +76,13 @@ do
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     # source fault_exps/launch.sh
 
-    gaussian_std=0.01
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
-
-    # gaussian_std=0.1
+    # gaussian_std=0.01
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     # source fault_exps/launch.sh
+
+    gaussian_std=0.1
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch.sh
 
 done
 

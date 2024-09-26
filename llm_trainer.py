@@ -156,11 +156,6 @@ def create_net(dnn='gpt2', **kwargs):
     elif dnn == 'llama2-124M':
         logger.info(f'Creating the llama2.')
         config = LlamaConfig.from_pretrained(LLAMA2_7B_HF, cache_dir=kwargs["model_dir"])
-        config.max_position_embeddings = 764
-        config.num_hidden_layers = 8
-        config.hidden_size = 512
-        config.num_attention_heads = 8
-        config.num_key_value_heads = 8
         if kwargs["load_pretrain"]:
             logger.info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
@@ -172,6 +167,11 @@ def create_net(dnn='gpt2', **kwargs):
                 trust_remote_code=False
             )
         else:
+            config.max_position_embeddings = 764
+            config.num_hidden_layers = 8
+            config.hidden_size = 512
+            config.num_attention_heads = 8
+            config.num_key_value_heads = 8
             logger.info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
         # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])

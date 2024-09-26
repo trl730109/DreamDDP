@@ -4,7 +4,7 @@ alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
-lr=0.0001
+lr=0.001
 dnn=gpt2
 batch_size=4
 
@@ -35,7 +35,7 @@ hosts=('localhost')
 
 nstepsupdate=4
 adam_beta1=0.9
-adam_beta2=0.95
+adam_beta2=0.99
 # lr=0.0001
 weight_decay=0.0001
 
@@ -53,14 +53,14 @@ nsteps_param_sync=20
 # extra_name="nstd$gaussian_std"
 # source fault_exps/launch.sh
 
-gaussian_std=0.01
-extra_name="nstd$gaussian_std"
-source fault_exps/launch.sh
-
-
-# gaussian_std=0.1
+# gaussian_std=0.01
 # extra_name="nstd$gaussian_std"
 # source fault_exps/launch.sh
+
+
+gaussian_std=0.1
+extra_name="nstd$gaussian_std"
+source fault_exps/launch.sh
 
 
 

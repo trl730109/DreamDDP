@@ -606,7 +606,8 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                         f"new_nsteps_param_sync:{new_nsteps_param_sync.item()}")
                     ExpTool.record({"max_error_per_iter": max_error_per_iter.item(), "argmax_error_grad_norm": grad_norm.item(),
                                     "est_tolerance_iters": est_tolerance_iters.item(), "total_gradnorm": total_gradnorm.item(),
-                                    "new_nsteps_param_sync": new_nsteps_param_sync.item()})
+                                    "new_nsteps_param_sync": new_nsteps_param_sync.item(), "total_diversity": total_diversity,
+                                    })
 
                     # avg_params = allreduce_model_weights(trainer.net)
                 trainer.net.load_state_dict(dict(avg_params))
@@ -854,7 +855,8 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                         f"new_nsteps_param_sync:{new_nsteps_param_sync.item()}")
                     ExpTool.record({"max_error_per_iter": max_error_per_iter.item(), "argmax_error_grad_norm": grad_norm.item(),
                                     "est_tolerance_iters": est_tolerance_iters.item(), "total_gradnorm": total_gradnorm.item(),
-                                    "new_nsteps_param_sync": new_nsteps_param_sync.item()})
+                                    "new_nsteps_param_sync": new_nsteps_param_sync.item(), "total_diversity": total_diversity,
+                                    })
 
                     # avg_params = allreduce_model_weights(trainer.net)
                 trainer.net.load_state_dict(dict(avg_params))
