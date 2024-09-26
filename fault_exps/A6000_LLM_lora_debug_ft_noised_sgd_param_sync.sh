@@ -2,19 +2,31 @@
 
 master_port=12345
 
-# alg=sgd_with_sync
 alg=sgd
+# alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
 lr=0.0001
 dnn=gpt2
-dataset=wikitext2
+# dataset=wikitext2
+# dataset="tatsu-lab/alpaca"
+dataset="vicgalle/alpaca-gpt4"
+
+
+# tatsu-lab/alpaca
+
 
 batch_size=4
 
 
-max_epochs=5
+training_type="${training_type:-finetune}"
+finetune_type="${finetune_type:-lora}"
+peft_lora_r="${peft_lora_r:-8}"
+peft_lora_alpha="${peft_lora_alpha:-16}"
+
+
+max_epochs=2
 
 add_noise=True
 # add_noise=False
@@ -54,7 +66,6 @@ PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
 # dnn=llama2-124M
 # model_dir="/data2/share/zhtang/llama-2-7b-hf"
 # dnn=gpt2
-# model_dir="/data2/share/zhtang/gpt2"
 model_dir="/data2/share/zhtang/newgpt2/gpt2"
 
 

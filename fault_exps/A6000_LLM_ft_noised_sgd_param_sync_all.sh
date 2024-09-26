@@ -29,7 +29,7 @@ exp_name=$exp_name
 # cluster_name=A6000
 cluster_name=GZA6000
 # hosts=('ibgpu3')
-# hosts=('localhost')
+hosts=('localhost')
 # ports=(31949)
 
 

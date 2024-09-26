@@ -20,8 +20,9 @@ def get_dataset(dataset_name, local_data_dir=None):
     else:
         # dataset_name = local_data_dir + dataset_name if local_data_dir is not None else dataset_name
         # dataset = load_dataset(dataset_name, split="train")
-        dataset = load_dataset(local_data_dir, split="train")
-
+        # dataset = load_dataset(local_data_dir, split="train")
+        # dataset = load_dataset("tatsu-lab/alpaca", split="train")
+        dataset = load_dataset("vicgalle/alpaca-gpt4", split="train")
     return dataset
 
 def process_sft_dataset(dataset_name, dataset, dataset_sample=None):

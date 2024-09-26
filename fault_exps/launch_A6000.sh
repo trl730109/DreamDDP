@@ -70,6 +70,10 @@ dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 model_dir="${model_dir:-/mnt/raid/gpt2}"
 load_pretrain="${load_pretrain:-False}"
+training_type="${training_type:-pretrain}"
+finetune_type="${finetune_type:-lora}"
+peft_lora_r="${peft_lora_r:-8}"
+peft_lora_alpha="${peft_lora_alpha:-16}"
 
 # exp_name="${exp_name:-default}"
 
@@ -89,7 +93,7 @@ nworkers=$(expr $nwpernode \* $node_count)
 
 extra_name="${extra_name:-}"
 
-exp_name=${alg}-noi${add_noise}-t${noise_type}-${dnn}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}-${extra_name}
+exp_name=${alg}-noi${add_noise}-t${noise_type}-${dnn}-${finetune_type}-nw${nworkers}-${optimizer_name}-LG${nsteps_localsgd}-lr${lr}-bs${batch_size}-${extra_name}
 echo "exp name is $exp_name !"
 
 nsteps_param_sync=${nsteps_param_sync:-20}
@@ -120,6 +124,10 @@ do
         --data-dir $data_dir \
         --model_dir $model_dir \
         --load_pretrain $load_pretrain \
+        --training_type $training_type \
+        --finetune_type $finetune_type \
+        --peft_lora_r $peft_lora_r \
+        --peft_lora_alpha $peft_lora_alpha \
         --lr $lr \
         --lr_decay $lr_decay \
         --weight_decay $weight_decay \

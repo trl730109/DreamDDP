@@ -364,13 +364,19 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
             # if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
             #     named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-            for param in trainer.net.parameters():
+            # for param in trainer.net.parameters():
+            for name, param in trainer.net.named_parameters():
                 if param.requires_grad:
+                    # logger.info(f"name:{name} requires_grad, param.shape:{param.shape}")
                     # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                     # param.grad.data /= dist.get_world_size()
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
                     if (str2bool(add_noise)):
                         add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
+                else:
+                    # logger.info(f"name:{name} NOT requires_grad, param.shape:{param.shape}")
+                    pass
+
 
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
@@ -976,7 +982,10 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir', type=str, default='./model', help='')
     parser.add_argument('--load_pretrain', type=str, default='False', help='')
 
-    parser.add_argument('--training_type', type=str, default='pretrain', help='')   # pretrain, postpretrain, sft
+    parser.add_argument('--training_type', type=str, default='pretrain', help='')   # pretrain, postpretrain, finetune
+    parser.add_argument('--finetune_type', type=str, default='full', help='')   # lora, full
+    parser.add_argument('--peft_lora_r', type=int, default=8, help='')   # fix, 
+    parser.add_argument('--peft_lora_alpha', type=int, default=16, help='')   # fix, 
     # parser.add_argument('--dataset_sample', type=int, default=100000, help='')
 
 

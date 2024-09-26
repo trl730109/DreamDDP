@@ -54,7 +54,17 @@ if settings.EFFICIENT_IO:
 else:
     NUM_CPU_THREADS=8
 
-_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'cifar100']
+_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'cifar100',
+                     "wikitext2", 'openwebtext',
+                     "lucasmccabe-lmi/CodeAlpaca-20k", "yahma/alpaca-cleaned", "FinGPT/fingpt-sentiment-train",
+                     "WizardLM/WizardLM_evol_instruct_70k",
+                     "tatsu-lab/alpaca", "vicgalle/alpaca-gpt4", "gbharti/finance-alpaca",
+                     "TIGER-Lab/MathInstruct",
+                     "lighteval/MATH",
+                     'gsm8k',
+                     'medalpaca/medical_meadow_medical_flashcards',
+                     "HuggingFaceH4/ultrafeedback_binarized",
+                     ]
 _support_dnns = ['alexnet', 'alexnetbn',
         'resnet18', 'resnet50', 'resnet101', 'resnet152', 
         'densenet121', 'densenet161', 'densenet201', 

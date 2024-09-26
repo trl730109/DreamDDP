@@ -27,12 +27,14 @@ from transformers import (BertConfig,
                           TrainingArguments, 
                           DataCollatorForLanguageModeling, 
                           DataCollatorWithPadding,
+                          DataCollatorForSeq2Seq,
                           CONFIG_MAPPING,
                           MODEL_MAPPING,
                           AutoConfig,
                           AutoModel,
                           AutoModelForCausalLM,
                           AutoTokenizer,
+                          GPT2Tokenizer,
                           SchedulerType,
                           default_data_collator,
                           get_scheduler,)
@@ -66,6 +68,8 @@ from torch.autograd import Variable
 from itertools import chain
 
 from load_sft_data import get_dataset, process_sft_dataset
+from peft import get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict, prepare_model_for_kbit_training
+from peft import LoraConfig
 
 #from data_sampler import CachedIndexImages, CachedSampler, CachedImageFolder
 
@@ -82,7 +86,17 @@ if settings.EFFICIENT_IO:
 else:
     NUM_CPU_THREADS=8
 
-_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'shakespeare', 'wikitext2','cifar100', 'openwebtext','alpaca']
+_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'cifar100',
+                     "wikitext2", 'openwebtext',
+                     "lucasmccabe-lmi/CodeAlpaca-20k", "yahma/alpaca-cleaned", "FinGPT/fingpt-sentiment-train",
+                     "WizardLM/WizardLM_evol_instruct_70k",
+                     "tatsu-lab/alpaca", "vicgalle/alpaca-gpt4", "gbharti/finance-alpaca",
+                     "TIGER-Lab/MathInstruct",
+                     "lighteval/MATH",
+                     'gsm8k',
+                     'medalpaca/medical_meadow_medical_flashcards',
+                     "HuggingFaceH4/ultrafeedback_binarized",
+                     ]
 _support_dnns = ['alexnet', 'alexnetbn',
         'resnet18', 'resnet50', 'resnet101', 'resnet152', 
         'densenet121', 'densenet161', 'densenet201', 
@@ -126,10 +140,16 @@ def init_processes(rank, size, backend='tcp', master='gpu10'):
 def get_available_gpu_device_ids(ngpus):
     return range(0, ngpus)
 
+def get_parameter_number(model):
+    total_num = sum(p.numel() for p in model.parameters())
+    trainable_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return {'Total': total_num, 'Trainable': trainable_num, "Total-M": total_num/1000000}
 def create_net(dnn='gpt2', **kwargs):
     ext = None
     if dnn == 'gpt2':
-        config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+        # config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+        # config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+        config = GPT2Config.from_pretrained("openai-community/gpt2")
         if kwargs["load_pretrain"]:
             logger.info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
@@ -224,10 +244,6 @@ def create_net(dnn='gpt2', **kwargs):
         logger.error(errstr)
         raise errstr 
 
-    def get_parameter_number(model):
-        total_num = sum(p.numel() for p in model.parameters())
-        trainable_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        return {'Total': total_num, 'Trainable': trainable_num, "Total-M": total_num/1000000}
     number_params = get_parameter_number(net)
 
     logger.info(f"dnn:{dnn}@!!!!! get_parameter_number of Model : {number_params}")
@@ -291,6 +307,32 @@ class LLMTrainer:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
                 self.net, self.ext = create_net(dnn=self.dnn, model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
+                if self.args.finetune_type == "lora":
+                    peft_config = LoraConfig(
+                        r=self.args.peft_lora_r,
+                        lora_alpha=self.args.peft_lora_alpha,
+                        lora_dropout=0.05,
+                        bias="none",
+                        task_type="CAUSAL_LM",
+                    )
+                    self.net = get_peft_model(self.net, peft_config)
+                    self.net.print_trainable_parameters()
+
+                    number_params = get_parameter_number(self.net)
+
+                    logger.info(f"dnn:{dnn}@!!!!! After Peft, get_parameter_number of Model : {number_params}")
+                    # for name, param in self.net.named_parameters():
+                    #     if param.requires_grad:
+                    #         logger.info(f"name:{name} requires_grad, param.shape:{param.shape}")
+                    #     else:
+                    #         logger.info(f"name:{name} NOT requires_grad, param.shape:{param.shape}")
+                    # exit()
+                    self.net.config.use_cache = False  # silence the warnings. Please re-enable for inference!
+                elif self.args.finetune_type == "full":
+                    pass
+                else:
+                    raise NotImplementedError
+                
                 logger.info(f"Finish preparing loading model")
             elif self.dnn == 'bert':
                 pass
@@ -335,20 +377,21 @@ class LLMTrainer:
 
         if (self.optimizer_name == 'Adam'):
             self.optimizer = optim.Adam(
-            self.net.parameters(),
+            filter(lambda p: p.requires_grad, self.net.parameters()),
             lr=lr,
             betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
             weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'AdamW'):
             self.optimizer = optim.AdamW(
-            self.net.parameters(),
+            filter(lambda p: p.requires_grad, self.net.parameters()),
             lr=lr,
             betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
             weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'SGD'):
-            self.optimizer = optim.SGD(self.net.parameters(), 
+            self.optimizer = optim.SGD(
+                filter(lambda p: p.requires_grad, self.net.parameters()),
                 lr=self.lr,
                 momentum=self.m, 
                 weight_decay=self.weight_decay,
@@ -430,105 +473,15 @@ class LLMTrainer:
     def get_num_of_training_samples(self):
         return len(self.trainset)
 
-    def alpaca_prepare(self):
-        if self.dnn in ['gpt2', "bert-base-uncased"]:
-            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
-        elif self.dnn in ["llama2-7B", "llama2-124M"]:
-            token = "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"
-            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
-        else:
-            raise NotImplementedError
-
-        # Loading the Alpaca-style dataset from the given directory
-        dataset = load_from_disk(self.data_dir)
-
-        # Split the dataset if 'validation' doesn't exist
-        if 'validation' not in dataset:
-            dataset = dataset["train"].train_test_split(test_size=0.005, seed=2357, shuffle=True)
-            dataset['validation'] = dataset.pop('test')
-
-        # Use the column names to ensure 'instruction', 'input', and 'output' are handled properly
-        column_names = dataset["train"].column_names
-        instruction_column = "instruction"
-        input_column = "input"
-        output_column = "output"
-
-        # Combine instruction and input as the input for the model, and use output as the label
-        def format_example(examples):
-            formatted_inputs = []
-            for instruction, input_data, output in zip(examples[instruction_column], examples[input_column], examples[output_column]):
-                formatted_input = f"### Instruction:\n{instruction}\n\n### Input:\n{input_data}\n\n### Response:\n"
-                formatted_inputs.append(formatted_input)
-            return {"input_texts": formatted_inputs, "output_texts": examples[output_column]}
-
-        # Format the dataset accordingly
-        formatted_dataset = dataset.map(format_example, batched=True, remove_columns=column_names)
-
-        # Tokenize the formatted instruction, input, and output
-        def tokenize_function(examples):
-            # Tokenize the concatenated instruction + input
-            inputs = tokenizer(examples["input_texts"], truncation=True, padding='max_length', max_length=512)
-            outputs = tokenizer(examples["output_texts"], truncation=True, padding='max_length', max_length=512)
-            
-            # Set up the labels using the output tokens
-            inputs['labels'] = outputs['input_ids']
-            return inputs
-
-        # Tokenize the formatted dataset
-        tokenized_dataset = formatted_dataset.map(tokenize_function, batched=True)
-
-        # Group texts into chunks of block_size
-        block_size = min(1024, tokenizer.model_max_length)
-
-        def group_texts(examples):
-            # Concatenate all texts.
-            concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
-            total_length = len(concatenated_examples[list(examples.keys())[0]])
-            total_length = (total_length // block_size) * block_size
-            # Split by chunks of max_len.
-            result = {
-                k: [t[i: i + block_size] for i in range(0, total_length, block_size)]
-                for k, t in concatenated_examples.items()
-            }
-            result["labels"] = result["input_ids"].copy()
-            return result
-
-        # Apply the grouping function to tokenized dataset
-        encoded_dataset = tokenized_dataset.map(group_texts, batched=True)
-
-        # Assign to trainset and valset
-        trainset = encoded_dataset['train']
-        valset = encoded_dataset['validation']
-        self.trainset = trainset
-
-        train_sampler = None
-        shuffle = True
-        if self.nworkers > 1: 
-            # if settings.EFFICIENT_IO:
-            #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
-            #             rank=self.rank, cached_index_images=self.cached_index_images)
-            # else:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(
-                self.trainset, num_replicas=self.nworkers, rank=self.rank)
-            train_sampler.set_epoch(0)
-            shuffle = False
-        self.train_sampler = train_sampler
-
-        self.trainloader = torch.utils.data.DataLoader(
-            trainset, collate_fn=default_data_collator, 
-            batch_size=self.batch_size, shuffle=shuffle,
-            num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
-        
-
-        self.testset = valset
-        self.testloader = torch.utils.data.DataLoader(
-            valset, collate_fn=default_data_collator, 
-            batch_size=self.batch_size, shuffle=False,
-            num_workers=8, pin_memory=True)
+    def get_nb_peft_trainable_parameters(self):
+        # note: same as PeftModel.print_trainable_parameters
+        trainable_params, all_param = self.net.get_nb_trainable_parameters()
+        return trainable_params, all_param
     
     def openwebtext_prepare(self):
         if self.dnn in ['gpt2', "bert-base-uncased"]:
-            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
@@ -616,7 +569,9 @@ class LLMTrainer:
     def wikitext2_prepare(self):
         # Data loading code
         if self.dnn in ['gpt2', "bert-base-uncased"]:
-            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            # tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2", use_fast=False, padding_side="right")
+            # tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
@@ -693,16 +648,83 @@ class LLMTrainer:
     def sft_prepare(self):
         # Data loading code
         if self.dnn in ['gpt2', "bert-base-uncased"]:
-            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir, use_fast=False, padding_side="right")
+            # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2", use_fast=False, padding_side="left")
+            # tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir, use_fast=False, padding_side="right")
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
-            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+            # tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, cache_dir=self.model_dir, use_fast=False, padding_side="right")
         else:
             raise NotImplementedError
-        trainset = get_dataset(self.dataset, self.args.data_dir)
-        trainset = process_sft_dataset(self.dataset, trainset)
+        tokenizer.pad_token_id = (
+            0  # unk. we want this to be different from the eos token
+        )
+        tokenizer.padding_side = "left"
+        # if tokenizer.pad_token is None:
+        #     # tokenizer.pad_token = tokenizer.unk_token
+        #     tokenizer.pad_token = tokenizer.eos_token
+        # Loading the Alpaca-style dataset from the given directory
+        # dataset = load_from_disk(self.data_dir)
+        dataset = get_dataset(self.dataset, self.args.data_dir)
+        print(dataset)
+        # exit()
+        dataset = dataset.remove_columns(['text'])
 
-        self.trainset = trainset
+        if 'validation' not in dataset:
+            # dataset = dataset["train"].train_test_split(test_size=0.005, seed=42, shuffle=True)
+            dataset = dataset.train_test_split(test_size=200, seed=42, shuffle=True)
+        # dataset = process_sft_dataset(self.dataset, dataset)
+
+        CUTOFF_LEN = 1024
+        # Split the dataset if 'validation' doesn't exist
+        def generate_prompt(data_point):
+            # ### Input:
+            # {data_point["input"]}
+            return f"""Below is an instruction that describes a task, paired with an input that provides further context. 
+                    Write a response that appropriately completes the request.
+                    ### Instruction:
+                    {data_point["instruction"]}
+                    # ### Input:
+                    # {data_point["input"]}
+                    ### Response:
+                    {data_point["output"]}"""
+        
+        
+        def tokenize(prompt, add_eos_token=True):
+            result = tokenizer(
+                prompt,
+                truncation=True,
+                max_length=CUTOFF_LEN,
+                padding=False,
+                return_tensors=None,
+            )
+            if (
+                result["input_ids"][-1] != tokenizer.eos_token_id
+                and len(result["input_ids"]) < CUTOFF_LEN
+                and add_eos_token
+            ):
+                result["input_ids"].append(tokenizer.eos_token_id)
+                result["attention_mask"].append(1)
+        
+            result["labels"] = result["input_ids"].copy()
+        
+            return result
+        
+        def generate_and_tokenize_prompt(data_point):
+            full_prompt = generate_prompt(data_point)
+            tokenized_full_prompt = tokenize(full_prompt)
+            return tokenized_full_prompt
+
+        # Apply the grouping function to tokenized dataset
+        self.trainset = (
+            dataset["train"].map(generate_and_tokenize_prompt)
+        )
+        valset = (
+            dataset["test"].map(generate_and_tokenize_prompt)
+        )
 
         train_sampler = None
         shuffle = True
@@ -718,12 +740,43 @@ class LLMTrainer:
         self.train_sampler = train_sampler
 
         self.trainloader = torch.utils.data.DataLoader(
-            trainset, collate_fn=default_data_collator, 
+            self.trainset, collate_fn=DataCollatorForSeq2Seq(
+                tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+            ), 
             batch_size=self.batch_size, shuffle=shuffle,
             num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
         
-        self.testset = None
-        self.testloader = None
+
+        self.testset = valset
+        self.testloader = torch.utils.data.DataLoader(
+            valset, collate_fn=DataCollatorForSeq2Seq(
+                tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+            ), 
+            batch_size=self.batch_size, shuffle=False,
+            num_workers=8, pin_memory=True)
+
+        # self.trainset = trainset
+
+        # train_sampler = None
+        # shuffle = True
+        # if self.nworkers > 1: 
+        #     # if settings.EFFICIENT_IO:
+        #     #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
+        #     #             rank=self.rank, cached_index_images=self.cached_index_images)
+        #     # else:
+        #     train_sampler = torch.utils.data.distributed.DistributedSampler(
+        #         self.trainset, num_replicas=self.nworkers, rank=self.rank)
+        #     train_sampler.set_epoch(0)
+        #     shuffle = False
+        # self.train_sampler = train_sampler
+
+        # self.trainloader = torch.utils.data.DataLoader(
+        #     trainset, collate_fn=default_data_collator, 
+        #     batch_size=self.batch_size, shuffle=shuffle,
+        #     num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
+        
+        # self.testset = None
+        # self.testloader = None
 
     def data_prepare(self):
         if self.args.training_type == "pretrain":
@@ -737,7 +790,7 @@ class LLMTrainer:
                 errstr = 'Unsupport dataset: %s' % self.dataset
                 logger.error(errstr)
                 raise errstr
-        elif self.args.training_type == "sft":
+        elif self.args.training_type == "finetune":
             self.sft_prepare()
         else:
             raise NotImplementedError
@@ -745,6 +798,13 @@ class LLMTrainer:
         self.data_iterator = iter(self.trainloader)
         self.num_batches_per_epoch = (self.get_num_of_training_samples()+self.batch_size*self.nworkers-1)//(self.batch_size*self.nworkers)
         #self.num_batches_per_epoch = self.get_num_of_training_samples()/(self.batch_size*self.nworkers)
+
+    def update_peft_model(self, new_peft_model):
+        set_peft_model_state_dict(self.net, new_peft_model)   # sync the global model to the local model
+
+    def load_peft_model(self):
+        return get_peft_model_state_dict(self.net)
+
 
     def update_optimizer(self, optimizer):
         self.optimizer = optimizer

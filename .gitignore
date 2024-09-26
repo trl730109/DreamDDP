@@ -24,7 +24,7 @@ bk/
 *.npy*
 
 
-
+gpt2/*
 .wandb/*
 wandb/*
 wandb
