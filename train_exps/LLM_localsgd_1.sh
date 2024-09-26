@@ -8,20 +8,20 @@ optimizer_name=SGD
 # dnn=llama2-124M
 dnn=gpt2
 # dataset=wikitext2
-dataset=openwebtext
-max_epochs=1
+dataset=wikitext2
+max_epochs=5
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 
-enable_wandb=true
+enable_wandb=false
 wandb_offline=true
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 
 cluster_name=A6000
-hosts=('ibgpu3')
-ports=(31949)
+hosts=('ibgpu4')
+ports=(31432)
 
 node_count=${#ports[@]}
 nworkers=$((8 * node_count))
@@ -47,7 +47,7 @@ alg='sgd'
 sync_momentum=false
 # source train_exps/launch_llm_SZ6000.sh
 
-lr_values=(8e-5 4e-5 1e-5)
+lr_values=(8e-5)
 # lr_values=(4e-4)
 #  2e-4 1e-4 8e-5 4e-5
 for lr in "${lr_values[@]}"

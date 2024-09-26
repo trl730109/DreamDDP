@@ -2,7 +2,8 @@
 
 master_port=12345
 
-alg=sgd_with_sync
+alg=sgd_with_sync_all
+# alg=sgd_with_sync
 # alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
@@ -36,13 +37,21 @@ nwpernode=8
 ngpu_per_node=$nwpernode
 extra_name="${node_count}Nodes"
 
+nstepsupdate=1
+adam_beta1=0.9
+adam_beta2=0.95
+# lr=0.0001
+weight_decay=0.0001
+
+lr_decay='fixed'
+
 # cluster_name=esetstore
 # hosts=('gpu3')
+check_param_diversity=False
 param_sync_async_op=False
 param_sync=detect_base
 # param_sync=fix
 
-check_param_diversity=False
 nsteps_param_diversity=1
 nsteps_param_sync=5
 
@@ -54,28 +63,22 @@ PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 # model_dir="/data2/share/zhtang/llama-2-7b-hf"
 # dnn=gpt2
 # model_dir="/data2/share/zhtang/gpt2"
-nstepsupdate=1
-adam_beta1=0.9
-adam_beta2=0.95
-# lr=0.0001
-weight_decay=0.0001
 
-lr_decay='fixed'
 
 values=(5)
 # values=(5 10 50 100)
 # values=(10 50)
 # nsteps_param_sync=100
 
-for nsteps_param_sync in "${values[@]}"1
+for nsteps_param_sync in "${values[@]}"
 do
-    # gaussian_std=0.0001
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch_A6000.sh
-
-    # gaussian_std=0.001
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch_A6000.sh
+    gaussian_std=0.0001
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch_A6000.sh
+    
+    gaussian_std=0.001
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch_A6000.sh
 
     gaussian_std=0.01
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"

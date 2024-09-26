@@ -647,22 +647,37 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
 
             ExpTool.upload()
 
-            if global_iters % args.test_interval == 0:
-                logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-                if dnn in _llms:
-                    val_ppl, test_loss = trainer.test(epoch)
-                    result_dict["val_ppl"] = val_ppl
-                    result_dict["test_loss"] = test_loss
-                    result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
-                else:
-                    val_acc = trainer.test(epoch)
-                    result_dict["val_acc"] = val_acc
-                result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-                result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+            # if global_iters % args.test_interval == 0:
+            #     logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+            #     if dnn in _llms:
+            #         val_ppl, test_loss = trainer.test(epoch)
+            #         result_dict["val_ppl"] = val_ppl
+            #         result_dict["test_loss"] = test_loss
+            #         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+            #     else:
+            #         val_acc = trainer.test(epoch)
+            #         result_dict["val_acc"] = val_acc
+            #     result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+            #     result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-                ExpTool.record(result_dict)
-                ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-                ExpTool.upload()
+            #     ExpTool.record(result_dict)
+            #     ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+            #     ExpTool.upload()
+    logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+    if dnn in _llms:
+        val_ppl, test_loss = trainer.test(epoch)
+        result_dict["val_ppl"] = val_ppl
+        result_dict["test_loss"] = test_loss
+        result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+    else:
+        val_acc = trainer.test(epoch)
+        result_dict["val_acc"] = val_acc
+    result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+    result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+
+    ExpTool.record(result_dict)
+    ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+    ExpTool.upload()
 
 def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
                         nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None, param_sync_async_op=False, args=None): 
@@ -880,24 +895,39 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                     avg_params = allreduce_model_weights_not_inplace(trainer.net)
 
             ExpTool.upload()
+            # if args.dataset == 'openwebtext':
+            #     if global_iters % args.test_interval == 0:
+            #         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+            #         if dnn in _llms:
+            #             val_ppl, test_loss = trainer.test(epoch)
+            #             result_dict["val_ppl"] = val_ppl
+            #             result_dict["test_loss"] = test_loss
+            #             result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+            #         else:
+            #             val_acc = trainer.test(epoch)
+            #             result_dict["val_acc"] = val_acc
+            #         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+            #         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-            if global_iters % args.test_interval == 0:
-                logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-                if dnn in _llms:
-                    val_ppl, test_loss = trainer.test(epoch)
-                    result_dict["val_ppl"] = val_ppl
-                    result_dict["test_loss"] = test_loss
-                    result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
-                else:
-                    val_acc = trainer.test(epoch)
-                    result_dict["val_acc"] = val_acc
-                result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-                result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+            #         ExpTool.record(result_dict)
+            #         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+            #         ExpTool.upload()
+                    
+        logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+        if dnn in _llms:
+            val_ppl, test_loss = trainer.test(epoch)
+            result_dict["val_ppl"] = val_ppl
+            result_dict["test_loss"] = test_loss
+            result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+        else:
+            val_acc = trainer.test(epoch)
+            result_dict["val_acc"] = val_acc
+        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-                ExpTool.record(result_dict)
-                ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-                ExpTool.upload()
-
+        ExpTool.record(result_dict)
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+        ExpTool.upload()
 
 
 
