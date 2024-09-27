@@ -26,8 +26,9 @@ echo "pre_cmd: $pre_cmd"
 # export NCCL_DEBUG=TRACE
 
 
-export CUDA_VISIBLE_DEVICES=1,2,3.4
+# export CUDA_VISIBLE_DEVICES=1,2,3.4
 
+export CUDA_VISIBLE_DEVICES=4,5,6,7
 
 
 nworkers="${nworkers:-4}"

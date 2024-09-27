@@ -16,23 +16,72 @@ case "$cluster_name" in
             "fmnist") data_dir="/datasets/fmnist" ;;
             "SVHN") data_dir="/datasets/SVHN" ;;
             "mnist") data_dir="/datasets" ;;
+            *) echo "No dataset matched" ;;
         esac
         ;;
     "gpuhome")
         case "$dataset" in
             "cifar10") data_dir="/home/comp/amelieczhou/datasets/cifar10" ;;
+            *) echo "No dataset matched" ;;
         esac
         ;;
     "GZ4090")
         case "$dataset" in
             "cifar10") data_dir="/data2/share/cifar10" ;;
-            "cifar100") data_dir="/data2/share/cifar100" ;;
-            "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
-            "openwebtext") data_dir="/data2/share/openwebtext"
+            "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
+            # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            "wikitext2") data_dir="/data2/share/zhtang/wikitext2" ;;
+            "tatsu-lab/alpaca") data_dir="/data2/share/zhtang/tatsu-lab/alpaca" ;;
+            *) echo "No dataset matched" ;;
         esac
         case "$dnn" in
-            "gpt2") data_dir="/mnt/raid/tangzichen/gpt2" ;;
-            "bert-base-uncased") data_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
+            "gpt2") model_dir="/data2/share/zhtang/gpt2" ;;
+            # "gpt2") model_dir="/mnt/raid/tangzichen/gpt2" ;;
+            # "bert-base-uncased") model_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
+            "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
+            "llama2-7B") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
+            "llama2-124M") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
+            *) echo "No DNN matched" ;;
+        esac
+        ;;
+    "GZA6000")
+        case "$dataset" in
+            "cifar10") data_dir="/data2/share/cifar10" ;;
+            "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
+            # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            "wikitext2") data_dir="/data2/share/zhtang/wikitext2" ;;
+            "tatsu-lab/alpaca") data_dir="/data2/share/zhtang/tatsu-lab/alpaca" ;;
+            *) echo "No dataset matched" ;;
+        esac
+        case "$dnn" in
+            # "gpt2") model_dir="/mnt/raid/tangzichen/gpt2" ;;
+            # "gpt2") model_dir="/data2/share/zhtang/gpt2" ;;
+            "gpt2") model_dir="/data2/share/zhtang/newgpt2/gpt2" ;;
+            "bert-base-uncased") model_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
+            "llama2-7B") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
+            "llama2-124M") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
+            *) echo "No DNN matched" ;;
+        esac
+        ;;
+    "A6000")
+        case "$dataset" in
+            "cifar10") data_dir="/data2/share/cifar10" ;;
+            "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
+            # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            "wikitext2") data_dir="/workspace/wikitext2" ;;
+            "openwebtext") data_dir="/workspace/encoded_openwebtext" ;;
+            "alpaca") data_dir="/workspace/alpaca" ;;
+            # "openwebtext") data_dir="/workspace/openwebtext" ;;
+            *) echo "No dataset matched" ;;
+        esac
+        case "$dnn" in
+            "gpt2") model_dir="/workspace/models/gpt2" ;;
+            # "gpt2") model_dir="/mnt/raid/tangzichen/gpt2" ;;
+            # "bert-base-uncased") model_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
+            "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
+            "llama2-7B") model_dir="/workspace/models/Llama-2-7b-hf" ;;
+            "llama2-124M") model_dir="/workspace/models/Llama-2-7b-hf" ;;
+            *) echo "No DNN matched" ;;
         esac
         ;;
     "scigpu")
@@ -64,6 +113,7 @@ case "$cluster_name" in
             "SVHN") data_dir="/home/esetstore/dataset/SVHN" ;;
             "ptb") data_dir="/home/esetstore/repos/p2p/data/PennTreeBank" ;;
             "shakespeare") data_dir="/home/esetstore/dataset/shakespeare" ;;
+            *) echo "No dataset matched" ;;
         esac
         ;;
     *)
@@ -71,6 +121,14 @@ case "$cluster_name" in
         exit 1
         ;;
 esac
+
+
+
+
+
+
+
+
 
 
 

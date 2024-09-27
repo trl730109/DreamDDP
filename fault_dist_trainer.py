@@ -36,6 +36,8 @@ from mpi4py import MPI
 
 from helpers.exp_path import ExpTool
 
+from peft_utils import get_peft_named_gradients, sum_peft_gradients, avg_peft_gradients
+
 comm = MPI.COMM_WORLD
 writer = None
 
@@ -371,14 +373,8 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                 #     optimizer.local = True
                 # else:
                 #     optimizer.local = False
-                # if dnn in ['lstm', 'lstmwt2']:
-                #     _, hidden = trainer.train(1, hidden=hidden)
-                # else:
                 trainer.train(1)
-            # if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
-            #     named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-            # for param in trainer.net.parameters():
             for name, param in trainer.net.named_parameters():
                 if param.requires_grad:
                     # logger.info(f"name:{name} requires_grad, param.shape:{param.shape}")
@@ -1130,10 +1126,7 @@ if __name__ == '__main__':
         logger.info("Alg used: pipe_seq_localsgd.")
         ssgd_with_param_sync(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
                        args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync, args.param_sync_async_op, args)
-<<<<<<< HEAD
     
-=======
->>>>>>> f47a42b70c5c24be6a5976aae517bf598132ced8
     elif (args.alg == 'sgd_with_sync_all'):
         sgd_with_sync_all(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
                        args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync, args.param_sync_async_op, args)
