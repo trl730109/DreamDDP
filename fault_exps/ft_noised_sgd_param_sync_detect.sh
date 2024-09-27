@@ -7,7 +7,7 @@ gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=SGD
 dnn=resnet18
-lr=0.1
+lr=150
 batch_size=128
 
 max_epochs=111

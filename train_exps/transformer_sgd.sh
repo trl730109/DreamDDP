@@ -1,5 +1,5 @@
 lr=0.00001
-batch_size=4
+batch_size=1
 alg='transformer_sgd'
 dataset='wikitext2'
 

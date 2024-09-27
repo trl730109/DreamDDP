@@ -1,19 +1,22 @@
 lr=0.00001
-batch_size=4
-alg='transformer_localsgd'
+batch_size=1
+alg='localsgd'
 dataset='wikitext2'
 
-data_dir="/mnt/raid/tangzichen/wikitext2"
+# data_dir="/mnt/raid/tangzichen/wikitext2"
+# data_dir="/data2/share/wikitext2"
+data_dir="/workspace/wikitext2"
 # model_dir="/mnt/raid/tangzichen/gpt2"
 
+# model_dir="/home/yinyiming/models/gpt2"
+# model_dir="/data2/share/tzc_gpt2/gpt2"
 model_dir="/workspace/models/gpt2"
-# model_dir="/workspace/models/gpt2"
 # "/workspace/models/gpt2"
 
 # data_dir="/home/tangzhenheng/wikitext2"
 # model_dir="/home/tangzhenheng/gpt2"
 # PY="/mnt/raid/tangzhenheng/anaconda3/bin/python"
-PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
+PY="/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python3"
 # PY="/home/tangzhenheng/anaconda3/bin/python"
 
 
@@ -41,8 +44,8 @@ cluster_name=A6000
 # hosts=('10.0.0.20')
 # hosts=('30332' '30737')
 # hosts=("haigpu4")
-hosts=('ibgpu4' 'ibgpu5' 'ibgpu3' 'ibgpu1')
-ports=(30737 30958 31709 30715)
+hosts=('10.120.17.54')
+ports=(31751)
 #
 master_port=2228
 node_count=${#hosts[@]}
@@ -60,7 +63,7 @@ lr=0.0001
 weight_decay=0.0001
 
 lr_decay='fixed'
-source train_exps/launch_transformer_A6000.sh
+source train_exps/launch_transformer_shenzhen.sh
 
 # node_rank=1
 # nsteps_localsgd=20

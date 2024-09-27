@@ -94,6 +94,9 @@ TRAIN_LOSS = "train_epoch_loss"
 EPOCHS = "epochs"
 ITERS = "global_iters"
 
+TIME_PER_ITER = "time_per_iter"
+
+
 
 """
     All config parameters should be same as config on wandb.
@@ -163,6 +166,20 @@ def load_datas(key, key2, alias_list, verbose=False):
         data_dict2[alias] = data2
     return data_dict, data_dict2
 
+
+
+def load_summarys(keys, alias_list, verbose=False):
+    # alias_list = all_figures[to_figure_name]
+    data_dict = {}
+    for alias in alias_list:
+        summary = get_summary(alias)
+        logging.info(summary)
+        data_dict[alias] = {}
+        for key in keys:
+            data_dict[alias][key] = summary[key]
+        if verbose:
+            logging.info(f"{alias}: has {key} as {summary[key]}")
+    return data_dict
 
 
 
@@ -272,6 +289,17 @@ def build_run(uid, to_figure_name, help_params, alias, config={}, *args):
 
 def get_run(alias):
     return alias_run_map[alias]["run"]
+
+
+def get_summary(alias):
+    run = alias_run_map[alias]["run"]
+    if not alias_run_map[alias]["downloaded"]:
+        # history_scan = run.scan_history()
+        # alias_run_map[alias]["history"] = pd.DataFrame.from_records([row for row in history_out])
+        # alias_run_map[alias]["history"] = history_scan
+        # alias_run_map[alias]["history"] = run.history
+        alias_run_map[alias]["downloaded"] = True
+    return run.summary
 
 
 def get_history(alias):

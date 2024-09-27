@@ -43,6 +43,8 @@ case "$cluster_name" in
             "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
             # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
             "wikitext2") data_dir="/workspace/wikitext2" ;;
+            "openwebtext") data_dir="/workspace/encoded_openwebtext" ;;
+            # "openwebtext") data_dir="/workspace/openwebtext" ;;
         esac
         case "$dnn" in
             # "gpt2") data_dir="/mnt/raid/tangzichen/gpt2" ;;
@@ -50,6 +52,7 @@ case "$cluster_name" in
             "gpt2") model_dir="/workspace/models/gpt2" ;;
             "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
             "llama2-124M") model_dir="/workspace/models/Llama-2-7b-hf" ;;
+            
         esac
         ;;
     "scigpu")

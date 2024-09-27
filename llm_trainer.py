@@ -15,6 +15,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.cuda as ct
+import pandas as pd
+
 import settings
 from transformers import (BertConfig, 
                           GPT2Config, 
@@ -25,12 +27,14 @@ from transformers import (BertConfig,
                           TrainingArguments, 
                           DataCollatorForLanguageModeling, 
                           DataCollatorWithPadding,
+                          DataCollatorForSeq2Seq,
                           CONFIG_MAPPING,
                           MODEL_MAPPING,
                           AutoConfig,
                           AutoModel,
                           AutoModelForCausalLM,
                           AutoTokenizer,
+                          GPT2Tokenizer,
                           SchedulerType,
                           default_data_collator,
                           get_scheduler,)
@@ -63,6 +67,10 @@ import models.lstm as lstmpy
 from torch.autograd import Variable
 from itertools import chain
 
+from load_sft_data import get_dataset, process_sft_dataset
+from peft import get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict, prepare_model_for_kbit_training
+from peft import LoraConfig
+
 #from data_sampler import CachedIndexImages, CachedSampler, CachedImageFolder
 
 if settings.FP16:
@@ -78,7 +86,17 @@ if settings.EFFICIENT_IO:
 else:
     NUM_CPU_THREADS=8
 
-_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'shakespeare', 'wikitext2','cifar100']
+_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'cifar100',
+                     "wikitext2", 'openwebtext',
+                     "lucasmccabe-lmi/CodeAlpaca-20k", "yahma/alpaca-cleaned", "FinGPT/fingpt-sentiment-train",
+                     "WizardLM/WizardLM_evol_instruct_70k",
+                     "tatsu-lab/alpaca", "vicgalle/alpaca-gpt4", "gbharti/finance-alpaca",
+                     "TIGER-Lab/MathInstruct",
+                     "lighteval/MATH",
+                     'gsm8k',
+                     'medalpaca/medical_meadow_medical_flashcards',
+                     "HuggingFaceH4/ultrafeedback_binarized",
+                     ]
 _support_dnns = ['alexnet', 'alexnetbn',
         'resnet18', 'resnet50', 'resnet101', 'resnet152', 
         'densenet121', 'densenet161', 'densenet201', 
@@ -91,10 +109,10 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
         'transformer', "gpt2",
-        "bert-base-uncased", "llama2-124M"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M"]
 
 _llms = ['transformer', "gpt2",
-        "bert-base-uncased", "llama2-124M"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M"]
 
 
 LLAMA2_7B_HF = "meta-llama/llama-2-7b-hf"
@@ -122,10 +140,16 @@ def init_processes(rank, size, backend='tcp', master='gpu10'):
 def get_available_gpu_device_ids(ngpus):
     return range(0, ngpus)
 
+def get_parameter_number(model):
+    total_num = sum(p.numel() for p in model.parameters())
+    trainable_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return {'Total': total_num, 'Trainable': trainable_num, "Total-M": total_num/1000000}
 def create_net(dnn='gpt2', **kwargs):
     ext = None
     if dnn == 'gpt2':
-        config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+        # config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+        # config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
+        config = GPT2Config.from_pretrained("openai-community/gpt2")
         if kwargs["load_pretrain"]:
             logger.info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
@@ -153,14 +177,9 @@ def create_net(dnn='gpt2', **kwargs):
             )
         else:
             net = AutoModelForCausalLM.from_config(config)
-    elif dnn == 'llama2-124M':
+    elif dnn == 'llama2-7B':
         logger.info(f'Creating the llama2.')
         config = LlamaConfig.from_pretrained(LLAMA2_7B_HF, cache_dir=kwargs["model_dir"])
-        config.max_position_embeddings = 764
-        config.num_hidden_layers = 8
-        config.hidden_size = 512
-        config.num_attention_heads = 8
-        config.num_key_value_heads = 8
         if kwargs["load_pretrain"]:
             logger.info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
@@ -172,6 +191,41 @@ def create_net(dnn='gpt2', **kwargs):
                 trust_remote_code=False
             )
         else:
+            config.max_position_embeddings = 764
+            config.num_hidden_layers = 8
+            config.hidden_size = 512
+            config.num_attention_heads = 8
+            config.num_key_value_heads = 8
+            logger.info(f'Load {dnn} from scratch.')
+            net = AutoModelForCausalLM.from_config(config)
+        # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
+        # net = AutoModelForCausalLM.from_pretrained(
+        #     pretrained_model_name_or_path="openai-community/gpt2",
+        #     cache_dir=kwargs["model_dir"],
+        #     from_tf=False, 
+        #     config=config,
+        #     low_cpu_mem_usage=True, 
+        #     trust_remote_code=False
+        # )
+    elif dnn == 'llama2-124M':
+        logger.info(f'Creating the llama2.')
+        config = LlamaConfig.from_pretrained(LLAMA2_7B_HF, cache_dir=kwargs["model_dir"])
+        if kwargs["load_pretrain"]:
+            logger.info(f'Load {dnn} from pretrained.')
+            net = AutoModelForCausalLM.from_pretrained(
+                pretrained_model_name_or_path=LLAMA2_7B_HF,
+                cache_dir=kwargs["model_dir"],
+                from_tf=False, 
+                config=config,
+                low_cpu_mem_usage=True, 
+                trust_remote_code=False
+            )
+        else:
+            config.max_position_embeddings = 764
+            config.num_hidden_layers = 8
+            config.hidden_size = 512
+            config.num_attention_heads = 8
+            config.num_key_value_heads = 8
             logger.info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
         # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
@@ -190,10 +244,6 @@ def create_net(dnn='gpt2', **kwargs):
         logger.error(errstr)
         raise errstr 
 
-    def get_parameter_number(model):
-        total_num = sum(p.numel() for p in model.parameters())
-        trainable_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        return {'Total': total_num, 'Trainable': trainable_num, "Total-M": total_num/1000000}
     number_params = get_parameter_number(net)
 
     logger.info(f"dnn:{dnn}@!!!!! get_parameter_number of Model : {number_params}")
@@ -252,11 +302,37 @@ class LLMTrainer:
         else:
             self.dnn = dnn
             # TODO: Refact these codes!
-            if self.dnn in ['gpt2', "bert-base-uncased", "llama2-124M"]:
+            if self.dnn in ['gpt2', "bert-base-uncased", "llama2-7B", "llama2-124M"]:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
                 self.net, self.ext = create_net(dnn=self.dnn, model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
+                if self.args.finetune_type == "lora":
+                    peft_config = LoraConfig(
+                        r=self.args.peft_lora_r,
+                        lora_alpha=self.args.peft_lora_alpha,
+                        lora_dropout=0.05,
+                        bias="none",
+                        task_type="CAUSAL_LM",
+                    )
+                    self.net = get_peft_model(self.net, peft_config)
+                    self.net.print_trainable_parameters()
+
+                    number_params = get_parameter_number(self.net)
+
+                    logger.info(f"dnn:{dnn}@!!!!! After Peft, get_parameter_number of Model : {number_params}")
+                    # for name, param in self.net.named_parameters():
+                    #     if param.requires_grad:
+                    #         logger.info(f"name:{name} requires_grad, param.shape:{param.shape}")
+                    #     else:
+                    #         logger.info(f"name:{name} NOT requires_grad, param.shape:{param.shape}")
+                    # exit()
+                    self.net.config.use_cache = False  # silence the warnings. Please re-enable for inference!
+                elif self.args.finetune_type == "full":
+                    pass
+                else:
+                    raise NotImplementedError
+                
                 logger.info(f"Finish preparing loading model")
             elif self.dnn == 'bert':
                 pass
@@ -301,20 +377,21 @@ class LLMTrainer:
 
         if (self.optimizer_name == 'Adam'):
             self.optimizer = optim.Adam(
-            self.net.parameters(),
+            filter(lambda p: p.requires_grad, self.net.parameters()),
             lr=lr,
             betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
             weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'AdamW'):
             self.optimizer = optim.AdamW(
-            self.net.parameters(),
+            filter(lambda p: p.requires_grad, self.net.parameters()),
             lr=lr,
             betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
             weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'SGD'):
-            self.optimizer = optim.SGD(self.net.parameters(), 
+            self.optimizer = optim.SGD(
+                filter(lambda p: p.requires_grad, self.net.parameters()),
                 lr=self.lr,
                 momentum=self.m, 
                 weight_decay=self.weight_decay,
@@ -396,11 +473,106 @@ class LLMTrainer:
     def get_num_of_training_samples(self):
         return len(self.trainset)
 
+    def get_nb_peft_trainable_parameters(self):
+        # note: same as PeftModel.print_trainable_parameters
+        trainable_params, all_param = self.net.get_nb_trainable_parameters()
+        return trainable_params, all_param
+    
+    def openwebtext_prepare(self):
+        if self.dnn in ['gpt2', "bert-base-uncased"]:
+            # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+        elif self.dnn in ["llama2-7B", "llama2-124M"]:
+            token = "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"
+            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+        else:
+            raise NotImplementedError
+        # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
+
+        # dataset = load_from_disk(wikitext_path)
+        # dataset = load_from_disk(self.data_dir)
+        if os.path.isdir(self.data_dir):
+            encoded_dataset = load_from_disk(self.data_dir)
+        elif os.path.isfile(self.data_dir) and self.data_dir.endswith(".json"):
+            encoded_dataset = load_dataset('json', data_files=self.data_dir)
+        
+        # if 'validation' not in dataset:
+        #     dataset = dataset["train"].train_test_split(test_size=0.0005, seed=2357, shuffle=True)
+        #     # After splitting, we will have 'train' and 'test', so we rename 'test' to 'validation'
+        #     dataset['validation'] = dataset.pop('test')
+        # print(dataset)
+        # # def tokenize(example):
+        # #     return tokenizer(example['text'], truncation=True, padding='max_length', max_length=512)
+
+        # # # Apply the encoding to the dataset
+        # # encoded_dataset = dataset.map(tokenize, batched=True)
+        # # encoded_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask'])
+
+        # column_names = dataset["train"].column_names
+        # text_column_name = "text" if "text" in column_names else column_names[0]
+        # def tokenize_function(examples):
+        #     return tokenizer(examples[text_column_name])
+
+        # tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=column_names)
+
+        # block_size = min(1024, tokenizer.model_max_length)
+    
+        # def group_texts(examples):
+        #     # Concatenate all texts.
+        #     concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        #     total_length = len(concatenated_examples[list(examples.keys())[0]])
+        #     # We drop the small remainder, and if the total_length < block_size  we exclude this batch and return an empty dict.
+        #     # We could add padding if the model supported it instead of this drop, you can customize this part to your needs.
+        #     total_length = (total_length // block_size) * block_size
+        #     # Split by chunks of max_len.
+        #     result = {
+        #         k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+        #         for k, t in concatenated_examples.items()
+        #     }
+        #     result["labels"] = result["input_ids"].copy()
+        #     return result
+
+        # encoded_dataset = tokenized_dataset.map(group_texts, batched=True)
+        # save_path = "worksapce/tokenized_openwebtext"
+        # encoded_dataset.save_to_disk(save_path)
+        # logger.info(f'Save the tokenized dataset to {save_path}')
+        
+        trainset = encoded_dataset['train']
+        valset = encoded_dataset['validation']
+        self.trainset = trainset
+
+        train_sampler = None
+        shuffle = True
+        if self.nworkers > 1: 
+            # if settings.EFFICIENT_IO:
+            #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
+            #             rank=self.rank, cached_index_images=self.cached_index_images)
+            # else:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                self.trainset, num_replicas=self.nworkers, rank=self.rank)
+            train_sampler.set_epoch(0)
+            shuffle = False
+        self.train_sampler = train_sampler
+
+        self.trainloader = torch.utils.data.DataLoader(
+            trainset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=shuffle,
+            num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
+        
+
+        self.testset = valset
+        self.testloader = torch.utils.data.DataLoader(
+            valset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=False,
+            num_workers=8, pin_memory=True)
+        
     def wikitext2_prepare(self):
         # Data loading code
         if self.dnn in ['gpt2', "bert-base-uncased"]:
-            tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
-        elif self.dnn in ["llama2-124M"]:
+            # tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2", use_fast=False, padding_side="right")
+            # tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
+        elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
         else:
@@ -445,7 +617,9 @@ class LLMTrainer:
         trainset = encoded_dataset['train']
         valset = encoded_dataset['validation']
         self.trainset = trainset
-
+        logger.info(f"self.trainset : {self.trainset}")
+        logger.info(f"length, self.trainset : {len(self.trainset)}")
+        # exit()
         train_sampler = None
         shuffle = True
         if self.nworkers > 1: 
@@ -471,18 +645,205 @@ class LLMTrainer:
             batch_size=self.batch_size, shuffle=False,
             num_workers=8, pin_memory=True)
 
-    def data_prepare(self):
-        if self.dataset == 'wikitext2':
-            self.wikitext2_prepare()
-        elif self.dataset == 'shakespeare':
-            pass
+
+
+    def sft_prepare(self):
+        # Data loading code
+        if self.dnn in ['gpt2', "bert-base-uncased"]:
+            # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir, use_fast=False, padding_side="right")
+            # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2", use_fast=False, padding_side="left")
+            # tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir, use_fast=False, padding_side="right")
+        elif self.dnn in ["llama2-7B", "llama2-124M"]:
+            token = "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"
+            # tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, cache_dir=self.model_dir, use_fast=False, padding_side="right")
         else:
-            errstr = 'Unsupport dataset: %s' % self.dataset
-            logger.error(errstr)
-            raise errstr
+            raise NotImplementedError
+        tokenizer.pad_token = tokenizer.eos_token
+
+        dataset = get_dataset(self.dataset, self.args.data_dir)
+        dataset = dataset.select(range(100))
+        print(dataset)
+        # exit()
+        # dataset = dataset.remove_columns(['text'])
+
+        # Split the dataset into train and test sets
+        train_test_split = dataset.train_test_split(test_size=0.2)
+        train_dataset = train_test_split["train"]
+        test_dataset = train_test_split["test"]
+
+        # Tokenize the dataset
+        def tokenize_function(examples):
+            result = tokenizer(examples["text"], padding="max_length", truncation=True)
+            result["labels"] = result["input_ids"].copy()
+            return result
+
+
+        tokenized_train_dataset = train_dataset.map(tokenize_function, batched=True)
+        tokenized_test_dataset = test_dataset.map(tokenize_function, batched=True)
+
+        # Convert to PyTorch tensors
+        tokenized_train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        tokenized_test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+
+        self.trainset = tokenized_train_dataset
+        self.testset = tokenized_test_dataset
+        logger.info(f"show train dataset, length: {self.trainset}")
+        logger.info(f"show test dataset, length: {self.testset}")
+        # logger.info(f"show dataset, length: {trainset['train']}")
+        # logger.info(self.trainset[0:10])
+        # for i, example in enumerate(self.trainset):
+        #     if i > 5:
+        #         break
+        #     logger.info(example)
+        #     logger.info(f"length: {len(example)}")
+        #     logger.info(f"length input_ids: {len(example['input_ids'])}")
+        #     logger.info(f"length attention_mask: {len(example['attention_mask'])}")
+        #     logger.info(f"length labels: {len(example['labels'])}")
+        # exit()
+
+        train_sampler = None
+        shuffle = True
+        if self.nworkers > 1: 
+            # if settings.EFFICIENT_IO:
+            #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
+            #             rank=self.rank, cached_index_images=self.cached_index_images)
+            # else:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                self.trainset, num_replicas=self.nworkers, rank=self.rank)
+            train_sampler.set_epoch(0)
+            shuffle = False
+        self.train_sampler = train_sampler
+
+        self.trainloader = torch.utils.data.DataLoader(
+            self.trainset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=shuffle,
+            num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
+        
+        self.testloader = torch.utils.data.DataLoader(
+            self.testset, collate_fn=default_data_collator, 
+            batch_size=self.batch_size, shuffle=False,
+            num_workers=8, pin_memory=True)
+
+        # CUTOFF_LEN = 1024
+        # # Split the dataset if 'validation' doesn't exist
+        # def generate_prompt(data_point):
+        #     # ### Input:
+        #     # {data_point["input"]}
+        #     return f"""Below is an instruction that describes a task, paired with an input that provides further context. 
+        #             Write a response that appropriately completes the request.
+        #             ### Instruction:
+        #             {data_point["instruction"]}
+        #             # ### Input:
+        #             # {data_point["input"]}
+        #             ### Response:
+        #             {data_point["output"]}"""
+        
+        
+        # def tokenize(prompt, add_eos_token=True):
+        #     result = tokenizer(
+        #         prompt,
+        #         truncation=True,
+        #         max_length=CUTOFF_LEN,
+        #         padding=True,
+        #         return_tensors=None,
+        #     )
+        #     if (
+        #         result["input_ids"][-1] != tokenizer.eos_token_id
+        #         and len(result["input_ids"]) < CUTOFF_LEN
+        #         and add_eos_token
+        #     ):
+        #         result["input_ids"].append(tokenizer.eos_token_id)
+        #         result["attention_mask"].append(1)
+        
+        #     result["labels"] = result["input_ids"].copy()
+        
+        #     return result
+        
+        # def generate_and_tokenize_prompt(data_point):
+        #     full_prompt = generate_prompt(data_point)
+        #     tokenized_full_prompt = tokenize(full_prompt)
+        #     return tokenized_full_prompt
+
+        # # Apply the grouping function to tokenized dataset
+        # self.trainset = (
+        #     dataset["train"].map(generate_and_tokenize_prompt)
+        # )
+        # valset = (
+        #     dataset["test"].map(generate_and_tokenize_prompt)
+        # )
+        # logger.info(f"show dataset")
+        # logger.info(self.trainset[0:10])
+        # for example in self.trainset:
+        #     logger.info(example)
+        #     logger.info(f"length: {len(example)}")
+        #     logger.info(f"length input_ids: {len(example['input_ids'])}")
+        #     logger.info(f"length attention_mask: {len(example['attention_mask'])}")
+        #     logger.info(f"length labels: {len(example['labels'])}")
+
+        # train_sampler = None
+        # shuffle = True
+        # if self.nworkers > 1: 
+        #     # if settings.EFFICIENT_IO:
+        #     #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
+        #     #             rank=self.rank, cached_index_images=self.cached_index_images)
+        #     # else:
+        #     train_sampler = torch.utils.data.distributed.DistributedSampler(
+        #         self.trainset, num_replicas=self.nworkers, rank=self.rank)
+        #     train_sampler.set_epoch(0)
+        #     shuffle = False
+        # self.train_sampler = train_sampler
+
+        # self.trainloader = torch.utils.data.DataLoader(
+        #     # self.trainset, collate_fn=DataCollatorForSeq2Seq(
+        #     #     tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+        #     # ), 
+        #     DataCollatorWithPadding(tokenizer)
+        #     self.trainset, collate_fn=default_data_collator,
+        #     batch_size=self.batch_size, shuffle=shuffle,
+        #     num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
+        
+
+        # self.testset = valset
+        # self.testloader = torch.utils.data.DataLoader(
+        #     # valset, collate_fn=DataCollatorForSeq2Seq(
+        #     #     tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+        #     # ), 
+        #     valset, collate_fn=default_data_collator,
+        #     batch_size=self.batch_size, shuffle=False,
+        #     num_workers=8, pin_memory=True)
+
+
+
+    def data_prepare(self):
+        if self.args.training_type == "pretrain":
+            if self.dataset == 'wikitext2':
+                self.wikitext2_prepare()
+            elif self.dataset == 'shakespeare':
+                pass
+            elif self.dataset == 'openwebtext':
+                self.openwebtext_prepare()
+            else:
+                errstr = 'Unsupport dataset: %s' % self.dataset
+                logger.error(errstr)
+                raise errstr
+        elif self.args.training_type == "finetune":
+            self.sft_prepare()
+        else:
+            raise NotImplementedError
+
         self.data_iterator = iter(self.trainloader)
         self.num_batches_per_epoch = (self.get_num_of_training_samples()+self.batch_size*self.nworkers-1)//(self.batch_size*self.nworkers)
         #self.num_batches_per_epoch = self.get_num_of_training_samples()/(self.batch_size*self.nworkers)
+
+    def update_peft_model(self, new_peft_model):
+        set_peft_model_state_dict(self.net, new_peft_model)   # sync the global model to the local model
+
+    def load_peft_model(self):
+        return get_peft_model_state_dict(self.net)
+
 
     def update_optimizer(self, optimizer):
         self.optimizer = optimizer

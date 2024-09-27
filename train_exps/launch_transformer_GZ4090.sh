@@ -2,7 +2,7 @@
 
 # Set Python and script environment
 directory=$(pwd)
-script="${script:-dist_trainer.py}"  # Assuming this is the PyTorch distributed training script
+script="${script:-dist_trainer_transformer.py}"  # Assuming this is the PyTorch distributed training script
 params="${params:-}"
 echo "launch dir: $directory"
 

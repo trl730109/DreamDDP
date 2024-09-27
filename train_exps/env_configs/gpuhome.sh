@@ -14,6 +14,13 @@ case "$cluster_name" in
             "SVHN") data_dir="/datasets/SVHN" ;;
             "mnist") data_dir="/datasets" ;;
         esac
+        case "$dnn" in
+            # "gpt2") data_dir="/mnt/raid/tangzichen/gpt2" ;;
+            # "bert-base-uncased") data_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
+            "gpt2") model_dir="/home/yinyiming/gpt2" ;;
+            "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
+            "llama2-124M") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
+        esac
         ;;
     "gpuhome")
         case "$dataset" in

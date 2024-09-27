@@ -31,7 +31,7 @@ from llm_trainer import LLMTrainer, _support_datasets, _support_dnns
 from dist_utils import *
 import dist_optimizer as dist_optim
 
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 from compression import compressors
 from profiling import benchmark
 from mpi4py import MPI
@@ -79,7 +79,7 @@ def clip_grad(model, dnn, max_norm):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.25)
     elif dnn == 'lstman4':
         torch.nn.utils.clip_grad_norm_(model.parameters(), 400)
-    elif dnn in ["gpt2", "bert-base-uncased", "llama2-124M"]:
+    elif dnn in ["gpt2", "bert-base-uncased", "llama2-7B", "llama2-124M"]:
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm, norm_type=2.0) 
 
 
@@ -168,7 +168,7 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay, args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -217,16 +217,16 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
     backward_time_acc = 0.0
     
 
-    layer_bp_timestamps = {}
-    def add_backward_hook(layer, name):
-        def backward_hook(module, grad_input, grad_output):
-            # Record the current time as the end time for this layer's backward computation
-            torch.cuda.synchronize()
-            layer_bp_timestamps[name] = time.time()
-        layer.register_full_backward_hook(backward_hook)
-    for name, module in trainer.net.named_modules():
-        if len(list(module.children())) == 0: 
-            add_backward_hook(module, name)
+    # layer_bp_timestamps = {}
+    # def add_backward_hook(layer, name):
+    #     def backward_hook(module, grad_input, grad_output):
+    #         # Record the current time as the end time for this layer's backward computation
+    #         torch.cuda.synchronize()
+    #         layer_bp_timestamps[name] = time.time()
+    #     layer.register_full_backward_hook(backward_hook)
+    # for name, module in trainer.net.named_modules():
+    #     if len(list(module.children())) == 0: 
+    #         add_backward_hook(module, name)
             
     for epoch in range(max_epochs):
         bp_dict = {}
@@ -260,14 +260,16 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
             backward_time_acc += trainer.backwardtime_tmp
             #logger.info(f'Global iteration: {global_iters} backward time: {trainer.backwardtime_tmp} train time: {train_time} \n wait time: {wait_time} total wait time: {wait_time_acc}')
             train_time_acc += (time.time() - s)
+            torch.cuda.synchronize()
             comm_s = time.time()
             for param in trainer.net.parameters():
                 if param.requires_grad:
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
                     #param.grad.data /= dist.get_world_size()
+            torch.cuda.synchronize()
             comm_time_acc += (time.time() - comm_s)
             
-            optimizer.synchronize()
+            # optimizer.synchronize()
             clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
             # if dnn in ['lstm', 'lstmwt2']:
             #     optimizer.synchronize()
@@ -298,29 +300,29 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
 
-            previous_time = trainer.backward_stamp
-            for name in layer_bp_timestamps:
-                current_stamp = layer_bp_timestamps[name]
-                bp_dict[name].append(current_stamp - previous_time)
-                previous_time = current_stamp
-            layer_bp_timestamps = {}
+            # previous_time = trainer.backward_stamp
+            # for name in layer_bp_timestamps:
+            #     current_stamp = layer_bp_timestamps[name]
+            #     bp_dict[name].append(current_stamp - previous_time)
+            #     previous_time = current_stamp
+            # layer_bp_timestamps = {}
             
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_acc = trainer.test(epoch)
         result_dict["val_acc"] = val_acc
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-        avg_bp_dict = {}
-        for name in bp_dict:
-            avg_bp_dict[name] = np.mean(bp_dict[name])
-        logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
+        # avg_bp_dict = {}
+        # for name in bp_dict:
+        #     avg_bp_dict[name] = np.mean(bp_dict[name])
+        # logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
         
-        filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-        save_path = os.path.join('./time/bp/', filename)
-        import json
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        with open(save_path, 'w') as file:
-            json.dump(avg_bp_dict, file, indent=4)
+        # filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+        # save_path = os.path.join('./time/new_bp/', filename)
+        # import json
+        # os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        # with open(save_path, 'w') as file:
+        #     json.dump(avg_bp_dict, file, indent=4)
             
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
@@ -337,7 +339,7 @@ def ssgd_with_pipe(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nwork
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer, lr_decay=lr_decay, args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -444,7 +446,7 @@ def localsgd_measure(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_up
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name,lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name,lr_decay=lr_decay, args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -577,7 +579,7 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name,lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name,lr_decay=lr_decay, args=args)
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -762,7 +764,7 @@ def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_u
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay, args=args)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -963,7 +965,7 @@ def pipe_seq_localsgd_warmup(dnn, dataset, data_dir, nworkers, lr, batch_size, n
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay, args=args)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -1259,7 +1261,7 @@ def test(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_ep
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay, args=argss)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -1456,7 +1458,7 @@ def dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, m
     torch.cuda.set_device(selected_gpu)
     if rank != 0:
         pretrain = None
-    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay)
+    trainer = DLTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,optimizer_name=name, lr_decay=lr_decay, args=args)
 
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
@@ -1712,8 +1714,6 @@ if __name__ == '__main__':
         directory_path = os.path.join('./test/sgd', args.dnn)
     elif (args.alg == 'localsgd'):
         directory_path = os.path.join('./test/localsgd', args.dnn)
-    # elif(args.alg == 'seq'):
-    #     directory_path = os.path.join('./test/sequential', args.dnn)
     elif(args.alg == 'pipe_sgd'):
         directory_path = os.path.join('./test/pipeline', args.dnn)
     elif(args.alg == 'pipe_seq_localsgd'):
@@ -1724,8 +1724,6 @@ if __name__ == '__main__':
         directory_path = os.path.join('./test/testing', args.dnn)
     elif(args.alg == 'dream_ddp'):
         directory_path = os.path.join('./test/dream_ddp', args.dnn)
-    elif(args.alg == 'transformer_localsgd'):
-        directory_path = os.path.join('./test/transformers_localsgd', args.dnn)
     elif(args.alg == 'time_measure'):
         directory_path = os.path.join('./test/time_measure',args.dnn)
     relative_path = os.path.join(directory_path, logdir)
@@ -1740,17 +1738,15 @@ if __name__ == '__main__':
     rank = 0
     #set_start_method('spawn')
     if args.nworkers > 1:
-        # dist.init_process_group(backend='nccl')
-        # rank = dist.get_rank()
         # os.environ['NCCL_DEBUG'] = 'INFO'
         # os.environ['NCCL_DEBUG_SUBSYS'] = 'ALL'
         # os.environ['NCCL_DEBUG'] = 'TRACE'
         
-        # os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
-        # if args.interface == 'eno0':
-        #     os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
-        # elif args.interface == 'ens5f0':
-        #     os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
+        os.environ['NCCL_IB_DISABLE'] = '1'  # Disable InfiniBand
+        if args.interface == 'eno0':
+            os.environ['NCCL_SOCKET_IFNAME'] = 'eno0' #,ens5f0
+        elif args.interface == 'ens5f0':
+            os.environ['NCCL_SOCKET_IFNAME'] = 'ens5f0'
         os.environ['NCCL_IGNORE_DISABLED_P2P'] = '1'
         
         #logger.info(f"NCCL_SOCKET_IFNAME is set to: {os.environ.get('NCCL_SOCKET_IFNAME')}")
@@ -1799,10 +1795,6 @@ if __name__ == '__main__':
         logger.info("Alg used: test.")
         dream_ddp(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay, args.group_num, 
              args.check_param_diversity, args.nsteps_param_diversity)
-    elif (args.alg == 'transformer_localsgd'):
-        logger.info("Alg used: transformer training.")
-        transformer_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
-             check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
     if (args.alg == 'time_measure'):
         logger.info("Alg used: localsgd.")
         localsgd_measure(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay)

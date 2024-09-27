@@ -8,9 +8,9 @@ alg=sgd_with_sync
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
-lr=0.0001
-
-dataset='wikitext2'
+lr=8e-5
+dnn=gpt2
+dataset=openwebtext
 
 
 # optimizer_name=SGD
@@ -21,7 +21,7 @@ dataset='wikitext2'
 # optimizer_name=SGD
 # lr=0.01
 
-batch_size=4
+batch_size=8
 
 
 
@@ -53,8 +53,12 @@ nstepsupdate=4
 nsteps_param_diversity=1
 nsteps_param_sync=5
 
-pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
+max_epochs=1
 
+add_noise=True
+
+pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
+PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 
 # dnn=llama2-124M
 # model_dir="/data2/share/zhtang/llama-2-7b-hf"

@@ -1,4 +1,5 @@
-PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
+PY=/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python
+# PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
 
 
 master_port=13999
@@ -38,7 +39,7 @@ nsteps_param_sync=20
 
 
 # values=(5 10 50)
-values=(10 50)
+values=(5)
 
 # values=(5 10 50 100)
 # values=(10 50)
@@ -49,6 +50,28 @@ noise_type=burst
 burst_freq=500
 # burst_magnitude=1.0
 
+
+
+
+
+burst_magnitude=1.0
+
+param_sync=fix
+
+dnn=resnet50
+
+
+
+# for nsteps_param_sync in "${values[@]}"
+# do
+#     gaussian_std=0.0001
+#     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+#     source fault_exps/launch.sh
+
+alg=sgd
+source fault_exps/launch.sh
+
+alg=sgd_with_sync
 param_sync=fix
 
 
@@ -82,6 +105,20 @@ param_sync=fix
 # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
 # source fault_exps/launch.sh
 
+for nsteps_param_sync in "${values[@]}"
+do
+    gaussian_std=0.0001
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch.sh
+
+
+
+
+
+# hosts=('gpu23') alg=$alg add_noise=$add_noise gaussian_std=$gaussian_std  
+
+
+
 
 
 
@@ -100,7 +137,6 @@ done
 
 
 
-# hosts=('gpu23') alg=$alg add_noise=$add_noise gaussian_std=$gaussian_std  
 
 
 

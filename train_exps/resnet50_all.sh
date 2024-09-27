@@ -22,7 +22,7 @@ batch_size=128
 # 10.0.0.26 gpu16
 optimizer_name=SGD
 dnn=resnet50
-max_epochs=121
+max_epochs=1
 dataset=cifar100
 # add_noise=True
 # extra_name='test'
@@ -38,39 +38,48 @@ check_param_diversity=false
 nsteps_param_diversity=5
 # hosts=('10.0.0.11' '10.0.0.12' '10.0.0.16' '10.0.0.17')
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' )
-hosts=('10.0.0.11' '10.0.0.12' '10.0.0.16' '10.0.0.17' '10.0.0.18' '10.0.0.20' '10.0.0.24' '10.0.0.25' )
+hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22')
 #
 node_count=${#hosts[@]}
 # extra_name="Diversity_${node_count}Nodes"
-extra_name="${node_count}Nodes"
-nworkers=$((4 * node_count))
-
-alg='pipe_seq_localsgd'
-nsteps_localsgd=6
-node_rank=1
-lr_decay='exp'
-lr=0.1
-source train_exps/launch_mul.sh
+extra_name="Measure_${node_count}Nodes"
+ngpu_per_node=1
+nworkers=$((ngpu_per_node * node_count))
 
 # alg='pipe_seq_localsgd'
-# nsteps_localsgd=20
+# nsteps_localsgd=6
 # node_rank=1
 # lr_decay='exp'
 # lr=0.1
 # source train_exps/launch_mul.sh
 
-alg='localsgd'
-nsteps_localsgd=6
+# alg='pipe_seq_localsgd'
+# nsteps_localsgd=15
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# alg='localsgd'
+# nsteps_localsgd=6
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+alg='sgd'
 node_rank=1
 lr_decay='exp'
 lr=0.1
 source train_exps/launch_mul.sh
 
-# alg='sgd'
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
+dnn='resnet18'
+dataset='cifar10'
+alg='sgd'
+node_rank=1
+lr_decay='exp'
+lr=0.1
+source train_exps/launch_mul.sh
 
 # alg='pipe_sgd'
 # node_rank=1
@@ -107,4 +116,24 @@ source train_exps/launch_mul.sh
 # lr=0.1
 # source train_exps/launch_mul.sh
 
+# alg='dream_ddp'
+# node_rank=1
+# lr_decay='exp'
+# group_num=5
+# lr=0.1
+# source train_exps/launch_mul.sh
 
+
+# alg='localsgd'
+# nsteps_localsgd=10
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh
+
+# alg='localsgd'
+# nsteps_localsgd=5
+# node_rank=1
+# lr_decay='exp'
+# lr=0.1
+# source train_exps/launch_mul.sh

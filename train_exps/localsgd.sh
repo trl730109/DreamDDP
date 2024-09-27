@@ -1,6 +1,7 @@
 lr=0.1
 batch_size=128
 alg='localsgd'
+script="dist_trainer_new.py" 
 #pipe_seq_localsgd
 # 127.0.0.1 localhost
 # 127.0.1.1 gpu9
@@ -21,16 +22,16 @@ alg='localsgd'
 # 10.0.0.24 gpu14
 # 10.0.0.25 gpu15
 # 10.0.0.26 gpu16
-interface=eno0
-# interface=ens5f0
+interface=ens5f0
+# interface=ens5f0, eno0
 optimizer_name=SGD
-dnn=resnet50
-dataset=cifar100
-max_epochs=181
+dnn=resnet18
+dataset=cifar10
+max_epochs=120
 # add_noise=True
-extra_name="${node_count}Nodes"
 
-enable_wandb=false
+
+enable_wandb=true
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
@@ -38,110 +39,36 @@ check_param_diversity=false
 nsteps_param_diversity=5
 exp_name=$exp_name
 cluster_name=shenzhen
+sync_momentum=false
 
 # hosts=('10.0.0.19' '10.0.0.16' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25')
 # hosts=('10.0.0.11' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' '10.0.0.26')
 # hosts=('10.0.0.19' '10.0.0.18' '10.0.0.17' '10.0.0.20')
-hosts=('10.0.0.11' '10.0.0.12')
+hosts=('10.0.0.19' '10.0.0.20' '10.0.0.21' '10.0.0.22' '10.0.0.23' '10.0.0.24' '10.0.0.25' '10.0.0.26')
 #
-
 node_count=${#hosts[@]}
 nworkers=$((4 * node_count))
 nsteps_localsgd=10
+ngpu_per_node=$nwpernode
+extra_name="${node_count}Nodes"
 
-# lr_decay='general'
-# lr=0.1
-# lr=$(echo "$lr * sqrt($scalar)" | bc -l)
+# density=0.01
+# compressor=topk
 
 node_rank=1
-nsteps_localsgd=5
+nsteps_localsgd=10
+optimizer_name=Adam
 lr_decay='exp'
+nstepsupdate=1
 lr=0.1
 alg='localsgd'
+sync_momentum=true
 source train_exps/launch_mul.sh
 
-dnn=resnet18
-dataset=cifar10
-node_rank=1
-nsteps_localsgd=5
-lr_decay='exp'
-lr=0.1
-source train_exps/launch_mul.sh
-
-# source train_exps/launch_mul.sh
 # node_rank=1
-# nsteps_localsgd=20
+# optimizer_name=SGD
 # lr_decay='exp'
 # lr=0.1
+# alg='sgd'
 # source train_exps/launch_mul.sh
 
-# source train_exps/launch_mul.sh
-# node_rank=1
-# nsteps_localsgd=40
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# source train_exps/launch_mul.sh
-# node_rank=1
-# nsteps_localsgd=80
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-
-# source train_exps/launch_mul.sh
-# node_rank=1
-# nsteps_localsgd=5
-# lr_decay='exp'
-# lr=0.1
-# source train_exps/launch_mul.sh
-# node_rank=1
-# lr_decay='exp'
-# lr=0.1
-# scalar=2
-# lr=$(echo "$lr * sqrt($scalar)" | bc -l)
-# source train_exps/launch_mul.sh
-
-# node_rank=1
-# lr_decay='exp'
-# lr=0.2
-# source train_exps/launch_mul.sh
-
-# node_rank=1
-# lr_decay='exp'
-# lr=0.2
-# scalar=2
-# lr=$(echo "$lr * sqrt($scalar)" | bc -l)
-# source train_exps/launch_mul.sh
-
-# node_rank=1
-# lr_decay='exp'
-# lr=0.2
-# scalar=2
-# lr=$(echo "$lr * sqrt($scalar)" | bc -l)
-# source train_exps/launch_mul.sh
-
-# node_rank=1
-# dnn=resnet50
-# dataset=cifar100
-# lr_decay='exp'
-# lr=0.2
-# source train_exps/launch_mul.sh
-
-# node_rank=1
-# lr_decay='general'
-# lr=0.2
-# lr=$(echo "$lr * sqrt($scalar)" | bc -l)
-
-# source train_exps/launch_mul.sh
-
-# node_rank=1
-# lr_decay='general'
-# lr=0.4
-
-# source train_exps/launch_mul.sh
-# lr=0.2
-# source train_exps/launch_mul.sh
-# interface=ens5f0
-# node_rank=1
-# source train_exps/launch_mul.sh

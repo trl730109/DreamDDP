@@ -1,8 +1,6 @@
-PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
+PY=/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python
 
-
-master_port=23456
-
+master_port=13999
 alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
@@ -37,15 +35,15 @@ hosts=('localhost')
 # source fault_exps/launch.sh
 param_sync_async_op=False
 
-nsteps_param_diversity=5
-nsteps_param_sync=20
-noise_type=burst
-burst_freq=500
-burst_magnitude=1.0
-source fault_exps/launch.sh
+# nsteps_param_diversity=5
+# nsteps_param_sync=20
+# noise_type=burst
+# burst_freq=500
+# burst_magnitude=1.0
+# source fault_exps/launch.sh
 
 
-
+dnn=resnet50
 nsteps_param_diversity=5
 nsteps_param_sync=20
 noise_type=burst

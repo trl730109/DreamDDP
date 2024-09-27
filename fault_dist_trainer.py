@@ -19,6 +19,7 @@ import torch.distributed as dist
 from dl_trainer import DLTrainer, _support_datasets, _support_dnns
 from llm_trainer import LLMTrainer, _support_datasets, _support_dnns, _llms
 from dist_utils import *
+import torch.optim as optim
 import dist_optimizer as dist_optim
 # if settings.ORIGINAL_HOROVOD:
 #     import horovod.torch as hvd
@@ -75,6 +76,19 @@ def add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
         gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.grad.data.device)
     param.grad.data += gaussian_noise
 
+def allreduce_optimizer_state(optimizer):
+    if isinstance(optimizer, optim.SGD):
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                if 'momentum_buffer' in optimizer.state[p]:
+                    dist.all_reduce(optimizer.state[p]['momentum_buffer'], op=dist.ReduceOp.AVG, async_op=False)
+    elif isinstance(optimizer, optim.Adam):
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                if 'exp_avg' in optimizer.state[p] and 'exp_avg_sq' in optimizer.state[p]:
+                    # logger.info(f'The momentm and precondition get updated.')
+                    dist.all_reduce(optimizer.state[p]['exp_avg'], op=dist.ReduceOp.AVG, async_op=False)
+                    dist.all_reduce(optimizer.state[p]['exp_avg_sq'], op=dist.ReduceOp.AVG, async_op=False)
 
 
 def check_model_diff(model1, model2):
@@ -333,6 +347,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     times = []
     logger.info('max_epochs: %d', max_epochs)
     display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+    print()
     global_iters = 0
     for epoch in range(max_epochs):
         hidden = None
@@ -345,11 +360,13 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
         train_epoch_ppl = 0.0
 
         for i in range(iters_per_epoch//nsteps_update):
-            global_iters += 1
+            if (global_iters >= 10000):
+                break
             result_dict = {}
             s = time.time()
             optimizer.zero_grad()
             for j in range(nsteps_update):
+                global_iters += 1
                 # if j < nsteps_update - 1 and nsteps_update > 1:
                 #     optimizer.local = True
                 # else:
@@ -361,13 +378,19 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
             # if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
             #     named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-            for param in trainer.net.parameters():
+            # for param in trainer.net.parameters():
+            for name, param in trainer.net.named_parameters():
                 if param.requires_grad:
+                    # logger.info(f"name:{name} requires_grad, param.shape:{param.shape}")
                     # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                     # param.grad.data /= dist.get_world_size()
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
                     if (str2bool(add_noise)):
                         add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
+                else:
+                    # logger.info(f"name:{name} NOT requires_grad, param.shape:{param.shape}")
+                    pass
+
 
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
@@ -409,21 +432,22 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
 
             ExpTool.upload()
 
-        logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-        if dnn in _llms:
-            val_ppl, test_loss = trainer.test(epoch)
-            result_dict["val_ppl"] = val_ppl
-            result_dict["test_loss"] = test_loss
-            result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
-        else:
-            val_acc = trainer.test(epoch)
-            result_dict["val_acc"] = val_acc
-        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+            if global_iters % args.test_interval == 0:
+                logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+                if dnn in _llms:
+                    val_ppl, test_loss = trainer.test(epoch)
+                    result_dict["val_ppl"] = val_ppl
+                    result_dict["test_loss"] = test_loss
+                    result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+                else:
+                    val_acc = trainer.test(epoch)
+                    result_dict["val_acc"] = val_acc
+                result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+                result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-        ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-        ExpTool.upload()
+                ExpTool.record(result_dict)
+                ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+                ExpTool.upload()
 
 
 
@@ -495,11 +519,15 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
         train_epoch_ppl = 0.0
 
         for i in range(iters_per_epoch//nsteps_update):
-            global_iters += 1
+            if global_iters >= 10000:
+                break
+            # global_iters += 1
             result_dict = {}
             s = time.time()
             optimizer.zero_grad()
             for j in range(nsteps_update):
+                # logger.info(f'Train iteration {j}')
+                global_iters += 1
                 # if j < nsteps_update - 1 and nsteps_update > 1:
                 #     optimizer.local = True
                 # else:
@@ -598,10 +626,12 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                         f"new_nsteps_param_sync:{new_nsteps_param_sync.item()}")
                     ExpTool.record({"max_error_per_iter": max_error_per_iter.item(), "argmax_error_grad_norm": grad_norm.item(),
                                     "est_tolerance_iters": est_tolerance_iters.item(), "total_gradnorm": total_gradnorm.item(),
-                                    "new_nsteps_param_sync": new_nsteps_param_sync.item()})
+                                    "new_nsteps_param_sync": new_nsteps_param_sync.item(), "total_diversity": total_diversity,
+                                    })
 
                     # avg_params = allreduce_model_weights(trainer.net)
                 trainer.net.load_state_dict(dict(avg_params))
+                allreduce_optimizer_state(optimizer)
                 # for name, param in trainer.net.named_parameters():
                 #     param.data = avg_params[name]
                 # if getattr(trainer.net, "lm_head", None):
@@ -639,23 +669,37 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
 
             ExpTool.upload()
 
+            # if global_iters % args.test_interval == 0:
+            #     logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+            #     if dnn in _llms:
+            #         val_ppl, test_loss = trainer.test(epoch)
+            #         result_dict["val_ppl"] = val_ppl
+            #         result_dict["test_loss"] = test_loss
+            #         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+            #     else:
+            #         val_acc = trainer.test(epoch)
+            #         result_dict["val_acc"] = val_acc
+            #     result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+            #     result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-        logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-        if dnn in _llms:
-            val_ppl, test_loss = trainer.test(epoch)
-            result_dict["val_ppl"] = val_ppl
-            result_dict["test_loss"] = test_loss
-            result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
-        else:
-            val_acc = trainer.test(epoch)
-            result_dict["val_acc"] = val_acc
-        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+            #     ExpTool.record(result_dict)
+            #     ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+            #     ExpTool.upload()
+    logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+    if dnn in _llms:
+        val_ppl, test_loss = trainer.test(epoch)
+        result_dict["val_ppl"] = val_ppl
+        result_dict["test_loss"] = test_loss
+        result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+    else:
+        val_acc = trainer.test(epoch)
+        result_dict["val_acc"] = val_acc
+    result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+    result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-        ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-        ExpTool.upload()
-        
+    ExpTool.record(result_dict)
+    ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+    ExpTool.upload()
 
 def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
                         nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None, param_sync_async_op=False, args=None): 
@@ -725,11 +769,15 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
         train_epoch_ppl = 0.0
 
         for i in range(iters_per_epoch//nsteps_update):
-            global_iters += 1
+            # global_iters += 1
+            if global_iters >= 10000:
+                break
             result_dict = {}
             s = time.time()
             optimizer.zero_grad()
             for j in range(nsteps_update):
+                # logger.info(f'Train netsps {j}')
+                global_iters += 1
                 # if j < nsteps_update - 1 and nsteps_update > 1:
                 #     optimizer.local = True
                 # else:
@@ -737,7 +785,6 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                 # if dnn in ['lstm', 'lstmwt2']:
                 #     _, hidden = trainer.train(1, hidden=hidden)
                 # else:
-                # logger.info(f'Accumulate grad iteration: {j}')
                 trainer.train(1)
 
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
@@ -829,7 +876,8 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                         f"new_nsteps_param_sync:{new_nsteps_param_sync.item()}")
                     ExpTool.record({"max_error_per_iter": max_error_per_iter.item(), "argmax_error_grad_norm": grad_norm.item(),
                                     "est_tolerance_iters": est_tolerance_iters.item(), "total_gradnorm": total_gradnorm.item(),
-                                    "new_nsteps_param_sync": new_nsteps_param_sync.item()})
+                                    "new_nsteps_param_sync": new_nsteps_param_sync.item(), "total_diversity": total_diversity,
+                                    })
 
                     # avg_params = allreduce_model_weights(trainer.net)
                 trainer.net.load_state_dict(dict(avg_params))
@@ -870,8 +918,24 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                     avg_params = allreduce_model_weights_not_inplace(trainer.net)
 
             ExpTool.upload()
+            # if args.dataset == 'openwebtext':
+            #     if global_iters % args.test_interval == 0:
+            #         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+            #         if dnn in _llms:
+            #             val_ppl, test_loss = trainer.test(epoch)
+            #             result_dict["val_ppl"] = val_ppl
+            #             result_dict["test_loss"] = test_loss
+            #             result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+            #         else:
+            #             val_acc = trainer.test(epoch)
+            #             result_dict["val_acc"] = val_acc
+            #         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+            #         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-
+            #         ExpTool.record(result_dict)
+            #         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+            #         ExpTool.upload()
+                    
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         if dnn in _llms:
             val_ppl, test_loss = trainer.test(epoch)
@@ -887,7 +951,6 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
-
 
 
 
@@ -934,6 +997,12 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir', type=str, default='./model', help='')
     parser.add_argument('--load_pretrain', type=str, default='False', help='')
 
+    parser.add_argument('--training_type', type=str, default='pretrain', help='')   # pretrain, postpretrain, finetune
+    parser.add_argument('--finetune_type', type=str, default='full', help='')   # lora, full
+    parser.add_argument('--peft_lora_r', type=int, default=8, help='')   # fix, 
+    parser.add_argument('--peft_lora_alpha', type=int, default=16, help='')   # fix, 
+    # parser.add_argument('--dataset_sample', type=int, default=100000, help='')
+
 
     parser.add_argument('--gaussian_mu', type=float, default=0.0, help='Mean of the Gaussian Noise Mean.')
     parser.add_argument('--gaussian_std', type=float, default=0.01, help='Std of the Gaussian Noise std.')
@@ -952,7 +1021,7 @@ if __name__ == '__main__':
     parser.add_argument('--nsteps_param_diversity', type=int, default=5)
     parser.add_argument('--param_sync', type=str, default="fix")
     parser.add_argument('--param_sync_async_op', type=str, default="False")
-
+    parser.add_argument('--test_interval', type=int, default=500)
     # wandb, exp record related
     parser.add_argument("--wandb_offline", type=str, default="True")
     parser.add_argument("--wandb_console", type=str, default="False")
@@ -1061,7 +1130,10 @@ if __name__ == '__main__':
         logger.info("Alg used: pipe_seq_localsgd.")
         ssgd_with_param_sync(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
                        args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync, args.param_sync_async_op, args)
+<<<<<<< HEAD
     
+=======
+>>>>>>> f47a42b70c5c24be6a5976aae517bf598132ced8
     elif (args.alg == 'sgd_with_sync_all'):
         sgd_with_sync_all(args.optimizer_name, args.add_noise, args.gaussian_mu, args.gaussian_std, args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix,
                        args.nsteps_param_sync, args.check_param_diversity, args.nsteps_param_diversity, args.param_sync, args.param_sync_async_op, args)

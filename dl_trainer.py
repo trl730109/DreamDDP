@@ -54,7 +54,17 @@ if settings.EFFICIENT_IO:
 else:
     NUM_CPU_THREADS=8
 
-_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'cifar100']
+_support_datasets = ['imagenet', 'cifar10', 'an4', 'ptb', 'wt2', 'mnist', 'wmt2016', 'cifar100',
+                     "wikitext2", 'openwebtext',
+                     "lucasmccabe-lmi/CodeAlpaca-20k", "yahma/alpaca-cleaned", "FinGPT/fingpt-sentiment-train",
+                     "WizardLM/WizardLM_evol_instruct_70k",
+                     "tatsu-lab/alpaca", "vicgalle/alpaca-gpt4", "gbharti/finance-alpaca",
+                     "TIGER-Lab/MathInstruct",
+                     "lighteval/MATH",
+                     'gsm8k',
+                     'medalpaca/medical_meadow_medical_flashcards',
+                     "HuggingFaceH4/ultrafeedback_binarized",
+                     ]
 _support_dnns = ['alexnet', 'alexnetbn',
         'resnet18', 'resnet50', 'resnet101', 'resnet152', 
         'densenet121', 'densenet161', 'densenet201', 
@@ -67,7 +77,7 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
         'transformer',"gpt2",
-        "bert-base-uncased", "llama2-124M"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M"]
 
 
 def init_processes(rank, size, backend='tcp', master='gpu10'):
@@ -191,7 +201,8 @@ class DLTrainer:
 
     def __init__(self, rank, size, master='gpu10', localsgd=False, dist=True, ngpus=1, batch_size=32, 
         is_weak_scaling=True, data_dir='./data', dataset='cifar10', dnn='resnet20', 
-        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='SGD', lr_decay='step'):
+        lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='SGD', lr_decay='step',
+        args=None):
 
         self.size = size
         self.rank = rank
@@ -207,6 +218,7 @@ class DLTrainer:
         self.lr_decay = lr_decay
         self.layer_backward_dict = {}
         self.time_measure = True
+        self.args=args
         if settings.EFFICIENT_IO:
             self.cached_index_images = CachedIndexImages()
         else:
@@ -326,13 +338,15 @@ class DLTrainer:
             self.optimizer = optim.Adam(
             self.net.parameters(),
             lr=lr,
-            weight_decay=weight_decay
+            betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
+            weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'AdamW'):
             self.optimizer = optim.AdamW(
             self.net.parameters(),
             lr=lr,
-            weight_decay=weight_decay
+            betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
+            weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'SGD'):
             self.optimizer = optim.SGD(self.net.parameters(), 
@@ -353,7 +367,7 @@ class DLTrainer:
         self.v = {} # 
         self.target_sparsities = [1.]
         self.sparsity = sparsity
-        logger.info('target_sparsities: %s', self.target_sparsities)
+        # logger.info('target_sparsities: %s', self.target_sparsities)
         self.avg_loss_per_epoch = 0.0
         self.timer = 0.0
         self.forwardtime = 0.0

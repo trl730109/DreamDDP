@@ -1,6 +1,8 @@
+PY=/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python
+# PY=/mnt/sdb/tangzhenheng/miniconda3/bin/python
 
 
-master_port=12345
+master_port=12000
 
 alg=sgd_with_sync
 gaussian_mu=0.0
@@ -10,8 +12,9 @@ dnn=resnet18
 lr=0.1
 batch_size=32
 
+nworkers=8
+ngpu_per_node=8
 max_epochs=3
-
 add_noise=True
 # add_noise=False
 
@@ -35,8 +38,6 @@ param_sync=detect_base
 
 nsteps_param_diversity=1
 nsteps_param_sync=5
-
-pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
 
 
@@ -68,7 +69,7 @@ do
     # source fault_exps/launch.sh
     gaussian_std=100.0
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
+    source fault_exps/launch-temp.sh
 done
 # gaussian_std=10.0
 # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
