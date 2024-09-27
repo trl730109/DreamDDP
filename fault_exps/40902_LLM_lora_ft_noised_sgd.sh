@@ -2,8 +2,9 @@
 
 master_port=12345
 
-alg=sgd
 # alg=sgd
+# alg=sgd
+alg=sgd_with_sync_all
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
@@ -18,7 +19,7 @@ dataset="tatsu-lab/alpaca"
 # tatsu-lab/alpaca
 
 
-batch_size=4
+batch_size=8
 
 
 training_type="${training_type:-finetune}"
@@ -30,13 +31,13 @@ peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
-max_epochs=2
+max_epochs=1
 
 add_noise=True
 # add_noise=False
 
 # enable_wandb=False
-enable_wandb=False
+enable_wandb=True
 wandb_offline=False
 wandb_entity=hpml-hkbu
 wandb_key=5edd8acc594b95a0b4f58e39b2243143f03c65a0
@@ -44,9 +45,9 @@ exp_name=$exp_name
 # cluster_name=gpuhome
 # cluster_name=scigpu
 # hosts=('scigpu14')
-# cluster_name=GZ4090
+cluster_name=GZ4090
 # cluster_name=A6000
-cluster_name=GZA6000
+# cluster_name=GZA6000
 hosts=('localhost')
 
 # cluster_name=esetstore

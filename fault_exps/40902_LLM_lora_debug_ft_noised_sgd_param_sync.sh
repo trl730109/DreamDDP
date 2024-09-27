@@ -2,12 +2,14 @@
 
 master_port=12345
 
-alg=sgd
 # alg=sgd
+# alg=sgd
+alg=sgd_with_sync_all
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
 lr=0.0001
+lr_decay=fixed
 dnn=gpt2
 # dataset=wikitext2
 dataset="tatsu-lab/alpaca"
@@ -17,7 +19,7 @@ dataset="tatsu-lab/alpaca"
 # tatsu-lab/alpaca
 
 
-batch_size=4
+batch_size=8
 
 
 training_type="${training_type:-finetune}"
@@ -29,7 +31,7 @@ peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
-max_epochs=2
+max_epochs=1
 
 add_noise=True
 # add_noise=False

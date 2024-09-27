@@ -44,6 +44,16 @@ writer = None
 def is_root():
     return dist.get_rank() == 0
 
+def extend_keys_with_default(named_diversitys):
+    new_named_diversitys = {}
+    if named_diversitys is None:
+        return new_named_diversitys
+    else:
+        for key, value in named_diversitys.items():
+            new_key = key.replace('.weight', '.default.weight')
+            new_named_diversitys[new_key] = value
+    return new_named_diversitys
+
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -162,27 +172,33 @@ def get_grad_norm(model):
         total_norms = []
         if isinstance(model, dict):
             for name, param in model.items():
-                if "weight" in name and ("bn" not in name ):
-                    named_norms[name] = param.grad.data.norm() / math.sqrt(param.grad.data.numel())
-                    total_norms.append(named_norms[name].item())
+                # logger.info(f"============= name: {name}, param.data.shape: {param.data.shape}, param.requires_grad: {param.requires_grad}=============")
+                if param.requires_grad:
+                    if "weight" in name and ("bn" not in name ):
+                        named_norms[name] = param.grad.data.norm() / math.sqrt(param.grad.data.numel())
+                        total_norms.append(named_norms[name].item())
             if getattr(model, "lm_head", None):
                 name = "lm_head.weight"
-                grad = model.lm_head.weight.grad
-                named_norms[name] = grad.norm() / math.sqrt(grad.numel())
-                total_norms.append(named_norms[name].item())
+                if model.lm_head.weight.requires_grad:
+                    grad = model.lm_head.weight.grad
+                    named_norms[name] = grad.norm() / math.sqrt(grad.numel())
+                    total_norms.append(named_norms[name].item())
             return named_norms, np.mean(total_norms)
         else:
             # for name, param in model.state_dict().items():
             for name, param in model.named_parameters():
-                if "weight" in name and ("bn" not in name ):
-                    named_norms[name] = param.grad.data.norm() / math.sqrt(param.grad.data.numel())
-                    total_norms.append(named_norms[name].item())
+                # logger.info(f"============= name: {name}, param.data.shape: {param.data.shape}, param.requires_grad: {param.requires_grad}=============")
+                if param.requires_grad:
+                    if "weight" in name and ("bn" not in name ):
+                        named_norms[name] = param.grad.data.norm() / math.sqrt(param.grad.data.numel())
+                        total_norms.append(named_norms[name].item())
 
             if getattr(model, "lm_head", None):
                 name = "lm_head.weight"
-                grad = model.lm_head.weight.grad
-                named_norms[name] = grad.norm() / math.sqrt(grad.numel())
-                total_norms.append(named_norms[name].item())
+                if model.lm_head.weight.requires_grad:
+                    grad = model.lm_head.weight.grad
+                    named_norms[name] = grad.norm() / math.sqrt(grad.numel())
+                    total_norms.append(named_norms[name].item())
             return named_norms, np.mean(total_norms)
     else:
         return None, None
@@ -424,7 +440,10 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
             #         ExpTool.record({"total_diversity": total_diversity})
             #         logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
             # if is_root():
-            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            if args.training_type == "finetune" and args.finetune_type == "lora":
+                record_param_diversity_with_period(trainer.get_peft_model(), global_iters, nsteps_param_diversity, check_param_diversity)
+            else:
+                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
 
             ExpTool.upload()
 
@@ -500,6 +519,10 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
     init_nsteps_param_sync = nsteps_param_sync
     new_nsteps_param_sync = (torch.ones(1) * nsteps_param_sync).to(selected_gpu)
 
+    logger.info(f"!============= args.training_type: {args.training_type}!=============")
+    trainer.net.print_trainable_parameters()
+    logger.info(f"!============= args.finetune_type: {args.finetune_type}!=============")
+
     times = []
     logger.info('max_epochs: %d', max_epochs)
     display = 10 if iters_per_epoch > 40 else iters_per_epoch-1
@@ -536,6 +559,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             if (global_iters % new_nsteps_param_sync == 0):
                 named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
+
             for param in trainer.net.parameters():
                 if param.requires_grad:
                     # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
@@ -559,7 +583,10 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 train_ppl = trainer.ppl
                 train_epoch_ppl += train_ppl
             # if is_root():
-            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            if args.training_type == "finetune" and args.finetune_type == "lora":
+                record_param_diversity_with_period(trainer.get_peft_model(), global_iters, nsteps_param_diversity, check_param_diversity)
+            else:
+                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             # calculate divergence before updating model.
             if (global_iters % new_nsteps_param_sync == 0):
                 if param_sync_async_op:
@@ -569,7 +596,11 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     #     avg_params[name] = avg_params[name] / dist.get_world_size()
                 else:
                     pass
-                named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)
+                if args.training_type == "finetune" and args.finetune_type == "lora":
+                    named_diversitys, total_diversity = param_diversity(trainer.get_peft_model(), avg_params)
+                    named_diversitys = extend_keys_with_default(named_diversitys)
+                else:
+                    named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)
                 # trainer.net.load_state_dict(dict(avg_params))
                 if is_root():
                     layers = list(named_diversitys.keys())
@@ -625,8 +656,10 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                                     "new_nsteps_param_sync": new_nsteps_param_sync.item(), "total_diversity": total_diversity,
                                     })
 
-                    # avg_params = allreduce_model_weights(trainer.net)
-                trainer.net.load_state_dict(dict(avg_params))
+                if args.training_type == "finetune" and args.finetune_type == "lora":
+                    trainer.update_peft_model(dict(avg_params))
+                else:
+                    trainer.net.load_state_dict(dict(avg_params))
                 allreduce_optimizer_state(optimizer)
                 # for name, param in trainer.net.named_parameters():
                 #     param.data = avg_params[name]
@@ -634,7 +667,10 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 #     name = "lm_head.weight"
                 #     # grad = model.lm_head.weight.grad 
                 #     trainer.net.lm_head.weight.data = avg_params[name]
-                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+                if args.training_type == "finetune" and args.finetune_type == "lora":
+                    record_param_diversity_with_period(trainer.get_peft_model(), global_iters, nsteps_param_diversity, check_param_diversity)
+                else:
+                    record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
 
                 dist.broadcast(new_nsteps_param_sync, src=0)
                 logger.info(f'have new_nsteps_param_sync: {new_nsteps_param_sync} !!!!!!!!.')
@@ -659,9 +695,15 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             if (global_iters % new_nsteps_param_sync == (new_nsteps_param_sync - 1)):
                 logger.info(f'Params averaged using Allreduce at specific iterations.')
                 if param_sync_async_op:
-                    avg_params = allreduce_model_weights_not_inplace_async(trainer.net, _handles)
+                    if args.training_type == "finetune" and args.finetune_type == "lora":
+                        avg_params = allreduce_model_weights_not_inplace_async(trainer.get_peft_model(), _handles)
+                    else:
+                        avg_params = allreduce_model_weights_not_inplace_async(trainer.net, _handles)
                 else:
-                    avg_params = allreduce_model_weights_not_inplace(trainer.net)
+                    if args.training_type == "finetune" and args.finetune_type == "lora":
+                        avg_params = allreduce_model_weights_not_inplace(trainer.get_peft_model())
+                    else:
+                        avg_params = allreduce_model_weights_not_inplace(trainer.net)
 
             ExpTool.upload()
 
@@ -809,7 +851,12 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                 train_ppl = trainer.ppl
                 train_epoch_ppl += train_ppl
             # if is_root():
-            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            if args.training_type == "finetune" and args.finetune_type == "lora":
+                record_param_diversity_with_period(trainer.get_peft_model(), global_iters, nsteps_param_diversity, check_param_diversity)
+            else:
+                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
+
             # calculate divergence before updating model.
             if (global_iters % new_nsteps_param_sync == 0):
                 if param_sync_async_op:
@@ -819,7 +866,13 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                     #     avg_params[name] = avg_params[name] / dist.get_world_size()
                 else:
                     pass
-                named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)
+
+                if args.training_type == "finetune" and args.finetune_type == "lora":
+                    named_diversitys, total_diversity = param_diversity(trainer.get_peft_model(), avg_params)
+                    named_diversitys = extend_keys_with_default(named_diversitys)
+                else:
+                    named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)
+
                 # trainer.net.load_state_dict(dict(avg_params))
                 if is_root():
                     layers = list(named_diversitys.keys())
@@ -833,22 +886,6 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                     diverge_per_iter = max_diversity / new_nsteps_param_sync
                     # max_error_per_iter = diverge_per_iter / trainer.lr
                     max_error_per_iter = diverge_per_iter
-                    # logger.info(f'named_diversitys: {named_diversitys}')
-                    # logger.info(f'named_gradnorms: {named_gradnorms}')
-                    # for key in named_gradnorms.keys():
-                    #     if key not in named_diversitys:
-                    #         logger.info(f"key: {key} in named_gradnorms. not in named_diversitys")
-
-                    # for key in named_diversitys.keys():
-                    #     if key not in named_gradnorms:
-                    #         logger.info(f"key: {key} in named_diversitys. not in named_gradnorms")
-
-                    # for key, param in trainer.net.named_parameters():
-                    #     logger.info(f"named_parameters key: {key}")
-
-                    # for key, param in trainer.net.state_dict().items():
-                    #     logger.info(f"state_dict  key: {key}")
-
                     grad_norm = named_gradnorms[argmax_layer]
                     # est_tolerance_iters = (grad_norm /10) // max_error_per_iter
                     est_tolerance_iters = grad_norm // max_error_per_iter
@@ -876,7 +913,10 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                                     })
 
                     # avg_params = allreduce_model_weights(trainer.net)
-                trainer.net.load_state_dict(dict(avg_params))
+                if args.training_type == "finetune" and args.finetune_type == "lora":
+                    trainer.update_peft_model(dict(avg_params))
+                else:
+                    trainer.net.load_state_dict(dict(avg_params))
                 allreduce_optimizer_state(optimizer)
                 # for name, param in trainer.net.named_parameters():
                 #     param.data = avg_params[name]
@@ -884,7 +924,10 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                 #     name = "lm_head.weight"
                 #     # grad = model.lm_head.weight.grad 
                 #     trainer.net.lm_head.weight.data = avg_params[name]
-                record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+                if args.training_type == "finetune" and args.finetune_type == "lora":
+                    record_param_diversity_with_period(trainer.get_peft_model(), global_iters, nsteps_param_diversity, check_param_diversity)
+                else:
+                    record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
 
                 dist.broadcast(new_nsteps_param_sync, src=0)
                 logger.info(f'have new_nsteps_param_sync: {new_nsteps_param_sync} !!!!!!!!.')
@@ -909,29 +952,19 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
             if (global_iters % new_nsteps_param_sync == (new_nsteps_param_sync - 1)):
                 logger.info(f'Params averaged using Allreduce at specific iterations.')
                 if param_sync_async_op:
-                    avg_params = allreduce_model_weights_not_inplace_async(trainer.net, _handles)
+                    if args.training_type == "finetune" and args.finetune_type == "lora":
+                        avg_params = allreduce_model_weights_not_inplace_async(trainer.get_peft_model(), _handles)
+                    else:
+                        avg_params = allreduce_model_weights_not_inplace_async(trainer.net, _handles)
                 else:
-                    avg_params = allreduce_model_weights_not_inplace(trainer.net)
+                    if args.training_type == "finetune" and args.finetune_type == "lora":
+                        avg_params = allreduce_model_weights_not_inplace(trainer.get_peft_model())
+                    else:
+                        avg_params = allreduce_model_weights_not_inplace(trainer.net)
+
 
             ExpTool.upload()
-            # if args.dataset == 'openwebtext':
-            #     if global_iters % args.test_interval == 0:
-            #         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-            #         if dnn in _llms:
-            #             val_ppl, test_loss = trainer.test(epoch)
-            #             result_dict["val_ppl"] = val_ppl
-            #             result_dict["test_loss"] = test_loss
-            #             result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
-            #         else:
-            #             val_acc = trainer.test(epoch)
-            #             result_dict["val_acc"] = val_acc
-            #         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-            #         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-            #         ExpTool.record(result_dict)
-            #         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-            #         ExpTool.upload()
-                    
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         if dnn in _llms:
             val_ppl, test_loss = trainer.test(epoch)

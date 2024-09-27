@@ -841,7 +841,7 @@ class LLMTrainer:
     def update_peft_model(self, new_peft_model):
         set_peft_model_state_dict(self.net, new_peft_model)   # sync the global model to the local model
 
-    def load_peft_model(self):
+    def get_peft_model(self):
         return get_peft_model_state_dict(self.net)
 
 
