@@ -56,14 +56,14 @@ max_epochs="${max_epochs:-181}"
 
 # Training settings
 nwpernode="${nwpernode:-$ngpu_per_node}"
-nstepsupdate=1
+nstepsupdate="${nstepsupdate:-1}"
 overlap_scalar=2
 strategy='average'
 nsteps_localsgd="${nsteps_localsgd:-20}"
 optimizer_name="${optimizer_name:-SGD}"
 sync="${sync:-avg}"
 alg="${alg:-sgd}"
-# PY=~/miniconda3/envs/DDP/bin/python3
+PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
 GRADSPATH=./logs/tzc
 
 dataset="${dataset:-cifar10}"

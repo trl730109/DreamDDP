@@ -3,6 +3,7 @@
 master_port=12345
 
 alg=sgd_with_sync
+# alg=sgd_with_sync_all
 # alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
@@ -32,8 +33,8 @@ add_noise=True
 # add_noise=False
 
 # enable_wandb=False
-enable_wandb=False
-wandb_offline=False
+enable_wandb=true
+wandb_offline=true
 wandb_entity=hpml-hkbu
 wandb_key=5edd8acc594b95a0b4f58e39b2243143f03c65a0
 exp_name=$exp_name
@@ -48,17 +49,17 @@ hosts=('localhost')
 param_sync_async_op=False
 param_sync=detect_base
 # param_sync=fix
-
+nstepsupdate=4
 nsteps_param_diversity=1
 nsteps_param_sync=5
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
 
-dnn=llama2-124M
-model_dir="/data2/share/zhtang/llama-2-7b-hf"
-# dnn=gpt2
-# model_dir="/data2/share/zhtang/gpt2"
+# dnn=llama2-124M
+# model_dir="/data2/share/zhtang/llama-2-7b-hf"
+dnn=gpt2
+model_dir="/data2/share/zhtang/gpt2"
 
 
 values=(5)

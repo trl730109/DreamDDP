@@ -256,7 +256,7 @@ class LLMTrainer:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
-                self.net, self.ext = create_net(dnn='llama2-124M', model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
+                self.net, self.ext = create_net(dnn=self.dnn, model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
                 logger.info(f"Finish preparing loading model")
             elif self.dnn == 'bert':
                 pass
@@ -960,7 +960,7 @@ class LLMTrainer:
                 self.forwardtime = 0.0
                 self.backwardtime = 0.0
 
-        self.update_model()
+        # self.update_model()
         return num_of_iters
 
     def test(self, epoch):
