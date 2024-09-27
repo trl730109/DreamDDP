@@ -10,8 +10,8 @@ optimizer_name=Adam
 lr=0.0001
 dnn=gpt2
 # dataset=wikitext2
-# dataset="tatsu-lab/alpaca"
-dataset="vicgalle/alpaca-gpt4"
+dataset="tatsu-lab/alpaca"
+# dataset="vicgalle/alpaca-gpt4"
 
 
 # tatsu-lab/alpaca
@@ -21,7 +21,10 @@ batch_size=4
 
 
 training_type="${training_type:-finetune}"
+# training_type="${training_type:-pretrain}"
+# finetune_type="${finetune_type:-full}"
 finetune_type="${finetune_type:-lora}"
+
 peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
@@ -55,7 +58,7 @@ check_param_diversity=False
 nsteps_param_diversity=5
 nsteps_param_sync=5
 
-max_epochs=1
+max_epochs=10
 
 add_noise=True
 

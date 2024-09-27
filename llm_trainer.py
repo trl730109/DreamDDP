@@ -617,7 +617,9 @@ class LLMTrainer:
         trainset = encoded_dataset['train']
         valset = encoded_dataset['validation']
         self.trainset = trainset
-
+        logger.info(f"self.trainset : {self.trainset}")
+        logger.info(f"length, self.trainset : {len(self.trainset)}")
+        # exit()
         train_sampler = None
         shuffle = True
         if self.nworkers > 1: 
@@ -659,72 +661,48 @@ class LLMTrainer:
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, cache_dir=self.model_dir, use_fast=False, padding_side="right")
         else:
             raise NotImplementedError
-        tokenizer.pad_token_id = (
-            0  # unk. we want this to be different from the eos token
-        )
-        tokenizer.padding_side = "left"
-        # if tokenizer.pad_token is None:
-        #     # tokenizer.pad_token = tokenizer.unk_token
-        #     tokenizer.pad_token = tokenizer.eos_token
-        # Loading the Alpaca-style dataset from the given directory
-        # dataset = load_from_disk(self.data_dir)
+        tokenizer.pad_token = tokenizer.eos_token
+
         dataset = get_dataset(self.dataset, self.args.data_dir)
+        dataset = dataset.select(range(100))
         print(dataset)
         # exit()
-        dataset = dataset.remove_columns(['text'])
+        # dataset = dataset.remove_columns(['text'])
 
-        if 'validation' not in dataset:
-            # dataset = dataset["train"].train_test_split(test_size=0.005, seed=42, shuffle=True)
-            dataset = dataset.train_test_split(test_size=200, seed=42, shuffle=True)
-        # dataset = process_sft_dataset(self.dataset, dataset)
+        # Split the dataset into train and test sets
+        train_test_split = dataset.train_test_split(test_size=0.2)
+        train_dataset = train_test_split["train"]
+        test_dataset = train_test_split["test"]
 
-        CUTOFF_LEN = 1024
-        # Split the dataset if 'validation' doesn't exist
-        def generate_prompt(data_point):
-            # ### Input:
-            # {data_point["input"]}
-            return f"""Below is an instruction that describes a task, paired with an input that provides further context. 
-                    Write a response that appropriately completes the request.
-                    ### Instruction:
-                    {data_point["instruction"]}
-                    # ### Input:
-                    # {data_point["input"]}
-                    ### Response:
-                    {data_point["output"]}"""
-        
-        
-        def tokenize(prompt, add_eos_token=True):
-            result = tokenizer(
-                prompt,
-                truncation=True,
-                max_length=CUTOFF_LEN,
-                padding=False,
-                return_tensors=None,
-            )
-            if (
-                result["input_ids"][-1] != tokenizer.eos_token_id
-                and len(result["input_ids"]) < CUTOFF_LEN
-                and add_eos_token
-            ):
-                result["input_ids"].append(tokenizer.eos_token_id)
-                result["attention_mask"].append(1)
-        
+        # Tokenize the dataset
+        def tokenize_function(examples):
+            result = tokenizer(examples["text"], padding="max_length", truncation=True)
             result["labels"] = result["input_ids"].copy()
-        
             return result
-        
-        def generate_and_tokenize_prompt(data_point):
-            full_prompt = generate_prompt(data_point)
-            tokenized_full_prompt = tokenize(full_prompt)
-            return tokenized_full_prompt
 
-        # Apply the grouping function to tokenized dataset
-        self.trainset = (
-            dataset["train"].map(generate_and_tokenize_prompt)
-        )
-        valset = (
-            dataset["test"].map(generate_and_tokenize_prompt)
-        )
+
+        tokenized_train_dataset = train_dataset.map(tokenize_function, batched=True)
+        tokenized_test_dataset = test_dataset.map(tokenize_function, batched=True)
+
+        # Convert to PyTorch tensors
+        tokenized_train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        tokenized_test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+
+        self.trainset = tokenized_train_dataset
+        self.testset = tokenized_test_dataset
+        logger.info(f"show train dataset, length: {self.trainset}")
+        logger.info(f"show test dataset, length: {self.testset}")
+        # logger.info(f"show dataset, length: {trainset['train']}")
+        # logger.info(self.trainset[0:10])
+        # for i, example in enumerate(self.trainset):
+        #     if i > 5:
+        #         break
+        #     logger.info(example)
+        #     logger.info(f"length: {len(example)}")
+        #     logger.info(f"length input_ids: {len(example['input_ids'])}")
+        #     logger.info(f"length attention_mask: {len(example['attention_mask'])}")
+        #     logger.info(f"length labels: {len(example['labels'])}")
+        # exit()
 
         train_sampler = None
         shuffle = True
@@ -740,22 +718,70 @@ class LLMTrainer:
         self.train_sampler = train_sampler
 
         self.trainloader = torch.utils.data.DataLoader(
-            self.trainset, collate_fn=DataCollatorForSeq2Seq(
-                tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-            ), 
+            self.trainset, collate_fn=default_data_collator, 
             batch_size=self.batch_size, shuffle=shuffle,
             num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
         
-
-        self.testset = valset
         self.testloader = torch.utils.data.DataLoader(
-            valset, collate_fn=DataCollatorForSeq2Seq(
-                tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-            ), 
+            self.testset, collate_fn=default_data_collator, 
             batch_size=self.batch_size, shuffle=False,
             num_workers=8, pin_memory=True)
 
-        # self.trainset = trainset
+        # CUTOFF_LEN = 1024
+        # # Split the dataset if 'validation' doesn't exist
+        # def generate_prompt(data_point):
+        #     # ### Input:
+        #     # {data_point["input"]}
+        #     return f"""Below is an instruction that describes a task, paired with an input that provides further context. 
+        #             Write a response that appropriately completes the request.
+        #             ### Instruction:
+        #             {data_point["instruction"]}
+        #             # ### Input:
+        #             # {data_point["input"]}
+        #             ### Response:
+        #             {data_point["output"]}"""
+        
+        
+        # def tokenize(prompt, add_eos_token=True):
+        #     result = tokenizer(
+        #         prompt,
+        #         truncation=True,
+        #         max_length=CUTOFF_LEN,
+        #         padding=True,
+        #         return_tensors=None,
+        #     )
+        #     if (
+        #         result["input_ids"][-1] != tokenizer.eos_token_id
+        #         and len(result["input_ids"]) < CUTOFF_LEN
+        #         and add_eos_token
+        #     ):
+        #         result["input_ids"].append(tokenizer.eos_token_id)
+        #         result["attention_mask"].append(1)
+        
+        #     result["labels"] = result["input_ids"].copy()
+        
+        #     return result
+        
+        # def generate_and_tokenize_prompt(data_point):
+        #     full_prompt = generate_prompt(data_point)
+        #     tokenized_full_prompt = tokenize(full_prompt)
+        #     return tokenized_full_prompt
+
+        # # Apply the grouping function to tokenized dataset
+        # self.trainset = (
+        #     dataset["train"].map(generate_and_tokenize_prompt)
+        # )
+        # valset = (
+        #     dataset["test"].map(generate_and_tokenize_prompt)
+        # )
+        # logger.info(f"show dataset")
+        # logger.info(self.trainset[0:10])
+        # for example in self.trainset:
+        #     logger.info(example)
+        #     logger.info(f"length: {len(example)}")
+        #     logger.info(f"length input_ids: {len(example['input_ids'])}")
+        #     logger.info(f"length attention_mask: {len(example['attention_mask'])}")
+        #     logger.info(f"length labels: {len(example['labels'])}")
 
         # train_sampler = None
         # shuffle = True
@@ -771,12 +797,25 @@ class LLMTrainer:
         # self.train_sampler = train_sampler
 
         # self.trainloader = torch.utils.data.DataLoader(
-        #     trainset, collate_fn=default_data_collator, 
+        #     # self.trainset, collate_fn=DataCollatorForSeq2Seq(
+        #     #     tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+        #     # ), 
+        #     DataCollatorWithPadding(tokenizer)
+        #     self.trainset, collate_fn=default_data_collator,
         #     batch_size=self.batch_size, shuffle=shuffle,
         #     num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
         
-        # self.testset = None
-        # self.testloader = None
+
+        # self.testset = valset
+        # self.testloader = torch.utils.data.DataLoader(
+        #     # valset, collate_fn=DataCollatorForSeq2Seq(
+        #     #     tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+        #     # ), 
+        #     valset, collate_fn=default_data_collator,
+        #     batch_size=self.batch_size, shuffle=False,
+        #     num_workers=8, pin_memory=True)
+
+
 
     def data_prepare(self):
         if self.args.training_type == "pretrain":

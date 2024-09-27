@@ -8,10 +8,18 @@ gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
 lr=0.0001
+lr_decay=fixed
 dnn=gpt2
 dataset=wikitext2
 
 batch_size=4
+
+
+training_type="${training_type:-pretrain}"
+finetune_type="${finetune_type:-full}"
+peft_lora_r="${peft_lora_r:-8}"
+peft_lora_alpha="${peft_lora_alpha:-16}"
+
 
 
 max_epochs=5

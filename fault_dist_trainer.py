@@ -333,6 +333,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     times = []
     logger.info('max_epochs: %d', max_epochs)
     display = 1 if iters_per_epoch > 40 else iters_per_epoch-1
+    print()
     global_iters = 0
     for epoch in range(max_epochs):
         hidden = None
@@ -345,7 +346,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
         train_epoch_ppl = 0.0
 
         for i in range(iters_per_epoch//nsteps_update):
-            if(global_iters >= 10000):
+            if (global_iters >= 10000):
                 break
             # global_iters += 1
             result_dict = {}

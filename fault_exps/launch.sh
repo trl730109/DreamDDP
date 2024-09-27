@@ -26,6 +26,10 @@ echo "pre_cmd: $pre_cmd"
 # export NCCL_DEBUG=TRACE
 
 
+export CUDA_VISIBLE_DEVICES=1,2,3.4
+
+
+
 nworkers="${nworkers:-4}"
 density="${density:-1.0}"
 threshold="${threshold:-524288000}"
