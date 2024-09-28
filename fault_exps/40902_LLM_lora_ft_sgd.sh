@@ -30,7 +30,7 @@ peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
-max_epochs=1
+max_epochs=10
 
 # add_noise=True
 add_noise=False
@@ -61,7 +61,6 @@ nsteps_param_sync=5
 
 max_epochs=10
 
-add_noise=True
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"

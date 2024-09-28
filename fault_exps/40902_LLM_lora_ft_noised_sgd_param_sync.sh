@@ -30,7 +30,7 @@ peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
-max_epochs=1
+max_epochs=10
 
 add_noise=True
 # add_noise=False
