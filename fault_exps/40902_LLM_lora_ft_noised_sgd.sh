@@ -4,11 +4,12 @@ master_port=12345
 
 # alg=sgd
 # alg=sgd
-alg=sgd_with_sync_all
+alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
 lr=0.0001
+lr=0.01
 lr_decay=fixed
 dnn=gpt2
 # dataset=wikitext2
@@ -91,13 +92,13 @@ do
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch.sh
 
-    # gaussian_std=0.1
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
+    gaussian_std=0.1
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch.sh
 
-    # gaussian_std=1.0
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
+    gaussian_std=1.0
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch.sh
 
     # gaussian_std=100.0
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"

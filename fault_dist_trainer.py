@@ -276,20 +276,6 @@ def allreduce_model_weights_not_inplace(model):
         # avg_params[name] = avg_params[name] / dist.get_world_size()
     return avg_params
 
-def allreduce_optimizer_state(optimizer):
-    if isinstance(optimizer, optim.SGD):
-        for group in optimizer.param_groups:
-            for p in group['params']:
-                if 'momentum_buffer' in optimizer.state[p]:
-                    dist.all_reduce(optimizer.state[p]['momentum_buffer'], op=dist.ReduceOp.AVG, async_op=False)
-    elif isinstance(optimizer, optim.Adam):
-        for group in optimizer.param_groups:
-            for p in group['params']:
-                if 'exp_avg' in optimizer.state[p] and 'exp_avg_sq' in optimizer.state[p]:
-                    # logger.info(f'The momentm and precondition get updated.')
-                    dist.all_reduce(optimizer.state[p]['exp_avg'], op=dist.ReduceOp.AVG, async_op=False)
-                    dist.all_reduce(optimizer.state[p]['exp_avg_sq'], op=dist.ReduceOp.AVG, async_op=False)
-
 def allreduce_model_weights_not_inplace_async(model, _handles):
     if isinstance(model, dict):
         avg_params = deepcopy(model)
@@ -660,7 +646,6 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     trainer.update_peft_model(dict(avg_params))
                 else:
                     trainer.net.load_state_dict(dict(avg_params))
-                allreduce_optimizer_state(optimizer)
                 # for name, param in trainer.net.named_parameters():
                 #     param.data = avg_params[name]
                 # if getattr(trainer.net, "lm_head", None):
