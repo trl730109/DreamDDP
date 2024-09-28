@@ -19,6 +19,8 @@ dataset="tatsu-lab/alpaca"
 
 
 # tatsu-lab/alpaca
+load_pretrain=True
+# load_pretrain=False
 
 
 batch_size=8

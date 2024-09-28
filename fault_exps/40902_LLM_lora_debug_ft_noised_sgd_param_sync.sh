@@ -19,7 +19,8 @@ dataset="tatsu-lab/alpaca"
 
 
 # tatsu-lab/alpaca
-
+load_pretrain=True
+# load_pretrain=False
 
 batch_size=8
 
@@ -67,7 +68,7 @@ max_epochs=10
 add_noise=True
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
-PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
+# PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
 # PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 
 # dnn=llama2-124M

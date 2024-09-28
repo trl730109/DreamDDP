@@ -326,6 +326,7 @@ class LLMTrainer:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
                 self.net, self.ext = create_net(dnn=self.dnn, model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
+                logger.info(f"LOAD PRETRAIN is: {self.args.load_pretrain}===========")
                 if self.args.finetune_type == "lora":
                     peft_config = LoraConfig(
                         r=self.args.peft_lora_r,
