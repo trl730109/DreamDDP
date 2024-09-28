@@ -9,6 +9,7 @@ gaussian_std=0.001
 optimizer_name=Adam
 lr=0.0001
 lr=0.01
+lr=0.001
 
 lr_decay=fixed
 dnn=gpt2
@@ -32,7 +33,7 @@ peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
-max_epochs=10
+max_epochs=5
 
 # add_noise=True
 add_noise=False
@@ -61,11 +62,9 @@ check_param_diversity=False
 nsteps_param_diversity=5
 nsteps_param_sync=5
 
-max_epochs=10
-
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
-PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
+# PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
 # PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 
 # dnn=llama2-124M
@@ -93,13 +92,17 @@ do
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch.sh
 
-    gaussian_std=0.1
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
+    # gaussian_std=0.1
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch.sh
 
-    gaussian_std=1.0
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
+    # gaussian_std=1.0
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch.sh
+
+    # gaussian_std=10.0
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch.sh
 
     # gaussian_std=100.0
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"

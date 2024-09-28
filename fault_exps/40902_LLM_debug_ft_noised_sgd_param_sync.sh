@@ -22,7 +22,7 @@ peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
 
-max_epochs=5
+max_epochs=1
 
 add_noise=True
 # add_noise=False
@@ -38,7 +38,9 @@ exp_name=$exp_name
 # hosts=('scigpu14')
 # cluster_name=GZ4090
 # cluster_name=A6000
-cluster_name=GZA6000
+# cluster_name=GZA6000
+cluster_name=GZ4090
+
 hosts=('localhost')
 
 # cluster_name=esetstore
@@ -56,7 +58,7 @@ max_epochs=1
 add_noise=True
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
-PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
+# PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
 # PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 
 # dnn=llama2-124M
