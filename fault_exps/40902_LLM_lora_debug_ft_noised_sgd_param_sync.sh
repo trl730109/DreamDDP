@@ -10,6 +10,8 @@ gaussian_std=0.001
 optimizer_name=Adam
 lr=0.0001
 lr_decay=fixed
+
+
 dnn=gpt2
 # dataset=wikitext2
 dataset="tatsu-lab/alpaca"
