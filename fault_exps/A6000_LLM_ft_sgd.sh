@@ -4,7 +4,7 @@ alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
-lr=0.0001
+lr=0.01
 lr_decay=fixed
 dnn=gpt2
 

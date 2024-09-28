@@ -76,7 +76,7 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'lstm', 'lstmwt2',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
-        'transformer',"gpt2",
+        'transformer',"gpt2", 'gpt2-custom', 
         "bert-base-uncased", "llama2-7B", "llama2-124M"]
 
 

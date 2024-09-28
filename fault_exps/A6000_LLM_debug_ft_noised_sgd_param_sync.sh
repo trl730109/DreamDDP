@@ -7,9 +7,10 @@ alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
-lr=0.0001
+lr=0.01
 lr_decay=fixed
 dnn=gpt2
+# dnn=gpt2-custom
 dataset=wikitext2
 
 batch_size=4
@@ -22,7 +23,7 @@ peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
 
-max_epochs=5
+max_epochs=1
 
 add_noise=True
 # add_noise=False

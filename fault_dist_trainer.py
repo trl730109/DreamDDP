@@ -506,7 +506,8 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
     new_nsteps_param_sync = (torch.ones(1) * nsteps_param_sync).to(selected_gpu)
 
     logger.info(f"!============= args.training_type: {args.training_type}!=============")
-    trainer.net.print_trainable_parameters()
+    if args.training_type == "finetune" and args.finetune_type == "lora":
+        trainer.net.print_trainable_parameters()
     logger.info(f"!============= args.finetune_type: {args.finetune_type}!=============")
 
     times = []

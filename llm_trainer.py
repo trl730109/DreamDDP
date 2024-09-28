@@ -71,6 +71,8 @@ from load_sft_data import get_dataset, process_sft_dataset
 from peft import get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict, prepare_model_for_kbit_training
 from peft import LoraConfig
 
+from models.gpt2_model import GPT2Model
+
 #from data_sampler import CachedIndexImages, CachedSampler, CachedImageFolder
 
 if settings.FP16:
@@ -108,10 +110,10 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'lstm', 'lstmwt2',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
-        'transformer', "gpt2",
+        'transformer', "gpt2", 'gpt2-custom', 
         "bert-base-uncased", "llama2-7B", "llama2-124M"]
 
-_llms = ['transformer', "gpt2",
+_llms = ['transformer', "gpt2", 'gpt2-custom', 
         "bert-base-uncased", "llama2-7B", "llama2-124M"]
 
 
@@ -163,7 +165,17 @@ def create_net(dnn='gpt2', **kwargs):
         else:
             logger.info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
-            
+    elif dnn == 'gpt2-custom':
+        if kwargs["load_pretrain"]:
+            raise NotImplementedError
+        else:
+            logger.info(f'Load {dnn} from pretrained.')
+            vocab_size = 50257
+            n_embd = 768
+            n_layer = 12
+            n_head = 12
+            max_position_embeddings = 1024
+            net = GPT2Model(vocab_size, n_embd, n_layer, n_head, max_position_embeddings)
     elif dnn == 'bert-base-uncased':
         config = BertConfig.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
         if kwargs["load_pretrain"]:
@@ -302,7 +314,7 @@ class LLMTrainer:
         else:
             self.dnn = dnn
             # TODO: Refact these codes!
-            if self.dnn in ['gpt2', "bert-base-uncased", "llama2-7B", "llama2-124M"]:
+            if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased", "llama2-7B", "llama2-124M"]:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
@@ -479,7 +491,7 @@ class LLMTrainer:
         return trainable_params, all_param
     
     def openwebtext_prepare(self):
-        if self.dnn in ['gpt2', "bert-base-uncased"]:
+        if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased"]:
             # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
             tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
@@ -568,7 +580,7 @@ class LLMTrainer:
         
     def wikitext2_prepare(self):
         # Data loading code
-        if self.dnn in ['gpt2', "bert-base-uncased"]:
+        if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased"]:
             # tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
             tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2", use_fast=False, padding_side="right")
             # tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
@@ -649,7 +661,7 @@ class LLMTrainer:
 
     def sft_prepare(self):
         # Data loading code
-        if self.dnn in ['gpt2', "bert-base-uncased"]:
+        if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased"]:
             # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
             # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir, use_fast=False, padding_side="right")
             # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)

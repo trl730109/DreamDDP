@@ -4,7 +4,8 @@ alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
-lr=0.0001
+# lr=0.0001
+lr=0.01
 lr_decay=fixed
 dnn=gpt2
 
@@ -58,18 +59,18 @@ check_param_diversity=False
 nsteps_param_diversity=5
 nsteps_param_sync=20
 
-# gaussian_std=0.001
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
-
-# gaussian_std=0.01
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
-
-
-gaussian_std=0.1
+gaussian_std=0.001
 extra_name="nstd$gaussian_std"
 source fault_exps/launch.sh
+
+gaussian_std=0.01
+extra_name="nstd$gaussian_std"
+source fault_exps/launch.sh
+
+
+# gaussian_std=0.1
+# extra_name="nstd$gaussian_std"
+# source fault_exps/launch.sh
 
 
 
