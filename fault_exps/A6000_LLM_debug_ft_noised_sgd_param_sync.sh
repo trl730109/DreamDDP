@@ -9,19 +9,24 @@ gaussian_std=0.001
 optimizer_name=Adam
 lr=0.01
 lr_decay=fixed
-dnn=gpt2
+# dnn=gpt2
+dnn=llama2-7B
 # dnn=gpt2-custom
 dataset=wikitext2
 
 batch_size=4
 
 
-training_type="${training_type:-pretrain}"
-finetune_type="${finetune_type:-full}"
+# training_type="${training_type:-pretrain}"
+# finetune_type="${finetune_type:-full}"
+training_type="${training_type:-finetune}"
+finetune_type="${finetune_type:-lora}"
+
 peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
-
+load_pretrain=True
+# load_pretrain=False
 
 max_epochs=1
 

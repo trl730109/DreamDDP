@@ -29,6 +29,7 @@ case "$cluster_name" in
             "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
             # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
             "wikitext2") data_dir="/data2/share/zhtang/wikitext2" ;;
+            "tatsu-lab/alpaca") data_dir="/data2/share/zhtang/tatsu-lab/alpaca" ;;
             *) echo "No dataset matched" ;;
         esac
         case "$dnn" in
@@ -36,6 +37,7 @@ case "$cluster_name" in
             # "gpt2") model_dir="/mnt/raid/tangzichen/gpt2" ;;
             # "bert-base-uncased") model_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
             "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
+            "llama2-7B") model_dir="/data2/share/llama/Llama-2-7b-hf" ;;
             "llama2-124M") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
             *) echo "No DNN matched" ;;
         esac
@@ -44,14 +46,17 @@ case "$cluster_name" in
         case "$dataset" in
             "cifar10") data_dir="/data2/share/cifar10" ;;
             "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
-            "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            "wikitext2") data_dir="/data2/share/zhtang/wikitext2" ;;
             "tatsu-lab/alpaca") data_dir="/data2/share/zhtang/tatsu-lab/alpaca" ;;
             *) echo "No dataset matched" ;;
         esac
         case "$dnn" in
-            "gpt2") model_dir="/mnt/raid/tangzichen/gpt2" ;;
+            # "gpt2") model_dir="/mnt/raid/tangzichen/gpt2" ;;
+            # "gpt2") model_dir="/data2/share/zhtang/gpt2" ;;
+            "gpt2") model_dir="/data2/share/zhtang/newgpt2/gpt2" ;;
             "bert-base-uncased") model_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
-            "llama2-7B") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
+            "llama2-7B") model_dir="/data2/share/llama/Llama-2-7b-hf" ;;
             "llama2-124M") model_dir="/data2/share/zhtang/llama-2-7b-hf" ;;
             *) echo "No DNN matched" ;;
         esac
