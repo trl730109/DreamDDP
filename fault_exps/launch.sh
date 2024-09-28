@@ -68,7 +68,8 @@ nsteps_localsgd="${nsteps_localsgd:-20}"
 optimizer_name="${optimizer_name:-SGD}"
 sync="${sync:-avg}"
 alg="${alg:-sgd}"
-PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
+# PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
+
 GRADSPATH=./logs/tzc
 
 dataset="${dataset:-cifar10}"
