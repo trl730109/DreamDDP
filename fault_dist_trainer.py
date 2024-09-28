@@ -306,10 +306,14 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
     if rank != 0:
         pretrain = None
     if dnn in _llms:
-        trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name=optimizer_name, lr_decay='general',
+        trainer = LLMTrainer(rank, nworkers, localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, 
+                             ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, 
+                             prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name=optimizer_name, lr_decay=args.lr_decay,
                              args=args)
     else:
-        trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
+        trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, 
+                            data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, 
+                            pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
                             lr_decay='general')
     
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
@@ -462,12 +466,15 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
     if rank != 0:
         pretrain = None
     if dnn in _llms:
-        trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name=optimizer_name, lr_decay='general',
+        trainer = LLMTrainer(rank, nworkers, localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, 
+                             ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, 
+                             prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name=optimizer_name, lr_decay=args.lr_decay,
                              args=args)
     else:
-        trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
-                            lr_decay='general')
-    
+        trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, 
+                            data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, 
+                            pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
+                            lr_decay='general')    
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
     dist.broadcast(init_epoch, src=0)
@@ -735,12 +742,15 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
     if rank != 0:
         pretrain = None
     if dnn in _llms:
-        trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name=optimizer_name, lr_decay='general',
+        trainer = LLMTrainer(rank, nworkers, localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, 
+                             ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, 
+                             prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name=optimizer_name, lr_decay=args.lr_decay,
                              args=args)
     else:
-        trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
+        trainer = DLTrainer(rank, nworkers, optimizer_name=optimizer_name, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, 
+                            data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, 
+                            pretrain=pretrain, num_steps=num_steps, tb_writer=writer,
                             lr_decay='general')
-    
     init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
     init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
     dist.broadcast(init_epoch, src=0)

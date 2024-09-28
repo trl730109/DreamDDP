@@ -684,14 +684,14 @@ class LLMTrainer:
         tokenizer.pad_token = tokenizer.eos_token
 
         dataset = get_dataset(self.dataset, self.args.data_dir)
-        dataset = dataset.select(range(100))
-        train_test_split = dataset.train_test_split(test_size=0.2)
+        # dataset = dataset.select(range(100))
+        # train_test_split = dataset.train_test_split(test_size=0.2)
         # print(dataset)
         # exit()
         # dataset = dataset.remove_columns(['text'])
 
         # Split the dataset into train and test sets
-        # train_test_split = dataset.train_test_split(test_size=0.005)
+        train_test_split = dataset.train_test_split(test_size=0.005)
         train_dataset = train_test_split["train"]
         test_dataset = train_test_split["test"]
 
