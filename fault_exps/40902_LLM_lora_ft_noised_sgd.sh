@@ -90,21 +90,21 @@ do
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     # source fault_exps/launch.sh
 
-    gaussian_std=0.01
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
+    # gaussian_std=0.01
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch.sh
 
-    gaussian_std=0.1
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
+    # gaussian_std=0.1
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch.sh
 
     gaussian_std=1.0
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch.sh
 
-    # gaussian_std=10.0
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
+    gaussian_std=10.0
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch.sh
 
     # gaussian_std=100.0
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
