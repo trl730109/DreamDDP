@@ -1,0 +1,75 @@
+
+
+sgd-noiFalse-resnet18-SGD-lr0.1	l9e8lv4q
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001	bqpotgaf
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001	20qh9sdc
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01	fvz4m9uu
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1	4ulg0zsl
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0	id8neble
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5	hg1dh6wt
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP5	3w6hpski
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP5	u4vwdclx
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP5	fhrl0agb
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP5	405yw7ns
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	0yprgovf
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP10	eyiz046t
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP10	qg6ztcfw
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP10	rhzigbpx
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP10	shjaq05n
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50	hgickwsf
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP50	b178pgbd
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP50	y0iwspxl
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP50	cg7l8rwi
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP50	v16n8u80
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP100	jrvt4f5h
+
+
+
+
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP100	3f8q5hmh
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP100	bjupi4ih
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP100	fzjevwvk
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP100	ooewfl95
+detect base	
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP100	3fjiv1e1
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP100	q207bqfz
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP100	iohhnyot
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP100	5fkl5x9n
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP100	314fn4s8
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

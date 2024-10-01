@@ -1,0 +1,59 @@
+#Res18
+0.1
+sgd-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-	4okbu1kk
+
+
+1.0
+sgd-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-	egqsg78n
+
+fix
+0.1 
+sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5	zppeqg6s
+sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50	gqlq6yjt
+sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	vt91s6yg
+
+
+1.0
+sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50	q9sa9h4j
+sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	5m3ieefc
+sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5	djzds6cs
+
+
+
+
+sync
+0.1
+sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	j6dudqku
+1.0
+sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	wmd0n193
+
+
+
+
+
+
+#resnet50
+
+
+sgd_with_sync-noiTrue-tburst-resnet50-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5	yauh9sux
+
+
+sync
+
+1.0
+sgd_with_sync-noiTrue-tburst-resnet50-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	cnza54kf
+0.1
+sgd_with_sync-noiTrue-tburst-resnet50-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	bpr6sgq5
+
+
+
+
+
+
+
+
+
+
+
+
+

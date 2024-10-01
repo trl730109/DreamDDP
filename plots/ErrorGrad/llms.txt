@@ -1,0 +1,96 @@
+sgd-noiFalse-gpt2-nw4-Adam-LG20-lr0.0001-bs4-	xft2xruq
+sgd-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd0.0001	zukofjp8
+sgd-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd0.001	fjosqy3h
+sgd-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd0.01	yqpdcorc
+sgd-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd0.1	04z43sq1
+sgd-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd1.0	uy6wjyu9
+detect base	
+sgd_with_sync-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP5	0tswuzpb
+sgd_with_sync-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP5	k96uv8jp
+sgd_with_sync-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP5	s59c3f42
+sgd_with_sync-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP5	6expnfrl
+sgd_with_sync-noiTrue-gpt2-nw4-Adam-LG20-lr0.0001-bs4-nstd1.0-SyncP5	difaxre4
+
+
+
+sgd-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd0.0001	eba5bwbs
+sgd-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd0.001	efd47rtf
+sgd-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd0.01	w6f79of0
+sgd-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd0.1	9m88lutr
+sgd-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd1.0	p600kp0j
+sgd-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd1.0	p600kp0j
+detect base	
+sgd_with_sync-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP5	nhzbsgrc
+sgd_with_sync-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP5	4eqxbcy0
+sgd_with_sync-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP5	6tbb6bp1
+sgd_with_sync-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP5	giwleqk4
+sgd_with_sync-noiTrue-llama2-124M-nw4-Adam-LG20-lr0.0001-bs4-nstd1.0-SyncP5	hd1qctr1
+
+
+
+
+
+sgd-noiFalse-gpt2-nw32-Adam-LG20-lr0.0001-bs4-	lbtauptr
+sgd-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001	dbb0gc7e
+sgd-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001	kzexx8o6
+sgd-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01	b9280ied
+sgd-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1	7e7n1evq
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP5	s5ed7suw
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP5	s6jejn2b
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP5	xrdmo233
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP5	mdqdwypy
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP10	zfk898vp
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP10	isy3tm8h
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP10	7wcl0u65
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP10	ujbsm3fx
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP50	h7qzl9ce
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP50	uqggt7fm
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP50	mgti9cto
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP50	bjozaymd
+detect base	
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP5	odq7j5fe
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP5	sdtom9ym
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP5	yfdfwmdb
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP5	rmuqmkgb
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP10	04s94t91
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP10	mjecl21w
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP10	mg04r0y3
+sgd_with_sync-noiTrue-gpt2-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP10	avit7g91
+
+
+
+
+
+sgd-noiFalse-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-	cxpfp7dk
+sgd-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001	5ht9cujw
+sgd-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001	7id0m4lc
+sgd-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01	y11tur6o
+sgd-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1	wjse25ac
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP5	8zxnds8g
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP5	sgnv5bj5
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP5	ipfhnlpg
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP5	nvrodd4o
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP10	z7g7ko4r
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP10	cd02g5j3
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP10	kl9y82j9
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP10	vbg4hh40
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP50	c4u9z5zm
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.001-SyncP50	bh6hng4o
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.01-SyncP50	o2wxf3dj
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.1-SyncP50	ewv7bz3t
+detect base	
+sgd_with_sync-noiTrue-llama2-124M-nw32-Adam-LG20-lr0.0001-bs4-nstd0.0001-SyncP10	mmv4m166
+
+
+
+
+
+
+
+
+
+
+
+
+
+
