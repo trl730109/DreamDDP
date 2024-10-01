@@ -171,138 +171,6 @@ def plot_trainloss_lines(
     # plt.show()
 
 
-def plot_dual_axis_trainloss(
-    datas,
-    color_map,
-    markers,
-    linestyles,
-    label_list,
-    x_lim,
-    y_lim,
-    x_label,
-    y_label,
-    legend_config,
-    subplots_adjust,
-    file_name,
-    secondary_y_data=None,  # Data for the secondary y-axis
-    secondary_y_label=None,  # Label for the secondary y-axis
-    secondary_y_lim=None,  # Limits for the secondary y-axis
-    secondary_label_list=None,  # Label for the secondary y-axis
-    secondary_color_map=None,  # Color map for the secondary y-axis
-    **kwargs,
-):
-    fig, ax1 = plt.subplots(figsize=(3.5, 2.38))
-    fontsize = 8
-    linewidth = 1.0
-    markersize = 3
-
-    ax1.set_xlabel(x_label)
-    ax1.set_ylabel(y_label)
-    plt.subplots_adjust(**subplots_adjust)
-
-    # Plot data on the primary y-axis (left)
-    for i, data in enumerate(datas):
-        plot_kwargs = {}
-        if linestyles is not None:
-            plot_kwargs["linestyle"] = "-"
-        if markers is not None:
-            plot_kwargs["marker"] = markers[i]
-        if color_map is not None:
-            plot_kwargs["color"] = color_map[i % len(label_list)]
-
-        ax1.plot(
-            data["x"],
-            data["y"],
-            label=label_list[i],
-            linewidth=linewidth,
-            markerfacecolor="none",
-            markersize=markersize,
-            markevery=10,
-            **plot_kwargs,
-        )
-
-    # secondary (right) y-axis
-    if secondary_y_data is not None:
-        ax2 = ax1.twinx()
-        ax2.set_ylabel(secondary_y_label)
-        for i, data in enumerate(secondary_y_data):
-            plot_kwargs = {}
-            if linestyles is not None:
-                plot_kwargs["linestyle"] = "--"
-            if markers is not None:
-                plot_kwargs["marker"] = markers[i]
-            if secondary_color_map is not None:
-                plot_kwargs["color"] = secondary_color_map[i % len(label_list)]
-
-            # trasparent to make it easier to see the primary y-axis data
-
-            ax2.plot(
-                data["x"],
-                data["y"],
-                label=secondary_label_list[i],
-                linewidth=linewidth,
-                markerfacecolor="none",
-                markersize=markersize,
-                markevery=10,
-                alpha=0.5,
-                **plot_kwargs,
-            )
-
-        if secondary_y_lim is not None:
-            if isinstance(secondary_y_lim, list):
-                ax2.set_ylim(secondary_y_lim[0], secondary_y_lim[1])
-            else:
-                ax2.set_ylim(0, secondary_y_lim)
-
-    if x_lim is not None:
-        if isinstance(x_lim, list):
-            ax1.set_xlim(x_lim[0], x_lim[1])
-        else:
-            ax1.set_xlim(0, x_lim)
-
-    if y_lim is not None:
-        if isinstance(y_lim, list):
-            ax1.set_ylim(y_lim[0], y_lim[1])
-        else:
-            ax1.set_ylim(0, y_lim)
-
-    if kwargs.get("log_x", False):
-        ax1.set_xscale("log")
-
-    ax1.grid(linestyle=":")
-
-    # Combine legends from both axes
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    if secondary_y_data is not None:
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        lines = lines1 + lines2
-        labels = labels1 + labels2
-    else:
-        lines, labels = lines1, labels1
-
-    ax1.legend(
-        lines,
-        labels,
-        fontsize=fontsize,
-        loc="best",
-        ncol=2,
-        labelspacing=0.5,
-        columnspacing=0.5,
-        handletextpad=0.5,
-    )
-
-    leg = ax1.get_legend()
-    for line in leg.get_lines():
-        plt.setp(line, linewidth=2.0)
-
-    update_fontsize(ax1, fontsize)
-    if secondary_y_data is not None:
-        update_fontsize(ax2, fontsize)
-
-    plt.tight_layout()
-    plt.savefig(file_name, dpi=300, bbox_inches="tight")
-
-
 def update_fontsize(ax, fontsize):
     for item in (
         [ax.title, ax.xaxis.label, ax.yaxis.label]
@@ -311,86 +179,6 @@ def update_fontsize(ax, fontsize):
     ):
         item.set_fontsize(fontsize)
 
-
-def run_test():
-    CIFAR10_RES = "CIFAR10_RES"
-    build_run(
-        "hpml-hkbu/DDP-Train/ddlvt4ws",
-        CIFAR10_RES,
-        {"": ""},
-        "sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001",
-    )
-
-    simple_name = "cifar10_ResNet18"
-    markers = [None] * 10
-    linestyles = [None] * 10
-    # markers = ['o']*2 + ['v']*2 + ['D']*2
-    linestyles = ["-"] * 2 + ["--"] * 2 + [":"] * 2
-    color_map = [
-        "#990033",
-        "#084081",
-        "#006633",
-        "#3f007d",
-        "#336666",
-        "#663366",
-        # "#336699",
-        # "#663300",
-        # "#F89933",
-    ]
-    linestyles = [
-        "-",
-        "--",
-        "-",
-        "--",
-        "-",
-        "--",
-    ]
-    # color_map = [
-    #     "#006633", "#006633", "#990033", "#990033",
-    # ]
-    # color_map = [
-    #     "#084081",
-    #     "#084081",
-    #     "#000000",
-    # ]
-    legend_config = dict(fontsize=10, loc="lower right", ncol=2)
-    subplots_adjust = dict(bottom=0.18, left=0.18, right=0.98, top=0.98)
-
-    # label_list = ["FedAvg", "FedProx"]
-    # label_list = [r"$E=10 \ a=10$", r"$E=1 \ a=10$", r"$E=10 \ a=0.1$", r"$E=1 \ a=0.1$"]
-    label_list = ["WO. Noise", "W. Noise", "W. Noise and PSync"]
-
-    y_label = "Test Accuracy (%)"
-    # EPOCHS = "epochs"
-
-    metrics, rounds = load_datas(VAL_ACC, EPOCHS, all_figures[CIFAR10_RES])
-    filter_none(metrics, rounds)
-    datas = []
-    i = 1
-    for alias in all_figures[CIFAR10_RES]:
-        filter = rounds[alias] < 800
-        x = rounds[alias][filter]
-        y = metrics[alias][filter] * 100
-        datas.append({"x": x, "y": y})
-
-    file_name = f"{VAL_ACC}_{simple_name}.pdf"
-    plot_trainloss_lines(
-        datas,
-        color_map=color_map,
-        markers=markers,
-        linestyles=linestyles,
-        label_list=label_list,
-        x_lim=None,
-        y_lim=None,
-        x_label="# Epochs",
-        y_label=y_label,
-        legend_config=legend_config,
-        subplots_adjust=subplots_adjust,
-        file_name=file_name,
-    )
-
-    for l in range(1, 5):
-        print(f"diver/layer{l}.1.conv1.weight")
 
 
 def run_convergence_vs_worker_modeltype(worker, model):
@@ -736,6 +524,7 @@ def run_convergence_vs_worker_modeltype(worker, model):
     # markers = ['o']*2 + ['v']*2 + ['D']*2
     # linestyles = ["-"] * 2 + ["--"] * 2 + [":"] * 3
     # linestyles = ["-", "--", "-", "--", "-", "--", "-"]
+    linestyles = ["-", "--", "--", "--", "-", "-", "-"]
     color_map = [
         "#084081",
         "#fbb4ae",
@@ -816,7 +605,8 @@ if __name__ == "__main__":
     # run_fig5_b_dual_y()
 
     WORKERS = [4, 32]
-    MODELS = ["resnet18", "resnet50", "gpt2"]
+    # MODELS = ["resnet18", "resnet50", "gpt2"]
+    MODELS = ["resnet18", "resnet50"]
     # , "llama2"]
 
     for worker in WORKERS:

@@ -1,5 +1,5 @@
 from __future__ import print_function
-# from msilib.schema import Font
+from audioop import avg
 import os
 from re import T
 import sys
@@ -8,6 +8,7 @@ import time
 import copy
 import datetime
 import itertools
+from scipy.ndimage import gaussian_filter1d
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -17,24 +18,24 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import ScalarFormatter
 
 import platform
+
 sysstr = platform.system()
-if ("Windows" in sysstr):
+if "Windows" in sysstr:
     matplotlib.use("TkAgg")
-    print ("On Windows, matplotlib use TkAgg")
+    print("On Windows, matplotlib use TkAgg")
 else:
     matplotlib.use("Agg")
-    print ("On Windows, matplotlib use Agg")
+    print("On Windows, matplotlib use Agg")
 
 
 import numpy as np
 
-from pandas import Series,DataFrame
+from pandas import Series, DataFrame
 import pandas as pd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../../")))
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../")))
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../")))
-
 
 
 from utils.plot_util import (
@@ -43,20 +44,19 @@ from utils.plot_util import (
     draw_ax_legend,
     hex_to_rgb,
     rgb_to_hex,
-    rgb_scale
+    rgb_scale,
 )
 from utils.experiment_util import (
     combine_config,
     get_summary_name,
-    get_same_alias_metric_things
+    get_same_alias_metric_things,
 )
 
 from utils.common import *
 from utils.plot_basic import *
 from get_results import *
 
-OUTPUTPATH='./'
-
+OUTPUTPATH = "./"
 
 
 max_round_dict = {
@@ -171,6 +171,7 @@ def plot_trainloss_lines(
     plt.savefig(file_name, dpi=300, bbox_inches="tight")
     # plt.show()
 
+
 def update_fontsize(ax, fontsize):
     for item in (
         [ax.title, ax.xaxis.label, ax.yaxis.label]
@@ -181,95 +182,111 @@ def update_fontsize(ax, fontsize):
 
 
 
+def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset="cifar10"):
+    CIFAR10_RES = f"acc_{worker}workers_{model}_{dataset}"
+    simple_name = f"{model}-{dataset}-{worker}workers-convergence"
 
-
-def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise_level):
-    CIFAR10_RES18 = f"acc_{worker}workers_{model}_noi{noise_level}"
-    if model == "resnet18":
-        if noise_level == "0.1":
-            build_run("hpml-hkbu/DDP-Train/l9e8lv4q", CIFAR10_RES18,
-            {"": ""}, "sgd-noiFalse-resnet18-SGD-lr0.1")
-            build_run("hpml-hkbu/DDP-Train/4okbu1kk", CIFAR10_RES18,
-            {"": ""}, "sgd-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-0.1burst")
-            build_run("hpml-hkbu/DDP-Train/zppeqg6s", CIFAR10_RES18,
-            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5-fix-0.1burst")
-            build_run("hpml-hkbu/DDP-Train/vt91s6yg", CIFAR10_RES18,
-            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-fix-0.1burst")
-            build_run("hpml-hkbu/DDP-Train/gqlq6yjt", CIFAR10_RES18,
-            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50-fix-0.1burst")
-            build_run("hpml-hkbu/DDP-Train/j6dudqku", CIFAR10_RES18,
-            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-sync-0.1burst")
-        elif noise_level == "1.0":
-            build_run("hpml-hkbu/DDP-Train/l9e8lv4q", CIFAR10_RES18,
-            {"": ""}, "sgd-noiFalse-resnet18-SGD-lr0.1")
-            build_run("hpml-hkbu/DDP-Train/egqsg78n", CIFAR10_RES18,
-            {"": ""}, "sgd-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-1.0burst")
-            build_run("hpml-hkbu/DDP-Train/djzds6cs", CIFAR10_RES18,
-            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5-fix-1.0burst")
-            build_run("hpml-hkbu/DDP-Train/5m3ieefc", CIFAR10_RES18,
-            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-fix-1.0burst")
-            build_run("hpml-hkbu/DDP-Train/q9sa9h4j", CIFAR10_RES18,
-            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50-fix-1.0burst")
-            build_run("hpml-hkbu/DDP-Train/wmd0n193", CIFAR10_RES18,
-            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-sync-1.0burst")
+    if model == "llama2":
+        if dataset == "openwebtext":
+            return
+        elif dataset == "alpaca":
+            return
         else:
             return
+    elif model == "gpt2":
+        if dataset == "openwebtext":
+            build_run("hpml-hkbu/DDP-Train/9ox70zlh", CIFAR10_RES,
+            {"": ""}, "sgd-noifalse-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-1Nodes")
+            build_run("hpml-hkbu/DDP-Train/swkgf28w", CIFAR10_RES,
+            {"": ""}, "sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001")
+            build_run("hpml-hkbu/DDP-Train/1c6h68fw", CIFAR10_RES,
+            {"": ""}, "sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001")
+            build_run("hpml-hkbu/DDP-Train/6vu5pv6t", CIFAR10_RES,
+            {"": ""}, "sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01")
+            build_run("hpml-hkbu/DDP-Train/f6kkx5zd", CIFAR10_RES,
+            {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP51")
+            build_run("hpml-hkbu/DDP-Train/wcldqi3y", CIFAR10_RES,
+            {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001-SyncP51")
+            build_run("hpml-hkbu/DDP-Train/2ft0pq1m", CIFAR10_RES,
+            {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01-SyncP51")
+            Y_LIMIT = (4.8, 8.0)
+        elif dataset == "alpaca":
+            return
+        else:
+            raise NotImplementedError
     else:
-        return
+        raise NotImplementedError
 
 
 
-    simple_name = f"burst-cifar10_{model}_{worker}workers-nstd{noise_level}-convergence_vH"
     markers = [None] * 7
     linestyles = [None] * 7
     # markers = ['o']*2 + ['v']*2 + ['D']*2
     # linestyles = ["-"] * 2 + ["--"] * 2 + [":"] * 3
-    linestyles = ["-", "-", ":", "--", "-", "-", "-"]
+    # linestyles = ["-", "--", "-", "--", "-", "--", "-"]
     color_map = [
         "#084081",
+        "#fbb4ae",
         "#ff7f00",
-        "#80cdc1",
-        "#80cdc1",
-        "#80cdc1",
+        "#990033",
+        "#a1d99b",
         "#41ab5d",
+        "#006633",
+        # "#3f007d",
+        # "#F89933",
+        # "#663366",
+        # "#663300",
     ]
-    legend_config = dict(fontsize=6, loc="lower right", ncol=2)
+    legend_config = dict(fontsize=6, loc="upper right", ncol=2)
     subplots_adjust = dict(bottom=0.18, left=0.18, right=0.98, top=0.98)
 
     label_list = [
         "Oracle",
-        r"W. Noise",
-        r"PAFT-Sync $H=5$",
-        r"PAFT-Sync $H=10$",
-        r"PAFT-Sync $H=50$",
-        r"PAFT",
+        r"$\sigma^2=0.0001$",
+        r"$\sigma^2=0.001$",
+        r"$\sigma^2=0.01$",
+        r"PAFT $\sigma^2=0.0001$",
+        r"PAFT $\sigma^2=0.001$",
+        r"PAFT $\sigma^2=0.01$",
     ]
+    print(f"len(color_map): {len(color_map)}")
 
 
-    y_label = "Test Accuracy (%)"
+    # y_label = "Train Loss (%)"
+    y_label = "Train Loss"
     # EPOCHS = "epochs"
 
     if model == "gpt2" or model == "llama2":
-        VAL_ACC_2 = "train_loss"
-        X_LIMIT = 1000
+        # VAL_ACC_2 = "train_loss"
+        VAL_ACC_2 = TRAIN_GLOBAL_ITER_LOSS
+        X_LIMIT = 3000
         EPOCHS_2 = ITERS
     else:
         VAL_ACC_2 = VAL_ACC
-        EPOCHS_2 = EPOCHS
         X_LIMIT = 110
+        EPOCHS_2 = EPOCHS
 
-    metrics, rounds = load_datas(VAL_ACC_2, EPOCHS_2, all_figures[CIFAR10_RES18])
+    metrics, rounds = load_datas(VAL_ACC_2, EPOCHS_2, all_figures[CIFAR10_RES])
     filter_none(metrics, rounds)
 
     datas = []
     i = 1
-    for alias in all_figures[CIFAR10_RES18]:
+    for alias in all_figures[CIFAR10_RES]:
         filter = rounds[alias] < 10000
         x = rounds[alias][filter]
-        y = metrics[alias][filter] * 100
-        datas.append({"x": x, "y": y})
+        y = metrics[alias][filter]
+        y_smoothed = gaussian_filter1d(y, sigma=2.0)
+        # datas.append({"x": x, "y": y_smoothed})
+
+        # Down-sample the data points
+        downsample_rate = 10  # Adjust this value as needed
+        x_downsampled = x[::downsample_rate]
+        y_downsampled = y_smoothed[::downsample_rate]
+        datas.append({"x": x_downsampled, "y": y_downsampled})
 
     file_name = f"{VAL_ACC_2}_{simple_name}.pdf"
+
+    print(f"save to: {file_name}")
 
     plot_trainloss_lines(
         datas,
@@ -278,34 +295,39 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise_level):
         linestyles=linestyles,
         label_list=label_list,
         x_lim=X_LIMIT,
-        y_lim=None,
-        x_label="# EPOCHS",
+        y_lim=Y_LIMIT,
+        x_label="# Iters",
         y_label=y_label,
         legend_config=legend_config,
         subplots_adjust=subplots_adjust,
         file_name=file_name,
     )
 
+# if __name__ == "__main__":
+#     WORKERS = [8]
+
+#     # WORKERS = [4, 32]
+#     MODELS = ["gpt2"]
+
+#     noise_list = ["0.0001", "0.001", "0.01", "0.1"]
+
+#     run_convergence_vs_worker_modeltype(8, "gpt2")
+
+#     # for worker in WORKERS:
+#     #     for model in MODELS:
+#     #         run_convergence_vs_worker_modeltype_fixed_noise(worker, model)
 
 
 
-
-if __name__ == '__main__':
-
-    CIFAR10_RES18 = "CIFAR10_RES18"
-
-
+if __name__ == "__main__":
     WORKERS = [8]
-    MODELS = ["resnet18"]
-    noise_level = ["0.1", "1.0"]
+    MODELS = ["gpt2"]
+    datasets = ["openwebtext", "alpaca"]
 
     for worker in WORKERS:
         for model in MODELS:
-            for noise in noise_level:
-                run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise)
-
-
-
+            for dataset in datasets:
+                run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset)
 
 
 

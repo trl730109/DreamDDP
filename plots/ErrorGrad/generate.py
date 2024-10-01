@@ -1,9 +1,12 @@
 # 定义要读取的文件名
-# filename = 'files.txt'
-# filename = 'llms.txt'
-filename = 'burst.txt'
-# filename = 'all_cv.txt'
-# filename = 'LLM-sgd.txt'
+# filename = 'files'
+# filename = 'llms'
+# filename = 'gpt_openwebtext_pretrain'
+filename = 'burst'
+# filename = 'all_cv'
+# filename = 'LLM-sgd'
+
+txt_fileanme = f"{filename}.txt"
 
 
 # 创建一个空列表，用来存储结果
@@ -15,7 +18,7 @@ result = []
 
 new_py_codes = []
 # 读取文件
-with open(filename, 'r', encoding='utf-8') as file:
+with open(txt_fileanme, 'r', encoding='utf-8') as file:
     # 遍历每一行
     for line in file:
         # 去掉行首尾的空白符并分割成两个部分
@@ -35,7 +38,7 @@ print(result)
 
 
 # 将列表保存到 txt 文件
-with open('burst.py', 'w') as file:
+with open(f'{filename}.py', 'w') as file:
     for item in new_py_codes:
         file.write(f"{item}\n")  # 每个元素写在一行
 

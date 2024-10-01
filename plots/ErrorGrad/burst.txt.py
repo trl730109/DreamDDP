@@ -24,7 +24,3 @@ build_run("hpml-hkbu/DDP-Train/cnza54kf", CIFAR10_RES18,
 {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet50-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10")
 build_run("hpml-hkbu/DDP-Train/bpr6sgq5", CIFAR10_RES18,
 {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet50-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10")
-
-
-
-
