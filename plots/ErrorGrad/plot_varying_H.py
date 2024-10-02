@@ -395,7 +395,7 @@ def run_test():
 
 
 
-def run_convergence_vs_worker_modeltype_fixed_noise(worker, model):
+def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise_degree="small"):
     CIFAR10_RES18 = f"acc_{worker}workers_{model}"
 
     if model == "resnet18":

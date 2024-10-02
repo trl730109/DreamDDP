@@ -182,42 +182,7 @@ def update_fontsize(ax, fontsize):
 
 
 
-def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset="cifar10"):
-    CIFAR10_RES = f"acc_{worker}workers_{model}_{dataset}"
-    simple_name = f"{model}-{dataset}-{worker}workers-convergence"
-
-    if model == "llama2":
-        if dataset == "openwebtext":
-            return
-        elif dataset == "alpaca":
-            return
-        else:
-            return
-    elif model == "gpt2":
-        if dataset == "openwebtext":
-            build_run("hpml-hkbu/DDP-Train/9ox70zlh", CIFAR10_RES,
-            {"": ""}, "sgd-noifalse-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-1Nodes")
-            build_run("hpml-hkbu/DDP-Train/swkgf28w", CIFAR10_RES,
-            {"": ""}, "sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001")
-            build_run("hpml-hkbu/DDP-Train/1c6h68fw", CIFAR10_RES,
-            {"": ""}, "sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001")
-            build_run("hpml-hkbu/DDP-Train/6vu5pv6t", CIFAR10_RES,
-            {"": ""}, "sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01")
-            build_run("hpml-hkbu/DDP-Train/f6kkx5zd", CIFAR10_RES,
-            {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP51")
-            build_run("hpml-hkbu/DDP-Train/wcldqi3y", CIFAR10_RES,
-            {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001-SyncP51")
-            build_run("hpml-hkbu/DDP-Train/2ft0pq1m", CIFAR10_RES,
-            {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01-SyncP51")
-            Y_LIMIT = (4.8, 8.0)
-        elif dataset == "alpaca":
-            return
-        else:
-            raise NotImplementedError
-    else:
-        raise NotImplementedError
-
-
+def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset="cifar10", noise_degree="small"):
 
     markers = [None] * 7
     linestyles = [None] * 7
@@ -226,11 +191,8 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset="cifa
     # linestyles = ["-", "--", "-", "--", "-", "--", "-"]
     color_map = [
         "#084081",
-        "#fbb4ae",
-        "#ff7f00",
         "#990033",
         "#a1d99b",
-        "#41ab5d",
         "#006633",
         # "#3f007d",
         # "#F89933",
@@ -243,13 +205,74 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset="cifa
     label_list = [
         "Oracle",
         r"$\sigma^2=0.0001$",
-        r"$\sigma^2=0.001$",
-        r"$\sigma^2=0.01$",
-        r"PAFT $\sigma^2=0.0001$",
-        r"PAFT $\sigma^2=0.001$",
-        r"PAFT $\sigma^2=0.01$",
+        r"PAFT Sync. Model",
+        r"PAFT Sync. All",
     ]
     print(f"len(color_map): {len(color_map)}")
+
+    if noise_degree == "small":
+        CIFAR10_RES = f"acc_{worker}workers_{model}_{dataset}"
+        simple_name = f"compare-sync-{model}-{dataset}-{worker}workers-convergence"
+        sigma = 2.0
+        if model == "llama2":
+            if dataset == "openwebtext":
+                return
+            elif dataset == "alpaca":
+                return
+            else:
+                return
+        elif model == "gpt2":
+            if dataset == "openwebtext":
+                build_run("hpml-hkbu/DDP-Train/9ox70zlh", CIFAR10_RES,
+                {"": ""}, "sgd-noifalse-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-1Nodes")
+                build_run("hpml-hkbu/DDP-Train/swkgf28w", CIFAR10_RES,
+                {"": ""}, "sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001")
+                build_run("hpml-hkbu/DDP-Train/f6kkx5zd", CIFAR10_RES,
+                {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP51")
+                build_run("hpml-hkbu/DDP-Train/92aizpbc", CIFAR10_RES,
+                {"": ""}, "sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP5-detech")
+
+                X_LIMIT = 3000
+                Y_LIMIT = (4.8, 6.5)
+            elif dataset == "alpaca":
+
+                label_list = [
+                    "Oracle",
+                    r"$\sigma^2=0.001$",
+                    r"PAFT Sync. Model",
+                    r"PAFT Sync. All",
+                ]
+
+                # build_run("hpml-hkbu/DDP-Train/s7pehfbb", CIFAR10_RES,
+                # {"": ""}, "sgd-noiFalse-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.01-SyncP5")
+                # build_run("hpml-hkbu/DDP-Train/yrjrd26u", CIFAR10_RES,
+                # {"": ""}, "sgd-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP5")
+                # build_run("hpml-hkbu/DDP-Train/zdpdzw77", CIFAR10_RES,
+                # {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP5")
+                # build_run("hpml-hkbu/DDP-Train/sv4glz1f", CIFAR10_RES,
+                # {"": ""}, "sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP5")
+                build_run("hpml-hkbu/DDP-Train/s7pehfbb", CIFAR10_RES,
+                {"": ""}, "sgd-noiFalse-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.01-SyncP5")
+                build_run("hpml-hkbu/DDP-Train/138xfu4s", CIFAR10_RES,
+                {"": ""}, "sgd-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP5")
+                build_run("hpml-hkbu/DDP-Train/e62vdsra", CIFAR10_RES,
+                {"": ""}, "sgd_with_sync-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP5")
+                build_run("hpml-hkbu/DDP-Train/v85d0g46", CIFAR10_RES,
+                {"": ""}, "sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP5")
+                X_LIMIT = 1500
+                Y_LIMIT = (0.35, 0.5)
+                sigma = 12.0
+            else:
+                return
+        else:
+            return
+    elif noise_degree == "large":
+        return
+    else:
+        raise NotImplementedError
+
+
+
 
 
     # y_label = "Train Loss (%)"
@@ -259,7 +282,6 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset="cifa
     if model == "gpt2" or model == "llama2":
         # VAL_ACC_2 = "train_loss"
         VAL_ACC_2 = TRAIN_GLOBAL_ITER_LOSS
-        X_LIMIT = 3000
         EPOCHS_2 = ITERS
     else:
         VAL_ACC_2 = VAL_ACC
@@ -275,7 +297,7 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset="cifa
         filter = rounds[alias] < 10000
         x = rounds[alias][filter]
         y = metrics[alias][filter]
-        y_smoothed = gaussian_filter1d(y, sigma=2.0)
+        y_smoothed = gaussian_filter1d(y, sigma=sigma)
         # datas.append({"x": x, "y": y_smoothed})
 
         # Down-sample the data points
@@ -303,31 +325,19 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset="cifa
         file_name=file_name,
     )
 
-# if __name__ == "__main__":
-#     WORKERS = [8]
-
-#     # WORKERS = [4, 32]
-#     MODELS = ["gpt2"]
-
-#     noise_list = ["0.0001", "0.001", "0.01", "0.1"]
-
-#     run_convergence_vs_worker_modeltype(8, "gpt2")
-
-#     # for worker in WORKERS:
-#     #     for model in MODELS:
-#     #         run_convergence_vs_worker_modeltype_fixed_noise(worker, model)
-
 
 
 if __name__ == "__main__":
     WORKERS = [8]
-    MODELS = ["gpt2"]
+    MODELS = ["gpt2", "llama2"]
+    # MODELS = ["llama2"]
     datasets = ["openwebtext", "alpaca"]
 
     for worker in WORKERS:
         for model in MODELS:
             for dataset in datasets:
-                run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset)
+                # run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset, noise_degree="large")
+                run_convergence_vs_worker_modeltype_fixed_noise(worker, model, dataset, noise_degree="small")
 
 
 

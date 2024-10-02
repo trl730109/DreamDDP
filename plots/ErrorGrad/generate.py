@@ -5,6 +5,10 @@
 filename = 'burst'
 # filename = 'all_cv'
 # filename = 'LLM-sgd'
+filename = 'gpt2-lora-alpaca'
+# filename = 'llama2-lora'
+filename = 'resnet50_sync_all'
+
 
 txt_fileanme = f"{filename}.txt"
 
