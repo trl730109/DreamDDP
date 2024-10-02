@@ -1,12 +1,37 @@
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer, AdamW
+from transformers import (BertConfig, 
+                          GPT2Config, 
+                          LlamaConfig,
+                          BertForSequenceClassification, 
+                          GPT2LMHeadModel, 
+                          Trainer, 
+                          TrainingArguments, 
+                          DataCollatorForLanguageModeling, 
+                          DataCollatorWithPadding,
+                          DataCollatorForSeq2Seq,
+                          CONFIG_MAPPING,
+                          MODEL_MAPPING,
+                          AutoConfig,
+                          AutoModel,
+                          AutoModelForCausalLM,
+                          AutoTokenizer,
+                          GPT2Tokenizer,
+                          SchedulerType,
+                          default_data_collator,
+                          get_scheduler,)
+from transformers import HfArgumentParser, BitsAndBytesConfig
 from datasets import load_dataset
 import json
 
 # Load dataset
 dataset = load_dataset('wikitext', 'wikitext-2-raw-v1')
 tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-model = GPT2LMHeadModel.from_pretrained('gpt2')
+tokenizer.pad_token = tokenizer.eos_token
+
+config = GPT2Config.from_pretrained("openai-community/gpt2")
+model = AutoModelForCausalLM.from_config(config)
+# model = GPT2LMHeadModel.from_pretrained('gpt2')
 model = model.cuda()
 
 # Tokenize dataset
@@ -17,7 +42,7 @@ tokenized_datasets = dataset.map(tokenize_function, batched=True, remove_columns
 train_dataset = tokenized_datasets['train']
 
 # DataLoader
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, shuffle=True)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True)
 
 # Optimizer
 optimizer = AdamW(model.parameters(), lr=5e-5)
@@ -29,13 +54,14 @@ def train(model, train_loader, optimizer, iterations):
     for i, batch in enumerate(train_loader):
         if i > iterations:
             break
-        inputs = batch['input_ids'].squeeze().cuda()
-        labels = batch['input_ids'].squeeze().cuda()
+        # inputs = batch['input_ids'].squeeze().cuda()
+        # labels = batch['input_ids'].squeeze().cuda()
         optimizer.zero_grad()
-        outputs = model(inputs, labels=labels)
+        # outputs = model(inputs, labels=labels)
+        outputs = model(**batch)
         loss = outputs.loss
         loss.backward()
-
+        print(f'{i} loss: {loss.item()}')
         # Obtain gradient magnitudes at specified iterations
         if i in [10, 50, 100]:
             for name, param in model.named_parameters():

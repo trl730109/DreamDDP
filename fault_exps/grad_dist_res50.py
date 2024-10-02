@@ -12,7 +12,8 @@ transform = transforms.Compose([
     transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
 ])
 
-trainset = datasets.CIFAR100(root='./data', train=True, download=True, transform=transform)
+# trainset = datasets.CIFAR100(root='./data', train=True, download=True, transform=transform)
+trainset = datasets.CIFAR100(root='/data2/share/zhtang/cifar100', train=True, download=False, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
 
 # Model setup
@@ -34,20 +35,26 @@ def train(model, trainloader, criterion, optimizer, iterations):
         loss = criterion(outputs, targets)
         loss.backward()
 
-        # Obtain gradient magnitudes at specified iterations
+        # Obtain gradients at specified iterations
         if i in [10, 50, 100]:
             for name, param in model.named_parameters():
                 if 'layer1.0.conv1.weight' in name or 'layer2.0.conv1.weight' in name:
-                    grad_magnitude = param.grad.data.norm(2).item()
-                    grad_magnitudes[i][name] = grad_magnitude
+                    grad_magnitudes[i][name] = param.grad.data.clone()
 
         optimizer.step()
 
-    # Save gradient magnitudes to a file
-    with open('resnet50_gradients.json', 'w') as f:
-        json.dump(grad_magnitudes, f)
+    # Save gradients to a file
+    torch.save(grad_magnitudes, 'resnet50_gradients.pth')
 
 train(model, trainloader, criterion, optimizer, iterations=100)
+
+
+
+
+
+
+
+
 
 
 
