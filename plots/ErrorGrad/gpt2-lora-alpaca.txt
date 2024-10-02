@@ -1,0 +1,52 @@
+
+sgd-noiFalse-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.01-SyncP5	s7pehfbb
+
+
+
+sgd-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP5	yrjrd26u
+sgd-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP5	138xfu4s
+sgd-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.01-SyncP5	8bk5ni75
+sgd-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.1-SyncP5	zark4z34
+sgd-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd1.0-SyncP5	lgo7mnkc
+
+
+DetectBase
+sgd_with_sync-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP5	zdpdzw77
+sgd_with_sync-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP5	e62vdsra
+sgd_with_sync-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.01-SyncP5	n3nh8428
+sgd_with_sync-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.1-SyncP5	rf0c6lvk
+sgd_with_sync-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd1.0-SyncP5	vb9u3amd
+
+
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP5	sv4glz1f
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP5	v85d0g46
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.01-SyncP5	z116b1u7
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.1-SyncP5	pp25ids8
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd1.0-SyncP5	1iveiku4
+
+
+
+Fix-sync-freq
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP10	bu31npq5
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP10	0ncgtgey
+
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP50	4e0jp3gk
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP50	uqxn5bj0
+
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.0001-SyncP5	lpsr86wq
+sgd_with_sync_all-noiTrue-tfix-gpt2-lora-nw4-Adam-LG20-lr0.001-bs8-nstd0.001-SyncP5	jga3m1n8
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

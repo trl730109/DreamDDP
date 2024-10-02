@@ -42,7 +42,7 @@ hosts=('localhost')
 # ngpu_per_node=$nwpernode
 # extra_name="${node_count}Nodes"
 
-nstepsupdate=4
+nstepsupdate=1
 adam_beta1=0.9
 adam_beta2=0.99
 # lr=0.0001

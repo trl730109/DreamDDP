@@ -38,6 +38,9 @@ from transformers import (BertConfig,
                           SchedulerType,
                           default_data_collator,
                           get_scheduler,)
+from transformers import HfArgumentParser, BitsAndBytesConfig
+from accelerate import Accelerator
+
 # from transformers import BertTokenizer, GPT2Tokenizer
 from datasets import load_dataset, load_from_disk
 
@@ -146,7 +149,35 @@ def get_parameter_number(model):
     total_num = sum(p.numel() for p in model.parameters())
     trainable_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
     return {'Total': total_num, 'Trainable': trainable_num, "Total-M": total_num/1000000}
-def create_net(dnn='gpt2', **kwargs):
+
+def load_quantization_config(args):
+    if args.load_quantization == "8bit":
+        quantization_config = BitsAndBytesConfig(
+            load_in_8bit=True
+        )
+        # Copy the model to each device
+        device_map = {"": Accelerator().local_process_index}
+        torch_dtype = torch.bfloat16
+    elif args.load_quantization == "4bit":
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
+        # Copy the model to each device
+        device_map = {"": Accelerator().local_process_index}
+        torch_dtype = torch.bfloat16
+    else:
+        device_map = None
+        quantization_config = None
+        torch_dtype = None
+    return device_map, quantization_config, torch_dtype
+
+
+
+
+def create_net(dnn='gpt2', args=None, **kwargs):
     ext = None
     if dnn == 'gpt2':
         # config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
@@ -200,10 +231,17 @@ def create_net(dnn='gpt2', **kwargs):
         logger.info(f'Creating the llama2.')
         # config = LlamaConfig.from_pretrained(LLAMA2_7B_HF, cache_dir=kwargs["model_dir"])
         config = LlamaConfig.from_pretrained(kwargs["model_dir"])
+        device_map, quantization_config, torch_dtype = load_quantization_config(args)
+        # device_map=device_map,
+        # torch_dtype=torch_dtype,
+        logger.info(f'device_map: {device_map}')
+        logger.info(f'quantization_config: {quantization_config}')
+        logger.info(f'torch_dtype: {torch_dtype}')
         if kwargs["load_pretrain"]:
             logger.info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=kwargs["model_dir"],
+                quantization_config=quantization_config,
                 from_tf=False, 
                 config=config,
                 low_cpu_mem_usage=True, 
@@ -325,7 +363,7 @@ class LLMTrainer:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
-                self.net, self.ext = create_net(dnn=self.dnn, model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
+                self.net, self.ext = create_net(dnn=self.dnn, args=self.args, model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
                 logger.info(f"LOAD PRETRAIN is: {self.args.load_pretrain}===========")
                 if self.args.finetune_type == "lora":
                     peft_config = LoraConfig(
@@ -594,7 +632,10 @@ class LLMTrainer:
             # tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
-            tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+            # tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+            # tokenizer = AutoTokenizer.from_pretrained(self.model_dir, use_fast=False, padding_side="left", padding=True, truncation=True)
+            tokenizer = AutoTokenizer.from_pretrained(self.model_dir, use_fast=False, use_auth_token=token, 
+                                                      padding_side="left", padding=True, truncation=True)
         else:
             raise NotImplementedError
         # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
@@ -674,65 +715,67 @@ class LLMTrainer:
             # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir, use_fast=False, padding_side="right")
             # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
             tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2", use_fast=False, padding_side="left")
+            data_collator = default_data_collator
+            tokenizer.pad_token = tokenizer.eos_token
             # tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir, use_fast=False, padding_side="right")
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             # tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
             # tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, cache_dir=self.model_dir, use_fast=False, padding_side="right")
-            tokenizer = AutoTokenizer.from_pretrained(self.model_dir, use_fast=False, padding_side="right")
+            tokenizer = AutoTokenizer.from_pretrained(self.model_dir, use_fast=False, use_auth_token=token, 
+                                                      padding_side="left", padding=True, truncation=True)
+            data_collator = default_data_collator
+            tokenizer.pad_token = "[PAD]"
+            # data_collator = DataCollatorWithPadding(tokenizer)
         else:
             raise NotImplementedError
-        tokenizer.pad_token = tokenizer.eos_token
+        # tokenizer.pad_token = tokenizer.eos_token
 
         dataset = get_dataset(self.dataset, self.args.data_dir)
-        # dataset = dataset.select(range(100))
-        # train_test_split = dataset.train_test_split(test_size=0.2)
+        # dataset = dataset.select(range(1000))
+        # dataset = dataset.train_test_split(test_size=0.2)
         # print(dataset)
         # exit()
         # dataset = dataset.remove_columns(['text'])
 
         # Split the dataset into train and test sets
-        train_test_split = dataset.train_test_split(test_size=0.005)
-        train_dataset = train_test_split["train"]
-        test_dataset = train_test_split["test"]
+        dataset = dataset.train_test_split(test_size=0.005)
 
-        # Tokenize the dataset
+        column_names = dataset["train"].column_names
+        text_column_name = "text" if "text" in column_names else column_names[0]
         def tokenize_function(examples):
-            result = tokenizer(examples["text"], padding="max_length", truncation=True)
+            return tokenizer(examples[text_column_name])
+
+        tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=column_names)
+
+        block_size = min(1024, tokenizer.model_max_length)
+    
+        def group_texts(examples):
+            # Concatenate all texts.
+            concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+            total_length = len(concatenated_examples[list(examples.keys())[0]])
+            # We drop the small remainder, and if the total_length < block_size  we exclude this batch and return an empty dict.
+            # We could add padding if the model supported it instead of this drop, you can customize this part to your needs.
+            total_length = (total_length // block_size) * block_size
+            # Split by chunks of max_len.
+            result = {
+                k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+                for k, t in concatenated_examples.items()
+            }
             result["labels"] = result["input_ids"].copy()
             return result
 
+        encoded_dataset = tokenized_dataset.map(group_texts, batched=True)
 
-        tokenized_train_dataset = train_dataset.map(tokenize_function, batched=True)
-        tokenized_test_dataset = test_dataset.map(tokenize_function, batched=True)
-
-        # Convert to PyTorch tensors
-        tokenized_train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
-        tokenized_test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
-
-        self.trainset = tokenized_train_dataset
-        self.testset = tokenized_test_dataset
-        logger.info(f"show train dataset, length: {self.trainset}")
-        logger.info(f"show test dataset, length: {self.testset}")
-        # logger.info(f"show dataset, length: {trainset['train']}")
-        # logger.info(self.trainset[0:10])
-        # for i, example in enumerate(self.trainset):
-        #     if i > 5:
-        #         break
-        #     logger.info(example)
-        #     logger.info(f"length: {len(example)}")
-        #     logger.info(f"length input_ids: {len(example['input_ids'])}")
-        #     logger.info(f"length attention_mask: {len(example['attention_mask'])}")
-        #     logger.info(f"length labels: {len(example['labels'])}")
+        trainset = encoded_dataset['train']
+        valset = encoded_dataset['test']
+        self.trainset = trainset
+        logger.info(f"self.trainset : {self.trainset}")
+        logger.info(f"length, self.trainset : {len(self.trainset)}")
         # exit()
-
         train_sampler = None
         shuffle = True
         if self.nworkers > 1: 
-            # if settings.EFFICIENT_IO:
-            #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
-            #             rank=self.rank, cached_index_images=self.cached_index_images)
-            # else:
             train_sampler = torch.utils.data.distributed.DistributedSampler(
                 self.trainset, num_replicas=self.nworkers, rank=self.rank)
             train_sampler.set_epoch(0)
@@ -740,78 +783,55 @@ class LLMTrainer:
         self.train_sampler = train_sampler
 
         self.trainloader = torch.utils.data.DataLoader(
-            self.trainset, collate_fn=default_data_collator, 
+            trainset, collate_fn=default_data_collator, 
             batch_size=self.batch_size, shuffle=shuffle,
             num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
         
+
+        self.testset = valset
         self.testloader = torch.utils.data.DataLoader(
-            self.testset, collate_fn=default_data_collator, 
+            valset, collate_fn=default_data_collator, 
             batch_size=self.batch_size, shuffle=False,
             num_workers=8, pin_memory=True)
 
-        # CUTOFF_LEN = 1024
-        # # Split the dataset if 'validation' doesn't exist
-        # def generate_prompt(data_point):
-        #     # ### Input:
-        #     # {data_point["input"]}
-        #     return f"""Below is an instruction that describes a task, paired with an input that provides further context. 
-        #             Write a response that appropriately completes the request.
-        #             ### Instruction:
-        #             {data_point["instruction"]}
-        #             # ### Input:
-        #             # {data_point["input"]}
-        #             ### Response:
-        #             {data_point["output"]}"""
-        
-        
-        # def tokenize(prompt, add_eos_token=True):
-        #     result = tokenizer(
-        #         prompt,
-        #         truncation=True,
-        #         max_length=CUTOFF_LEN,
-        #         padding=True,
-        #         return_tensors=None,
-        #     )
-        #     if (
-        #         result["input_ids"][-1] != tokenizer.eos_token_id
-        #         and len(result["input_ids"]) < CUTOFF_LEN
-        #         and add_eos_token
-        #     ):
-        #         result["input_ids"].append(tokenizer.eos_token_id)
-        #         result["attention_mask"].append(1)
-        
-        #     result["labels"] = result["input_ids"].copy()
-        
-        #     return result
-        
-        # def generate_and_tokenize_prompt(data_point):
-        #     full_prompt = generate_prompt(data_point)
-        #     tokenized_full_prompt = tokenize(full_prompt)
-        #     return tokenized_full_prompt
 
-        # # Apply the grouping function to tokenized dataset
-        # self.trainset = (
-        #     dataset["train"].map(generate_and_tokenize_prompt)
-        # )
-        # valset = (
-        #     dataset["test"].map(generate_and_tokenize_prompt)
-        # )
-        # logger.info(f"show dataset")
-        # logger.info(self.trainset[0:10])
-        # for example in self.trainset:
-        #     logger.info(example)
-        #     logger.info(f"length: {len(example)}")
-        #     logger.info(f"length input_ids: {len(example['input_ids'])}")
-        #     logger.info(f"length attention_mask: {len(example['attention_mask'])}")
-        #     logger.info(f"length labels: {len(example['labels'])}")
+        # train_dataset = train_test_split["train"]
+        # test_dataset = train_test_split["test"]
+
+        # # Tokenize the dataset
+        # def tokenize_function(examples):
+        #     result = tokenizer(examples["text"], padding="max_length", truncation=True)
+        #     result["labels"] = result["input_ids"].copy()
+        #     return result
+
+
+        # tokenized_train_dataset = train_dataset.map(tokenize_function, batched=True)
+        # tokenized_test_dataset = test_dataset.map(tokenize_function, batched=True)
+
+        # # Convert to PyTorch tensors
+        # tokenized_train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        # tokenized_test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+
+        # self.trainset = tokenized_train_dataset
+        # self.testset = tokenized_test_dataset
+
+        # logger.info(f"show train dataset, length: {self.trainset}")
+        # logger.info(f"show test dataset, length: {self.testset}")
+        # # logger.info(f"show dataset, length: {trainset['train']}")
+        # # logger.info(self.trainset[0:10])
+        # # for i, example in enumerate(self.trainset):
+        # #     if i > 5:
+        # #         break
+        # #     logger.info(example)
+        # #     logger.info(f"length: {len(example)}")
+        # #     logger.info(f"length input_ids: {len(example['input_ids'])}")
+        # #     logger.info(f"length attention_mask: {len(example['attention_mask'])}")
+        # #     logger.info(f"length labels: {len(example['labels'])}")
+        # # exit()
 
         # train_sampler = None
         # shuffle = True
         # if self.nworkers > 1: 
-        #     # if settings.EFFICIENT_IO:
-        #     #     train_sampler = CachedSampler(self.trainset, num_replicas=self.nworkers, 
-        #     #             rank=self.rank, cached_index_images=self.cached_index_images)
-        #     # else:
         #     train_sampler = torch.utils.data.distributed.DistributedSampler(
         #         self.trainset, num_replicas=self.nworkers, rank=self.rank)
         #     train_sampler.set_epoch(0)
@@ -819,24 +839,14 @@ class LLMTrainer:
         # self.train_sampler = train_sampler
 
         # self.trainloader = torch.utils.data.DataLoader(
-        #     # self.trainset, collate_fn=DataCollatorForSeq2Seq(
-        #     #     tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-        #     # ), 
-        #     DataCollatorWithPadding(tokenizer)
-        #     self.trainset, collate_fn=default_data_collator,
+        #     self.trainset, collate_fn=data_collator, 
         #     batch_size=self.batch_size, shuffle=shuffle,
         #     num_workers=NUM_CPU_THREADS, pin_memory=True, sampler=train_sampler)
         
-
-        # self.testset = valset
         # self.testloader = torch.utils.data.DataLoader(
-        #     # valset, collate_fn=DataCollatorForSeq2Seq(
-        #     #     tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-        #     # ), 
-        #     valset, collate_fn=default_data_collator,
+        #     self.testset, collate_fn=data_collator, 
         #     batch_size=self.batch_size, shuffle=False,
         #     num_workers=8, pin_memory=True)
-
 
 
     def data_prepare(self):

@@ -1,0 +1,37 @@
+SSGD
+sgd-noifalse-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-1Nodes 9ox70zlh
+
+Noised SGD
+sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001 swkgf28w
+sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001 1c6h68fw
+sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01 6vu5pv6t
+sgd-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.1 rcgotgsv
+
+SGD with Sync detect base
+sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP51 f6kkx5zd
+sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001-SyncP51 wcldqi3y
+sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01-SyncP51 2ft0pq1m
+sgd_with_sync-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.1-SyncP51 6k5a1k7i
+
+SGD with Sync all detect base
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP5 92aizpbc
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001-SyncP5 ooh6ai4f
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01-SyncP5 kbvwv80s
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.1-SyncP5 fbiwcuq3
+
+SGD with Sync all fix H=5,10,50
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP5 48w1ugue
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP10 qlco3m1c
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.0001-SyncP50 p5y6ihwc
+
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001-SyncP5 rncysng4
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001-SyncP10 figyfj20
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.001-SyncP50 n9dk76ok
+
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01-SyncP5 fzeyhs5k
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01-SyncP10 ef0xkdat
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.01-SyncP50 1nvqi2ab
+
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.1-SyncP5 92gowe9m
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.1-SyncP10 bc6xn7wj
+sgd_with_sync_all-noiTrue-tfix-gpt2-full-nw8-Adam-LG20-lr1e-3-bs8-nstd0.1-SyncP50 hieek5s3

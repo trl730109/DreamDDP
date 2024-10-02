@@ -1026,6 +1026,9 @@ if __name__ == '__main__':
     parser.add_argument('--finetune_type', type=str, default='full', help='')   # lora, full
     parser.add_argument('--peft_lora_r', type=int, default=8, help='')   # fix, 
     parser.add_argument('--peft_lora_alpha', type=int, default=16, help='')   # fix, 
+    parser.add_argument('--load_quantization', type=str, default='no', help='')   # fix, 
+
+
     # parser.add_argument('--dataset_sample', type=int, default=100000, help='')
 
 

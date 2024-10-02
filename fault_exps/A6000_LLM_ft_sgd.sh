@@ -1,21 +1,40 @@
-master_port=23456
-dataset=wikitext2
+
+
+master_port=12345
+
+# alg=sgd_with_sync
 alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
 lr=0.01
 lr_decay=fixed
-dnn=gpt2
+# dnn=gpt2
+dnn=llama2-7B
+# dnn=gpt2-custom
+# dataset=wikitext2
+dataset="tatsu-lab/alpaca"
 
-training_type="${training_type:-pretrain}"
-finetune_type="${finetune_type:-full}"
+load_pretrain=True
+# load_pretrain=False
+
+
+batch_size=2
+
+
+# training_type="${training_type:-pretrain}"
+# finetune_type="${finetune_type:-full}"
+training_type="${training_type:-finetune}"
+finetune_type="${finetune_type:-lora}"
+
 peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
+load_quantization="${load_quantization:-no}"
+# load_quantization="${load_quantization:-8bit}"
 
-batch_size=8
 
-max_epochs=5
+
+max_epochs=1
 
 add_noise=False
 
@@ -40,9 +59,9 @@ hosts=('localhost')
 # ngpu_per_node=$nwpernode
 # extra_name="${node_count}Nodes"
 
-nstepsupdate=4
+nstepsupdate=1
 adam_beta1=0.9
-adam_beta2=0.95
+adam_beta2=0.99
 # lr=0.0001
 weight_decay=0.0001
 

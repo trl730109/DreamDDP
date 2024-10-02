@@ -1,0 +1,10 @@
+Resnet-50 4-worker
+Sgd with sync all detect base
+sgd_with_sync_all-noiTrue-tfix-resnet50-lora-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP5-cifar100 y6eys79k
+sgd_with_sync_all-noiTrue-tfix-resnet50-lora-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP10-cifar100 tm6fivg0
+sgd_with_sync_all-noiTrue-tfix-resnet50-lora-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP50-cifar100 abj5w7vq
+
+Fix
+sgd_with_sync_all-noiTrue-tfix-resnet50-lora-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP5-cifar100 0wqzkelw
+sgd_with_sync_all-noiTrue-tfix-resnet50-lora-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP10-cifar100 wstpw6cv
+sgd_with_sync_all-noiTrue-tfix-resnet50-lora-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP50-cifar100 n72z7ily
