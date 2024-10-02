@@ -1,6 +1,6 @@
 
 
-master_port=12345
+master_port=23456
 
 # alg=sgd_with_sync
 alg=sgd
@@ -70,7 +70,7 @@ weight_decay=0.0001
 lr_decay='fixed'
 
 
-# source fault_exps/launch.sh
+# source fault_exps/launch2.sh
 param_sync_async_op=False
 
 check_param_diversity=False
@@ -78,34 +78,34 @@ nsteps_param_diversity=5
 nsteps_param_sync=20
 
 
-gaussian_std=0.0001
-extra_name="nstd$gaussian_std"
-source fault_exps/launch.sh
-
-
-gaussian_std=0.001
-extra_name="nstd$gaussian_std"
-source fault_exps/launch.sh
-
-# gaussian_std=0.01
+# gaussian_std=0.0001
 # extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+# source fault_exps/launch2.sh
 
 
-# gaussian_std=0.1
+# gaussian_std=0.001
 # extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+# source fault_exps/launch2.sh
+
+gaussian_std=0.01
+extra_name="nstd$gaussian_std"
+source fault_exps/launch2.sh
+
+
+gaussian_std=0.1
+extra_name="nstd$gaussian_std"
+source fault_exps/launch2.sh
 
 
 # gaussian_std=1.0
 # extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+# source fault_exps/launch2.sh
 
 
 
 # gaussian_std=10.0
 # extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+# source fault_exps/launch2.sh
 
 
 

@@ -8,6 +8,8 @@ gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
 lr=0.01
+lr=0.0001
+
 lr_decay=fixed
 # dnn=gpt2
 dnn=llama2-7B
@@ -92,7 +94,7 @@ PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
 
 values=(5)
 # values=(5 10 50 100)
-# values=(10 50)
+# values=(5 10 50)
 # nsteps_param_sync=100
 
 for nsteps_param_sync in "${values[@]}"
@@ -109,9 +111,9 @@ do
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch.sh
 
-    gaussian_std=0.1
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
+    # gaussian_std=0.1
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch.sh
 
     # gaussian_std=1.0
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
@@ -122,10 +124,19 @@ do
     # source fault_exps/launch.sh
 done
 
+# check_param_diversity=False
+# nsteps_param_diversity=5
+# nsteps_param_sync=5
 
+# param_sync=detect_base
 
+# gaussian_std=0.0001
+# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+# source fault_exps/launch.sh
 
-
+# gaussian_std=0.001
+# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+# source fault_exps/launch.sh
 
 
 

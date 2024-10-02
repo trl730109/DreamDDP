@@ -1,8 +1,8 @@
 
 
-master_port=12345
+master_port=23456
 
-alg=sgd_with_sync
+alg=sgd_with_sync_all
 # alg=sgd
 gaussian_mu=0.0
 gaussian_std=0.001
@@ -55,11 +55,21 @@ cluster_name=GZA6000
 hosts=('localhost')
 # ports=(31949)
 
+
+
 # node_count=${#ports[@]}
 # nworkers=$((8 * node_count))
 # nwpernode=8
 # ngpu_per_node=$nwpernode
 # extra_name="${node_count}Nodes"
+
+nstepsupdate=1
+adam_beta1=0.9
+adam_beta2=0.99
+# lr=0.0001
+weight_decay=0.0001
+
+lr_decay='fixed'
 
 # cluster_name=esetstore
 # hosts=('gpu3')
@@ -80,51 +90,53 @@ PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
 # model_dir="/data2/share/zhtang/llama-2-7b-hf"
 # dnn=gpt2
 # model_dir="/data2/share/zhtang/gpt2"
-nstepsupdate=1
-adam_beta1=0.9
-adam_beta2=0.99
-# lr=0.0001
-weight_decay=0.0001
 
-lr_decay='fixed'
 
 values=(5)
 # values=(5 10 50 100)
-# values=(10 50)
+# values=(5 10 50)
 # nsteps_param_sync=100
 
 for nsteps_param_sync in "${values[@]}"
 do
-    gaussian_std=0.0001
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
-
-    gaussian_std=0.001
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
-
-    # gaussian_std=0.01
+    # gaussian_std=0.0001
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
+    # source fault_exps/launch2.sh
 
-    # gaussian_std=0.1
+    # gaussian_std=0.001
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
+    # source fault_exps/launch2.sh
+
+    gaussian_std=0.01
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch2.sh
+
+    gaussian_std=0.1
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch2.sh
 
     # gaussian_std=1.0
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
+    # source fault_exps/launch2.sh
 
     # gaussian_std=10.0
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
-
+    # source fault_exps/launch2.sh
 done
 
+# check_param_diversity=False
+# nsteps_param_diversity=5
+# nsteps_param_sync=5
 
+# param_sync=detect_base
 
+# gaussian_std=0.0001
+# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+# source fault_exps/launch2.sh
 
-
+# gaussian_std=0.001
+# extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+# source fault_exps/launch2.sh
 
 
 

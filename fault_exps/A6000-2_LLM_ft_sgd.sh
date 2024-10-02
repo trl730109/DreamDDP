@@ -1,6 +1,6 @@
 
 
-master_port=12345
+master_port=23456
 
 # alg=sgd_with_sync
 alg=sgd
@@ -38,7 +38,7 @@ load_quantization="${load_quantization:-no}"
 
 max_epochs=1
 
-add_noise=True
+add_noise=False
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 PY="${PY:-/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python}"
@@ -70,42 +70,29 @@ weight_decay=0.0001
 lr_decay='fixed'
 
 
-# source fault_exps/launch.sh
+# source fault_exps/launch2.sh
 param_sync_async_op=False
 
 check_param_diversity=False
 nsteps_param_diversity=5
 nsteps_param_sync=20
 
-
-gaussian_std=0.0001
-extra_name="nstd$gaussian_std"
-source fault_exps/launch.sh
-
-
-gaussian_std=0.001
-extra_name="nstd$gaussian_std"
-source fault_exps/launch.sh
-
-# gaussian_std=0.01
+# gaussian_std=0.001
 # extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+# source fault_exps/launch2.sh
+
+gaussian_std=0.01
+extra_name="nstd$gaussian_std"
+source fault_exps/launch2.sh
 
 
 # gaussian_std=0.1
 # extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
-
-
-# gaussian_std=1.0
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+# source fault_exps/launch2.sh
 
 
 
-# gaussian_std=10.0
-# extra_name="nstd$gaussian_std"
-# source fault_exps/launch.sh
+
 
 
 
