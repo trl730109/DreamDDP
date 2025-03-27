@@ -5,7 +5,7 @@
 *.swp
 *.swo
 *.pfm
-*.pdf
+# *.pdf
 *_local.sh
 tmp
 data*
@@ -14,7 +14,7 @@ sign_plot*
 index_plot*
 logs*
 localsgd_logs*
-plots*
+# plots*
 weights
 .nfs*
 runs
@@ -41,6 +41,7 @@ wandb_sync/*
 *.nfs*
 *.jpg
 
+*.DS_Store
 
 
 exp_savefiles_*
@@ -54,7 +55,7 @@ __pycache__
 ./*/*/*/*/__pycache__
 ./*/*/*/*/*/__pycache__
 
-*.txt
+# *.txt
 *.h5
 
 # data

@@ -25,7 +25,6 @@ load_pretrain=True
 
 batch_size=8
 
-
 training_type="${training_type:-finetune}"
 # training_type="${training_type:-pretrain}"
 # finetune_type="${finetune_type:-full}"
@@ -35,7 +34,7 @@ peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
-max_epochs=5
+max_epochs=1
 
 # add_noise=True
 add_noise=False
@@ -82,17 +81,17 @@ values=(5)
 
 for nsteps_param_sync in "${values[@]}"
 do
-    # gaussian_std=0.0001
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
-
-    # gaussian_std=0.001
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
-
-    gaussian_std=0.01
+    gaussian_std=0.0001
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch.sh
+
+    gaussian_std=0.001
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch.sh
+
+    # gaussian_std=0.01
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch.sh
 
     # gaussian_std=0.1
     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"

@@ -132,6 +132,7 @@ do
         --finetune_type $finetune_type \
         --peft_lora_r $peft_lora_r \
         --peft_lora_alpha $peft_lora_alpha \
+        --load_quantization $load_quantization \
         --lr $lr \
         --lr_decay $lr_decay \
         --weight_decay $weight_decay \

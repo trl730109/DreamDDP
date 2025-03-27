@@ -80,6 +80,7 @@ training_type="${training_type:-pretrain}"
 finetune_type="${finetune_type:-lora}"
 peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
+load_quantization="${load_quantization:-no}"
 
 # exp_name="${exp_name:-default}"
 
@@ -114,7 +115,7 @@ wandb_offline=False
 while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
-    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
+    args="CUDA_VISIBLE_DEVICES=0,1,2,3 $pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
@@ -133,6 +134,7 @@ do
         --finetune_type $finetune_type \
         --peft_lora_r $peft_lora_r \
         --peft_lora_alpha $peft_lora_alpha \
+        --load_quantization $load_quantization \
         --lr $lr \
         --lr_decay $lr_decay \
         --weight_decay $weight_decay \

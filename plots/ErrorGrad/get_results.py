@@ -63,7 +63,8 @@ local_epoch_100 = 100
 
 entity = "hpml-hkbu"
 project = "FusionAI"
-root_path = "D://1results//wandb_backup"
+# root_path = "D://1results//wandb_backup"
+root_path = "/Users/zhtang/1results/wandb_backup"
 
 # all_df, runs_dict = get_project_runs_from_wandb(entity=entity, project=project,
 #                             no_summary=True)
@@ -91,6 +92,7 @@ TIME_PER_ITER = "time_per_iter"
 TRAIN_ACC = "train_epoch_acc"
 VAL_ACC = "val_acc"
 TRAIN_LOSS = "train_epoch_loss"
+TRAIN_GLOBAL_ITER_LOSS = "train_loss"
 EPOCHS = "epochs"
 ITERS = "global_iters"
 

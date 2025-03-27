@@ -1,0 +1,109 @@
+
+Resnet-18 4-worker
+sgd-noiFalse-resnet18-SGD-lr0.1	l9e8lv4q
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001	bqpotgaf
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001	20qh9sdc
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01	fvz4m9uu
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1	4ulg0zsl
+sgd-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0	id8neble
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5	hg1dh6wt
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP5	3w6hpski
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP5	u4vwdclx
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP5	fhrl0agb
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP5	405yw7ns
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	0yprgovf
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP10	eyiz046t
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP10	qg6ztcfw
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP10	rhzigbpx
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP10	shjaq05n
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50	hgickwsf
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP50	b178pgbd
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP50	y0iwspxl
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP50	cg7l8rwi
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP50	v16n8u80
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP100	jrvt4f5h
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP100	3f8q5hmh
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP100	bjupi4ih
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP100	fzjevwvk
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP100	ooewfl95
+detect base	
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP100	3fjiv1e1
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP100	q207bqfz
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP100	iohhnyot
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP100	5fkl5x9n
+sgd_with_sync-noiTrue-resnet18-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP100	314fn4s8
+
+
+
+
+Resnet-50 4-worker
+sgd-noiFalse-resnet50-nw4-SGD-LG20-lr0.1-bs128-	lnlehfre
+sgd-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001	9i0s3y9o
+sgd-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.001	ogyvemxc
+sgd-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.01	ygfr4yr5
+sgd-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.1	doi47ga9
+sgd-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd1.0	7fgwnmzh
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5	y69s8mhb
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP5	s6b6m2jr
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP5	2uzeb238
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP5	yd1v5w2t
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP5	x6o65qxx
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	qnnvyreo
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP10	14ke3yd7
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP10	41fbkdtf
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP10	2jmxhazx
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50	tetvndvz
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP50	la5wej3y
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP50	83hh1zun
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP50	qva45urt
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP50	d8rvwtkk
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP100	vlxjmtrc
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP100	p8rbp5mb
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP100	z8rij6nd
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP100	nif0tprr
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP100	z59drayy
+detect base
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP100	lhadl6zg
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP100	v03egkwg
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP100	gus6lq0p
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP100	n7wssgrs
+sgd_with_sync-noiTrue-resnet50-nw4-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP100	74g7oapt
+
+
+
+
+Resnet-50 32-worker
+sgd-noiFalse-resnet50-nw32-SGD-LG20-lr0.1-bs128-	1ijmvjh1
+sgd-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.0001	kjr0zuig
+sgd-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.001	945hp3wx
+sgd-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.01	9v7ch8vu
+sgd-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.1	qtaycdbw
+sgd-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd1.0	6pal1kpl
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5	alvxajcd
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP5	3zn8vl8y
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP5	hromcduy
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP5	7fb6n0w7
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP5	okha0hbv
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10	t4k8edy2
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP10	0j0fknwt
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP10	ud20b6zx
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP10	ugxlaz6z
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP10	o7tlqijx
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50	eerecwm0
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP50	e5r3b4k7
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP50	l5m9rqyc
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP50	ye3a6y1j
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP50	uqn4k4e7
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP100	tv7ytwda
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP100	h945heh6
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP100	ay6yod4r
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP100	3figsj55
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP100	8kbv9m9t
+detect base	
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP100	pikfppnq
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.001-SyncP100	car3dlwu
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.01-SyncP100	pcjhol47
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd0.1-SyncP100	cvnjlh3t
+sgd_with_sync-noiTrue-resnet50-nw32-SGD-LG20-lr0.1-bs128-nstd1.0-SyncP100	hj1doccl
+
+

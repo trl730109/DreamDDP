@@ -36,8 +36,7 @@ peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
 
 
-max_epochs=5
-
+max_epochs=1
 add_noise=True
 # add_noise=False
 
@@ -65,8 +64,8 @@ hosts=('localhost')
 # cluster_name=esetstore
 # hosts=('gpu3')
 param_sync_async_op=False
-param_sync=detect_base
-# param_sync=fix
+# param_sync=detect_base
+param_sync=fix
 
 check_param_diversity=False
 nsteps_param_diversity=5
@@ -84,38 +83,45 @@ pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 model_dir="/data2/share/zhtang/newgpt2/gpt2"
 
 
-values=(5)
+# values=(5)
 # values=(5 10 50 100)
-# values=(10 50)
+values=(5 10 50)
 # nsteps_param_sync=100
+
+# for nsteps_param_sync in "${values[@]}"
+# do
+#     gaussian_std=0.0001
+#     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+#     source fault_exps/launch.sh
+
+#     # gaussian_std=0.01
+#     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+#     # source fault_exps/launch.sh
+
+#     # gaussian_std=0.1
+#     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+#     # source fault_exps/launch.sh
+
+#     # gaussian_std=1.0
+#     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+#     # source fault_exps/launch.sh
+
+#     # gaussian_std=100.0
+#     # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+#     # source fault_exps/launch.sh
+# done
+
 
 for nsteps_param_sync in "${values[@]}"
 do
-    # gaussian_std=0.0001
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
-
-    # gaussian_std=0.001
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
-
-    gaussian_std=0.01
+    gaussian_std=0.001
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch.sh
-
-    gaussian_std=0.1
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
-
-    gaussian_std=1.0
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch.sh
-
-    # gaussian_std=100.0
-    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    # source fault_exps/launch.sh
 
 done
+
+
+
 # gaussian_std=10.0
 # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
 # source fault_exps/launch.sh

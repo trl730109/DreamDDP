@@ -12,9 +12,14 @@ lr_decay=fixed
 # dnn=gpt2
 dnn=llama2-7B
 # dnn=gpt2-custom
-dataset=wikitext2
+# dataset=wikitext2
+dataset="tatsu-lab/alpaca"
 
-batch_size=4
+load_pretrain=True
+# load_pretrain=False
+
+
+batch_size=2
 
 
 # training_type="${training_type:-pretrain}"
@@ -24,9 +29,10 @@ finetune_type="${finetune_type:-lora}"
 
 peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
+load_quantization="${load_quantization:-no}"
+# load_quantization="${load_quantization:-8bit}"
 
-load_pretrain=True
-# load_pretrain=False
+
 
 max_epochs=1
 
