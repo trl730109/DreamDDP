@@ -8,13 +8,13 @@ alg=sgd_with_sync_all
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
-lr=8e-5
+lr=1e-3
 dnn=gpt2
 dataset=openwebtext
 
 batch_size=8
 max_epochs=1
-
+max_steps=3000
 add_noise=True
 # add_noise=False
 
@@ -28,14 +28,20 @@ exp_name=$exp_name
 # cluster_name=scigpu
 # hosts=('scigpu14')
 cluster_name=A6000
-hosts=('ibgpu1')
-ports=(30847)
+# hosts=('ibgpu1')
+# ports=(30847)
+hosts=('ibgpu4')
+ports=(31378)
 
 node_count=${#ports[@]}
 nworkers=$((8 * node_count))
 nwpernode=8
 ngpu_per_node=$nwpernode
 extra_name="${node_count}Nodes"
+
+load_pretrain=false
+training_type=pretrain
+finetune_type=full
 
 nstepsupdate=1
 adam_beta1=0.9
@@ -65,7 +71,7 @@ PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 # model_dir="/data2/share/zhtang/gpt2"
 
 
-values=(5)
+values=(5 10 50)
 # values=(5 10 50 100)
 # values=(10 50)
 # nsteps_param_sync=100
@@ -80,10 +86,13 @@ do
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch_A6000.sh
 
-    gaussian_std=0.01
-    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
-    source fault_exps/launch_A6000.sh
+    # gaussian_std=0.01
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch_A6000.sh
 
+    # gaussian_std=0.1
+    # extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch_A6000.sh
 done
 
 

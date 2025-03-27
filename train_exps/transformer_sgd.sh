@@ -21,11 +21,12 @@ pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
 optimizer_name=Adam
 # dnn=llama2-124M
-dnn=llama2-124M
+# dnn=llama2-124M
+dnn=gpt2
 
 max_epochs=1
 # add_noise=True
-extra_name='llama2-124M'
+extra_name='gpt2'
 
 enable_wandb=false
 wandb_offline=true
@@ -37,13 +38,14 @@ exp_name=$exp_name
 # cluster_name=GZ4090ZHTANG
 cluster_name=A6000
 
-
-hosts=('ibgpu4' 'ibgpu5' 'ibgpu3' 'ibgpu1')
-ports=(30737 30958 31709 30715)
+hosts=('ibgpu4' 'ibgpu1' 'ibgpu2' 'ibgpu3')
+ports=(31969 31749 31204 31936)
+# hosts=('ibgpu4')
+# ports=(31969)
 #
 master_port=2229
 node_count=${#hosts[@]}
-nwpernode=4
+nwpernode=8
 nworkers=$((nwpernode * node_count))
 ngpu_per_node=$nwpernode
 nsteps_localsgd=10

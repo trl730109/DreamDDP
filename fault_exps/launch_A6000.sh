@@ -74,7 +74,7 @@ training_type="${training_type:-pretrain}"
 finetune_type="${finetune_type:-lora}"
 peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
-
+max_steps=${max_steps:-3000}
 # exp_name="${exp_name:-default}"
 
 # Loop to launch training on each node
@@ -100,9 +100,12 @@ nsteps_param_sync=${nsteps_param_sync:-20}
 check_param_diversity=${check_param_diversity:-True}
 nsteps_param_diversity=${nsteps_param_diversity:-5}
 param_sync=${param_sync:-"fix"}
-
+test_interval=50
 master_port=${master_port:-23456}
-
+bit_flipping=${bit_flipping:-False}
+flip_prob=${flip_prob:-0.01}
+params_flipping_rate=${params_flipping_rate:-0.001}
+bit_flipping_interval=${bit_flipping_interval:-500}
 wandb_offline=True
 
 while [ $i -lt $node_count ]
@@ -119,6 +122,7 @@ do
         --dnn $dnn \
         --dataset $dataset \
         --max-epochs $max_epochs \
+        --max_steps $max_steps \
         --batch-size $batch_size \
         --nworkers $nworkers \
         --data-dir $data_dir \
@@ -137,8 +141,13 @@ do
         --nwpernode $nwpernode \
         --density $density \
         --compressor $compressor \
+        --bit_flipping $bit_flipping \
+        --flip_prob $flip_prob \
+        --params_flipping_rate $params_flipping_rate \
+        --bit_flipping_interval $bit_flipping_interval \
         --threshold $threshold \
         --saved-dir $GRADSPATH \
+        --test_interval $test_interval \
         --momentum-correction $momentum_correction \
         --sync $sync \
         --add_noise $add_noise \

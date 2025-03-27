@@ -63,7 +63,7 @@ case "$cluster_name" in
         ;;
     "A6000")
         case "$dataset" in
-            "cifar10") data_dir="/data2/share/cifar10" ;;
+            "cifar10") data_dir="/workspace/tzc/dataset/cifar10" ;;
             "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
             # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
             "wikitext2") data_dir="/workspace/wikitext2" ;;
@@ -73,7 +73,7 @@ case "$cluster_name" in
             *) echo "No dataset matched" ;;
         esac
         case "$dnn" in
-            "gpt2") model_dir="/workspace/models/gpt2" ;;
+            "gpt2") model_dir="/workspace/gpt2_tzc" ;;
             # "gpt2") model_dir="/mnt/raid/tangzichen/gpt2" ;;
             # "bert-base-uncased") model_dir="/mnt/raid/tangzichen/bert-base-uncased" ;;
             "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;

@@ -421,6 +421,7 @@ class LLMTrainer:
         self.train_epoch = 0
 
         if self.pretrain is not None and os.path.isfile(self.pretrain):
+            logger.info(f'Load the model from the pretrain.')
             self.load_model_from_file(self.pretrain)
         logger.info(f"Finish load from pretrain processes")
 
@@ -501,7 +502,7 @@ class LLMTrainer:
     def openwebtext_prepare(self):
         if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased"]:
             # tokenizer = AutoTokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
-            tokenizer = GPT2Tokenizer.from_pretrained(self.dnn, cache_dir=self.model_dir)
+            tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)

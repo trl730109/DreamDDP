@@ -8,13 +8,13 @@ alg=sgd_with_sync_all
 gaussian_mu=0.0
 gaussian_std=0.001
 optimizer_name=Adam
-lr=8e-5
+lr=1e-4
 dnn=gpt2
 dataset=openwebtext
 
 batch_size=8
 max_epochs=1
-
+max_steps=3000
 add_noise=True
 # add_noise=False
 
@@ -28,8 +28,8 @@ exp_name=$exp_name
 # cluster_name=scigpu
 # hosts=('scigpu14')
 cluster_name=A6000
-hosts=('ibgpu4')
-ports=(31432)
+hosts=('ibgpu2')
+ports=(30175)
 
 node_count=${#ports[@]}
 nworkers=$((8 * node_count))
@@ -51,6 +51,10 @@ check_param_diversity=False
 param_sync_async_op=False
 param_sync=detect_base
 # param_sync=fix
+
+load_pretrain=false
+training_type=pretrain
+finetune_type=full
 
 nsteps_param_diversity=1
 nsteps_param_sync=5
@@ -81,6 +85,10 @@ do
     source fault_exps/launch_A6000.sh
 
     gaussian_std=0.01
+    extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
+    source fault_exps/launch_A6000.sh
+
+    gaussian_std=0.1
     extra_name="nstd$gaussian_std-SyncP${nsteps_param_sync}"
     source fault_exps/launch_A6000.sh
 

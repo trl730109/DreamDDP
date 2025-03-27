@@ -12,7 +12,8 @@ import logging
 from multiprocessing import set_start_method
 from collections import defaultdict
 import math
-
+import struct
+import random
 from copy import deepcopy
 import torch.optim as optim
 import torch.distributed as dist
@@ -55,6 +56,18 @@ def extend_keys_with_default(named_diversitys):
     return new_named_diversitys
 
 
+def select_params_gradient_flipping(model, flip_percentage=0.1):
+    flipping_params = []
+    params_require_grad = [name for name, param in model.named_parameters() if param.requires_grad]
+
+    num_params_to_flip = max(1, int(len(params_require_grad) * flip_percentage))
+  
+    if params_require_grad:
+        selected_indices = np.random.choice(len(params_require_grad), num_params_to_flip, replace=False)
+        flipping_params = [params_require_grad[i] for i in selected_indices]
+    
+    return flipping_params
+
 def str2bool(v):
     if isinstance(v, bool):
         return v
@@ -87,6 +100,72 @@ def add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
         # logger.info(f"======= Busrt gradient magnitude is adjusted as {gaussian_std} ======= ")
         gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.grad.data.device)
     param.grad.data += gaussian_noise
+
+def bit_flip_param_grad(param, args):
+    actual_flip_prob = args.flip_prob
+    grad_tensor = param.grad.data
+    flat_grad = grad_tensor.view(-1)
+    num_elements = flat_grad.numel()
+
+    # 计算要翻转的元素数量
+    num_to_flip = max(1, int(num_elements * actual_flip_prob))
+    
+    # 随机选择要翻转的索引
+    indices_to_flip = torch.randperm(num_elements)[:num_to_flip]
+    
+    # 批量处理翻转操作
+    if grad_tensor.dtype == torch.float32:
+        # 将选定的值转换为NumPy数组
+        values = flat_grad[indices_to_flip].cpu().numpy()
+        
+        # 为每个浮点数创建一个字节视图
+        for i in range(len(values)):
+            # 获取单个浮点数的字节表示
+            byte_representation = np.array(values[i], dtype=np.float32).tobytes()
+            byte_array = bytearray(byte_representation)
+            
+            # 随机选择一个字节和位位置
+            byte_idx = np.random.randint(0, 4)  # float32有4个字节
+            bit_pos = np.random.randint(0, 8)   # 每个字节有8位
+            
+            # 翻转选定的位
+            byte_array[byte_idx] ^= (1 << bit_pos)
+            
+            # 将修改后的字节转回浮点数
+            flipped_value = np.frombuffer(byte_array, dtype=np.float32)[0]
+            values[i] = flipped_value
+        
+        # 将修改后的值放回张量
+        flat_grad[indices_to_flip] = torch.tensor(values, device=grad_tensor.device)
+    
+    elif grad_tensor.dtype == torch.float16:
+        # 对于半精度浮点数，使用类似的方法
+        values = flat_grad[indices_to_flip].cpu().numpy().astype(np.float16)
+        
+        for i in range(len(values)):
+            # 获取单个半精度浮点数的字节表示
+            byte_representation = np.array(values[i], dtype=np.float16).tobytes()
+            byte_array = bytearray(byte_representation)
+            
+            # 随机选择一个字节和位位置
+            byte_idx = np.random.randint(0, 2)  # float16有2个字节
+            bit_pos = np.random.randint(0, 8)   # 每个字节有8位
+            
+            # 翻转选定的位
+            byte_array[byte_idx] ^= (1 << bit_pos)
+            
+            # 将修改后的字节转回半精度浮点数
+            flipped_value = np.frombuffer(byte_array, dtype=np.float16)[0]
+            values[i] = flipped_value
+        
+        # 将修改后的值放回张量
+        flat_grad[indices_to_flip] = torch.tensor(values, device=grad_tensor.device)
+    
+    else:
+        # 对于其他数据类型，直接跳过
+        pass
+    
+    return num_to_flip
 
 def allreduce_optimizer_state(optimizer):
     if isinstance(optimizer, optim.SGD):
@@ -368,7 +447,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
         train_epoch_ppl = 0.0
 
         for i in range(iters_per_epoch//nsteps_update):
-            if (global_iters >= 10000):
+            if (global_iters >= args.max_steps):
                 break
             result_dict = {}
             s = time.time()
@@ -381,19 +460,34 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                 #     optimizer.local = False
                 trainer.train(1)
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            params_flipping = select_params_gradient_flipping(trainer.net, flip_percentage=args.params_flipping_rate)
+
+            bit_flipping_time = 0
+            sync_time = 0
+            num_params_flipped = 0
             for name, param in trainer.net.named_parameters():
                 if param.requires_grad:
                     # logger.info(f"name:{name} requires_grad, param.shape:{param.shape}")
                     # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                     # param.grad.data /= dist.get_world_size()
+                    time_start = time.time()
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
+                    sync_time += time.time() - time_start
                     if (str2bool(add_noise)):
                         add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
+                        
+                    if (str2bool(args.bit_flipping) and global_iters % args.bit_flipping_interval == 0):
+                        start_time = time.time()
+                        if name in params_flipping:
+                            num_params_flipped += bit_flip_param_grad(param, args)
+                        bit_flipping_time += time.time() - start_time
                 else:
                     # logger.info(f"name:{name} NOT requires_grad, param.shape:{param.shape}")
                     pass
 
-
+            print(f"time to do bit flipping: {bit_flipping_time}")
+            print(f"time to sync: {sync_time}")
+            print(f"num_params_flipped: {num_params_flipped}")
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
@@ -532,7 +626,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
         train_epoch_ppl = 0.0
 
         for i in range(iters_per_epoch//nsteps_update):
-            if global_iters >= 10000:
+            if global_iters >= args.max_steps:
                 break
             # global_iters += 1
             result_dict = {}
@@ -553,15 +647,20 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             if (global_iters % new_nsteps_param_sync == 0):
                 named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
+                
+            params_flipping = select_params_gradient_flipping(trainer.net, flip_percentage=args.params_flipping_rate)
 
-            for param in trainer.net.parameters():
+            for name, param in trainer.net.named_parameters():
                 if param.requires_grad:
                     # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                     # param.grad.data /= dist.get_world_size()
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
                     if (str2bool(add_noise)):
                         add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
-
+                    if (str2bool(args.bit_flipping) and global_iters % args.bit_flipping_interval == 0):
+                        if name in params_flipping:
+                            print(f"name: {name} in params_flipping")
+                            bit_flip_param_grad(param, args)
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
@@ -581,6 +680,8 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 record_param_diversity_with_period(trainer.get_peft_model(), global_iters, nsteps_param_diversity, check_param_diversity)
             else:
                 record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
+
             # calculate divergence before updating model.
             if (global_iters % new_nsteps_param_sync == 0):
                 if param_sync_async_op:
@@ -590,11 +691,13 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     #     avg_params[name] = avg_params[name] / dist.get_world_size()
                 else:
                     pass
+
                 if args.training_type == "finetune" and args.finetune_type == "lora":
                     named_diversitys, total_diversity = param_diversity(trainer.get_peft_model(), avg_params)
                     named_diversitys = extend_keys_with_default(named_diversitys)
                 else:
                     named_diversitys, total_diversity = param_diversity(trainer.net, avg_params)
+
                 # trainer.net.load_state_dict(dict(avg_params))
                 if is_root():
                     layers = list(named_diversitys.keys())
@@ -608,22 +711,6 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     diverge_per_iter = max_diversity / new_nsteps_param_sync
                     # max_error_per_iter = diverge_per_iter / trainer.lr
                     max_error_per_iter = diverge_per_iter
-                    # logger.info(f'named_diversitys: {named_diversitys}')
-                    # logger.info(f'named_gradnorms: {named_gradnorms}')
-                    # for key in named_gradnorms.keys():
-                    #     if key not in named_diversitys:
-                    #         logger.info(f"key: {key} in named_gradnorms. not in named_diversitys")
-
-                    # for key in named_diversitys.keys():
-                    #     if key not in named_gradnorms:
-                    #         logger.info(f"key: {key} in named_diversitys. not in named_gradnorms")
-
-                    # for key, param in trainer.net.named_parameters():
-                    #     logger.info(f"named_parameters key: {key}")
-
-                    # for key, param in trainer.net.state_dict().items():
-                    #     logger.info(f"state_dict  key: {key}")
-
                     grad_norm = named_gradnorms[argmax_layer]
                     # est_tolerance_iters = (grad_norm /10) // max_error_per_iter
                     est_tolerance_iters = grad_norm // max_error_per_iter
@@ -654,6 +741,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     trainer.update_peft_model(dict(avg_params))
                 else:
                     trainer.net.load_state_dict(dict(avg_params))
+                allreduce_optimizer_state(optimizer)
                 # for name, param in trainer.net.named_parameters():
                 #     param.data = avg_params[name]
                 # if getattr(trainer.net, "lm_head", None):
@@ -698,24 +786,24 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     else:
                         avg_params = allreduce_model_weights_not_inplace(trainer.net)
 
+
             ExpTool.upload()
 
-            # if global_iters % args.test_interval == 0:
-            #     logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
-            #     if dnn in _llms:
-            #         val_ppl, test_loss = trainer.test(epoch)
-            #         result_dict["val_ppl"] = val_ppl
-            #         result_dict["test_loss"] = test_loss
-            #         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
-            #     else:
-            #         val_acc = trainer.test(epoch)
-            #         result_dict["val_acc"] = val_acc
-            #     result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-            #     result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+        logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
+        if dnn in _llms:
+            val_ppl, test_loss = trainer.test(epoch)
+            result_dict["val_ppl"] = val_ppl
+            result_dict["test_loss"] = test_loss
+            result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+        else:
+            val_acc = trainer.test(epoch)
+            result_dict["val_acc"] = val_acc
+        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+        result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
 
-            #     ExpTool.record(result_dict)
-            #     ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-            #     ExpTool.upload()
+        ExpTool.record(result_dict)
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+        ExpTool.upload()
     logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
     if dnn in _llms:
         val_ppl, test_loss = trainer.test(epoch)
@@ -804,7 +892,7 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
 
         for i in range(iters_per_epoch//nsteps_update):
             # global_iters += 1
-            if global_iters >= 10000:
+            if global_iters >= args.max_steps:
                 break
             result_dict = {}
             s = time.time()
@@ -1005,6 +1093,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.1, help='Default learning rate')
     parser.add_argument('--lr_decay', type=str, default='general',help='learning rate decay methods, choosing from None,cosine,step')
     parser.add_argument('--max-epochs', type=int, default=settings.MAX_EPOCHS, help='Default maximum epochs to train')
+    parser.add_argument('--max_steps', type=int, default=3000, help='Default maximum steps to train')
     parser.add_argument('--pretrain', type=str, default=None, help='Specify the pretrain path')
     parser.add_argument('--num-steps', type=int, default=35)
     parser.add_argument('--compressor', type=str, default='topk', choices=compressors.keys(), help='Specify the compressors if density < 1.0')
@@ -1047,6 +1136,10 @@ if __name__ == '__main__':
     parser.add_argument('--param_sync', type=str, default="fix")
     parser.add_argument('--param_sync_async_op', type=str, default="False")
     parser.add_argument('--test_interval', type=int, default=500)
+    parser.add_argument('--bit_flipping', type=str, default="False")
+    parser.add_argument('--flip_prob', type=float, default=0.01)
+    parser.add_argument('--params_flipping_rate', type=float, default=0.01)
+    parser.add_argument('--bit_flipping_interval', type=int, default=500)
     # wandb, exp record related
     parser.add_argument("--wandb_offline", type=str, default="True")
     parser.add_argument("--wandb_console", type=str, default="False")

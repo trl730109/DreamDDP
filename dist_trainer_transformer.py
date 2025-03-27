@@ -31,7 +31,7 @@ from llm_trainer import LLMTrainer, _support_datasets, _support_dnns
 from dist_utils import *
 import dist_optimizer as dist_optim
 
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 from compression import compressors
 from profiling import benchmark
 from mpi4py import MPI
@@ -330,7 +330,8 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         # logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
         
         filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-        save_path = os.path.join('./time/bp/', filename)
+        # save_path = os.path.join(f'./time/bp/{dnn}', filename)
+        save_path = os.path.join(f'./time/{dnn}/{nworkers}/bp/', filename)
         import json
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         with open(save_path, 'w') as file:
@@ -575,7 +576,8 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     logger.info(f'Each layer comm time is {avg_comm_dict}')
     
     filename = 'comm' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-    save_path = os.path.join('./time/comm/', filename)
+    # save_path = os.path.join('./time/comm/', filename)
+    save_path = os.path.join(f'./time/{dnn}/{nworkers}/comm/', filename)
     import json
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with open(save_path, 'w') as file:
@@ -1186,13 +1188,13 @@ if __name__ == '__main__':
     parser.add_argument('--group_num',type=int, default='6', help='Number of iterations to achieve full synchronziation in full_pipe_Seq.')
     parser.add_argument('--config_name', type=str, default='', help='Model configurations.')
     parser.add_argument('--model_name_or_path', type=str,default='',help='Local model path for GPT or Bert.')
-
-
+    parser.add_argument('--training_type', type=str,default='pretrain',help='training type, pretrain or lora finetunie.')
+    parser.add_argument('--finetune_type', type=str,default='full',help='training type, pretrain or lora finetunie.')
     # Check model divergence
     parser.add_argument('--check_param_diversity', type=str, default="False")
     parser.add_argument('--nsteps_param_diversity', type=int, default=5)
 
-    
+
     # wandb, exp record related
     parser.add_argument("--wandb_offline", type=str, default="True")
     parser.add_argument("--wandb_console", type=str, default="False")

@@ -28,6 +28,7 @@ gpt2/*
 .wandb/*
 wandb/*
 wandb
+wandb_sync/*
 ./*/wandb
 ./*/*/wandb
 ./*/*/*/wandb

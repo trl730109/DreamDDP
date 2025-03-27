@@ -38,8 +38,8 @@ exp_name=$exp_name
 cluster_name=A6000
 
 
-hosts=('ibgpu4' 'ibgpu5' 'ibgpu3' 'ibgpu1')
-ports=(30737 30958 31709 30715)
+hosts=('ibgpu4' 'ibgpu1' 'ibgpu2' 'ibgpu3')
+ports=(31969 31749 31204 31936)
 #
 master_port=2229
 node_count=${#hosts[@]}
