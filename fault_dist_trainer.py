@@ -371,7 +371,31 @@ def allreduce_model_weights_not_inplace_async(model, _handles):
         # avg_params[name] = avg_params[name] / dist.get_world_size()
     return avg_params
 
-
+def clip_gradients_by_value(param, clip_value_min, clip_value_max):
+    """
+    对梯度进行逐元素裁剪，将梯度值限制在指定范围内
+    
+    参数:
+        param: 包含梯度的参数
+        clip_value_min: 裁剪阈值下界
+        clip_value_max: 裁剪阈值上界
+    
+    返回:
+        被裁剪的梯度数量
+    """
+    if param.grad is None:
+        return 0
+    
+    # 获取原始梯度数据
+    grad_tensor = param.grad.data
+    
+    # 记录原始梯度超出范围的元素数量
+    num_clipped = torch.sum((grad_tensor > clip_value_max) | (grad_tensor < clip_value_min)).item()
+    
+    # 逐元素裁剪梯度值
+    param.grad.data = torch.clamp(grad_tensor, clip_value_min, clip_value_max)
+    
+    return num_clipped
 
 
 
@@ -465,6 +489,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
             bit_flipping_time = 0
             sync_time = 0
             num_params_flipped = 0
+            num_params_clipped = 0
             for name, param in trainer.net.named_parameters():
                 if param.requires_grad:
                     # logger.info(f"name:{name} requires_grad, param.shape:{param.shape}")
@@ -481,6 +506,10 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                         if name in params_flipping:
                             num_params_flipped += bit_flip_param_grad(param, args)
                         bit_flipping_time += time.time() - start_time
+                    
+                    # 添加梯度裁剪逻辑
+                    if (str2bool(args.grad_clipping)):
+                        num_params_clipped += clip_gradients_by_value(param, args.clip_value_min, args.clip_value_max)
                 else:
                     # logger.info(f"name:{name} NOT requires_grad, param.shape:{param.shape}")
                     pass
@@ -488,6 +517,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
             print(f"time to do bit flipping: {bit_flipping_time}")
             print(f"time to sync: {sync_time}")
             print(f"num_params_flipped: {num_params_flipped}")
+            print(f"num_params_clipped: {num_params_clipped}")
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
@@ -516,7 +546,7 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                 result_dict["train_ppl"] = train_ppl
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc})
+                        "train_acc": train_acc, "num_params_flipped": num_params_flipped, "num_params_clipped": num_params_clipped})
             # if check_param_diversity and (global_iters % nsteps_param_diversity == 0):
             #     named_diversitys, total_diversity = param_diversity(trainer.net)
             #     if is_root():
@@ -649,7 +679,9 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
                 
             params_flipping = select_params_gradient_flipping(trainer.net, flip_percentage=args.params_flipping_rate)
-
+            
+            num_params_clipped = 0
+            num_params_flipped = 0
             for name, param in trainer.net.named_parameters():
                 if param.requires_grad:
                     # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
@@ -660,7 +692,12 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     if (str2bool(args.bit_flipping) and global_iters % args.bit_flipping_interval == 0):
                         if name in params_flipping:
                             print(f"name: {name} in params_flipping")
-                            bit_flip_param_grad(param, args)
+                            num_params_flipped += bit_flip_param_grad(param, args)
+                    if (str2bool(args.grad_clipping)):
+                        num_params_clipped += clip_gradients_by_value(param, args.clip_value_min, args.clip_value_max)
+            
+            print(f"num_params_clipped: {num_params_clipped}")
+            print(f"num_params_flipped: {num_params_flipped}")
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
@@ -770,7 +807,7 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                 result_dict["train_ppl"] = train_ppl
             ExpTool.record(result_dict)
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_acc": train_acc})
+                        "train_acc": train_acc, "num_params_flipped": num_params_flipped, "num_params_clipped": num_params_clipped})
 
             #  Launch asynchronous averaging model parameters.
             if (global_iters % new_nsteps_param_sync == (new_nsteps_param_sync - 1)):
@@ -908,18 +945,23 @@ def sgd_with_sync_all(optimizer_name, add_noise, gaussian_mu, gaussian_std, over
                 #     _, hidden = trainer.train(1, hidden=hidden)
                 # else:
                 trainer.train(1)
-
+            
             record_grad_norm(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             if (global_iters % new_nsteps_param_sync == 0):
                 named_gradnorms, total_gradnorm = get_grad_norm(trainer.net)
-            for param in trainer.net.parameters():
+                
+            params_flipping = select_params_gradient_flipping(trainer.net, flip_percentage=args.params_flipping_rate)
+            for name, param in trainer.net.named_parameters():
                 if param.requires_grad:
                     # dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                     # param.grad.data /= dist.get_world_size()
                     dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
                     if (str2bool(add_noise)):
                         add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
-
+                    if (str2bool(args.bit_flipping) and global_iters % args.bit_flipping_interval == 0):
+                        if name in params_flipping:
+                            print(f"name: {name} in params_flipping")
+                            bit_flip_param_grad(param, args)
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
@@ -1157,6 +1199,9 @@ if __name__ == '__main__':
     parser.add_argument("--exp_tool_init_sub_dir", type=str, default="no")
 
     parser.add_argument("--enable_wandb", type=str, default="False")
+    parser.add_argument('--grad_clipping', type=str, default="False", help='Whether to clip gradients by value')
+    parser.add_argument('--clip_value_min', type=float, default=-1.0, help='Lower bound for gradient clipping')
+    parser.add_argument('--clip_value_max', type=float, default=1.0, help='Upper bound for gradient clipping')
     args = parser.parse_args()
     arg_str2bool(args)
 

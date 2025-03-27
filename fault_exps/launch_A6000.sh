@@ -107,6 +107,10 @@ flip_prob=${flip_prob:-0.01}
 params_flipping_rate=${params_flipping_rate:-0.001}
 bit_flipping_interval=${bit_flipping_interval:-500}
 wandb_offline=True
+grad_clipping=${grad_clipping:-False}
+clip_value_min=${clip_value_min:-0.0}
+clip_value_max=${clip_value_max:-0.0}
+load_quantization=${load_quantization:-"no"}
 
 while [ $i -lt $node_count ]
 do
@@ -146,6 +150,9 @@ do
         --flip_prob $flip_prob \
         --params_flipping_rate $params_flipping_rate \
         --bit_flipping_interval $bit_flipping_interval \
+        --grad_clipping $grad_clipping \
+        --clip_value_min $clip_value_min \
+        --clip_value_max $clip_value_max \
         --threshold $threshold \
         --saved-dir $GRADSPATH \
         --test_interval $test_interval \

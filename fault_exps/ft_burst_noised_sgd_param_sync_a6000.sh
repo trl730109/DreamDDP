@@ -28,7 +28,7 @@ exp_name=$exp_name
 
 cluster_name=A6000
 hosts=('ibgpu3')
-ports=(32193)
+ports=(30920)
 
 param_sync_async_op=False
 values=(5 10)
@@ -42,15 +42,15 @@ burst_magnitude=1.0
 param_sync=detect_base
 gaussian_std=0.0001
 
-
+burst_magnitude=100
 for nsteps_param_sync in "${values[@]}"
 do
-    burst_magnitude=10
-    extra_name="nstd$gaussian_std-burst${burst_magnitude}-SyncP${nsteps_param_sync}"
+    param_sync=detect_base
+    extra_name="nstd$gaussian_std-burst${burst_magnitude}-SyncP${nsteps_param_sync}-param_sync${param_sync}"
     source fault_exps/launch_A6000.sh
 
-    burst_magnitude=100
-    extra_name="nstd$gaussian_std-burst${burst_magnitude}-SyncP${nsteps_param_sync}"
+    param_sync=fix
+    extra_name="nstd$gaussian_std-burst${burst_magnitude}-SyncP${nsteps_param_sync}-param_sync${param_sync}"
     source fault_exps/launch_A6000.sh
 done
 

@@ -28,7 +28,7 @@ exp_name=$exp_name
 
 cluster_name=A6000
 hosts=('ibgpu3')
-ports=(32193)
+ports=(30920)
 
 param_sync_async_op=False
 values=(5 10)
@@ -45,15 +45,34 @@ gaussian_mu=0.0
 flip_prob=0.1
 bit_flipping=True
 extra_name="bit_flip${flip_prob}"
-param_sync=detect_base
+param_sync=fix
 # gaussian_std=0.0001
 bit_flipping_interval=500
 params_flipping_rate=0.1
 
+# grad_clipping=False
+# clip_value_min=-1.0
+# clip_value_max=1.0
+
+# for nsteps_param_sync in "${values[@]}"
+# do
+#     # flip_prob=0.001
+#     extra_name="params_flip${params_flipping_rate}-flip_prob${flip_prob}-bit_flip_interval${bit_flipping_interval}-nstd${gaussian_std}-SyncP${nsteps_param_sync}-clip${grad_clipping}"
+#     source fault_exps/launch_A6000.sh
+
+#     # flip_prob=0.0001
+#     # extra_name="params_flip${params_flipping_rate}-flip_prob${flip_prob}-SyncP${nsteps_param_sync}"
+#     # source fault_exps/launch_A6000.sh
+# done
+
+grad_clipping=True
+clip_value_min=-1.0
+clip_value_max=1.0
+
 for nsteps_param_sync in "${values[@]}"
 do
     # flip_prob=0.001
-    extra_name="params_flip${params_flipping_rate}-flip_prob${flip_prob}-bit_flip_interval${bit_flipping_interval}-nstd${gaussian_std}-SyncP${nsteps_param_sync}"
+    extra_name="params_flip${params_flipping_rate}-flip_prob${flip_prob}-bit_flip_interval${bit_flipping_interval}-nstd${gaussian_std}-SyncP${nsteps_param_sync}-clip${grad_clipping}-clip_value_min${clip_value_min}-clip_value_max${clip_value_max}"
     source fault_exps/launch_A6000.sh
 
     # flip_prob=0.0001
@@ -61,6 +80,20 @@ do
     # source fault_exps/launch_A6000.sh
 done
 
+grad_clipping=True
+clip_value_min=-0.1
+clip_value_max=0.1
+
+for nsteps_param_sync in "${values[@]}"
+do
+    # flip_prob=0.001
+    extra_name="params_flip${params_flipping_rate}-flip_prob${flip_prob}-bit_flip_interval${bit_flipping_interval}-nstd${gaussian_std}-SyncP${nsteps_param_sync}-clip${grad_clipping}-clip_value_min${clip_value_min}-clip_value_max${clip_value_max}"
+    source fault_exps/launch_A6000.sh
+
+    # flip_prob=0.0001
+    # extra_name="params_flip${params_flipping_rate}-flip_prob${flip_prob}-SyncP${nsteps_param_sync}"
+    # source fault_exps/launch_A6000.sh
+done
 
 # alg=sgd
 # source fault_exps/launch.sh
