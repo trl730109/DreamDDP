@@ -1,5 +1,8 @@
-PY=/mnt/sdb/tangzhenheng/miniconda3/envs/DDP_Train/bin/python
-# PY=/mnt/sdb/tangzhenheng/miniconda3/bin/python
+# PY=/home/tangzhenheng/anaconda3/envs/fusionai/bin/python
+# PY="${PY:-/mnt/raid/tangzhenheng/anaconda3/envs/fusionai/bin/python}"
+
+PY="${PY:-/mnt/raid/tangzhenheng/anaconda3/bin/python}"
+
 
 
 master_port=12000
@@ -12,8 +15,10 @@ dnn=resnet18
 lr=0.1
 batch_size=32
 
+
 nworkers=8
 ngpu_per_node=8
+
 max_epochs=3
 add_noise=True
 # add_noise=False
@@ -38,6 +43,8 @@ param_sync=detect_base
 
 nsteps_param_diversity=1
 nsteps_param_sync=5
+
+pre_cmd="CUDA_LAUNCH_BLOCKING=1 NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
 
 

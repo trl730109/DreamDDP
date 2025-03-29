@@ -139,7 +139,7 @@ def plot_trainloss_lines(
     ax.grid(linestyle=":")
     ax.legend(
         fontsize=fontsize - 3,
-        loc="best",
+        loc="lower right",
         ncol=2,
         labelspacing=0.3,
         columnspacing=0.3,
@@ -212,8 +212,32 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise_level):
             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50-fix-1.0burst")
             build_run("hpml-hkbu/DDP-Train/wmd0n193", CIFAR10_RES18,
             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-sync-1.0burst")
-        else:
-            return
+        elif noise_level == "10.0":
+            build_run("hpml-hkbu/DDP-Train/l9e8lv4q", CIFAR10_RES18,
+            {"": ""}, "sgd-noiFalse-resnet18-SGD-lr0.1")
+            build_run("hpml-hkbu/DDP-Train/egqsg78n", CIFAR10_RES18,
+            {"": ""}, "sgd-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-1.0burst")
+            build_run("hpml-hkbu/DDP-Train/djzds6cs", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5-fix-1.0burst")
+            build_run("hpml-hkbu/DDP-Train/5m3ieefc", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-fix-1.0burst")
+            build_run("hpml-hkbu/DDP-Train/q9sa9h4j", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50-fix-1.0burst")
+            build_run("hpml-hkbu/DDP-Train/wmd0n193", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-sync-1.0burst")
+        elif noise_level == "100.0":
+            build_run("hpml-hkbu/DDP-Train/l9e8lv4q", CIFAR10_RES18,
+            {"": ""}, "sgd-noiFalse-resnet18-SGD-lr0.1")
+            build_run("hpml-hkbu/DDP-Train/egqsg78n", CIFAR10_RES18,
+            {"": ""}, "sgd-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-1.0burst")
+            build_run("hpml-hkbu/DDP-Train/djzds6cs", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5-fix-1.0burst")
+            build_run("hpml-hkbu/DDP-Train/5m3ieefc", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-fix-1.0burst")
+            build_run("hpml-hkbu/DDP-Train/q9sa9h4j", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP50-fix-1.0burst")
+            build_run("hpml-hkbu/DDP-Train/wmd0n193", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-sync-1.0burst")
     else:
         return
 
@@ -233,7 +257,7 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise_level):
         "#80cdc1",
         "#41ab5d",
     ]
-    legend_config = dict(fontsize=6, loc="lower right", ncol=2)
+    legend_config = dict(fontsize=6, loc="upper right", ncol=2)
     subplots_adjust = dict(bottom=0.18, left=0.18, right=0.98, top=0.98)
 
     label_list = [
@@ -243,6 +267,102 @@ def run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise_level):
         r"PAFT-Sync $H=10$",
         r"PAFT-Sync $H=50$",
         r"PAFT",
+    ]
+
+
+    y_label = "Test Accuracy (%)"
+    # EPOCHS = "epochs"
+
+    if model == "gpt2" or model == "llama2":
+        VAL_ACC_2 = "train_loss"
+        X_LIMIT = 1000
+        EPOCHS_2 = ITERS
+    else:
+        VAL_ACC_2 = VAL_ACC
+        EPOCHS_2 = EPOCHS
+        X_LIMIT = 110
+
+    metrics, rounds = load_datas(VAL_ACC_2, EPOCHS_2, all_figures[CIFAR10_RES18])
+    filter_none(metrics, rounds)
+
+    datas = []
+    i = 1
+    for alias in all_figures[CIFAR10_RES18]:
+        filter = rounds[alias] < 10000
+        x = rounds[alias][filter]
+        y = metrics[alias][filter] * 100
+        datas.append({"x": x, "y": y})
+
+    file_name = f"{VAL_ACC_2}_{simple_name}.pdf"
+
+    plot_trainloss_lines(
+        datas,
+        color_map=color_map,
+        markers=markers,
+        linestyles=linestyles,
+        label_list=label_list,
+        x_lim=X_LIMIT,
+        y_lim=None,
+        x_label="# EPOCHS",
+        y_label=y_label,
+        legend_config=legend_config,
+        subplots_adjust=subplots_adjust,
+        file_name=file_name,
+    )
+    
+def run_convergence_vs_worker_modeltype_fixed_noise_new(worker, model, noise_level):
+    CIFAR10_RES18 = f"acc_{worker}workers_{model}_noi{noise_level}"
+    if model == "resnet18":
+        if noise_level == "10.0":
+            build_run("hpml-hkbu/DDP-Train/l9e8lv4q", CIFAR10_RES18,
+            {"": ""}, "sgd-noiFalse-resnet18-SGD-lr0.1")
+            build_run("hpml-hkbu/DDP-Train/qlz1tgha", CIFAR10_RES18,
+            {"": ""}, "sgd-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128--cifar10")
+            build_run("hpml-hkbu/DDP-Train/thqsro3o", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-cifar10")
+            build_run("hpml-hkbu/DDP-Train/x6er9m3p", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-cifar10-Detectbase")
+            build_run("hpml-hkbu/DDP-Train/p5212n3f", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-burst10-SyncP10-param_syncdetect_base-clipTrue-clip_value_min-0.1-clip_value_max0.1")
+        elif noise_level == "100.0":
+            build_run("hpml-hkbu/DDP-Train/l9e8lv4q", CIFAR10_RES18,
+            {"": ""}, "sgd-noiFalse-resnet18-SGD-lr0.1")
+            build_run("hpml-hkbu/DDP-Train/sissp6wa", CIFAR10_RES18,
+            {"": ""}, "sgd-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128--cifar10")
+            build_run("hpml-hkbu/DDP-Train/hk75lzzh", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-cifar10")
+            build_run("hpml-hkbu/DDP-Train/21tgcbf3", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-cifar10-Detectbase")
+            build_run("hpml-hkbu/DDP-Train/vz8gwxyg", CIFAR10_RES18,
+            {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-burst100-SyncP10-param_syncdetect_base-clipTrue-clip_value_min-0.1-clip_value_max0.1")
+    else:
+        return
+
+
+
+    simple_name = f"burst-cifar10_{model}_{worker}workers-nstd{noise_level}-convergence_vH"
+    markers = [None] * 7
+    linestyles = [None] * 7
+    # markers = ['o']*2 + ['v']*2 + ['D']*2
+    # linestyles = ["-"] * 2 + ["--"] * 2 + [":"] * 3
+    linestyles = ["-", "-", ":", "--", "-", "-", "-"]
+    color_map = [
+        "#084081",
+        "#ff7f00",
+        "#80cdc1",
+        "#80cdc1",
+        "#80cdc1",
+        "#41ab5d",
+    ]
+    legend_config = dict(fontsize=6, loc="best", ncol=2)
+    subplots_adjust = dict(bottom=0.18, left=0.18, right=0.98, top=0.98)
+
+    label_list = [
+        "Oracle",
+        r"W. Noise",
+        r"PAFT-Sync $H=10$",
+        r"PAFT $H=10$ w/o clip",
+        r"PAFT $H=10$",
     ]
 
 
@@ -297,12 +417,13 @@ if __name__ == '__main__':
 
     WORKERS = [8]
     MODELS = ["resnet18"]
-    noise_level = ["0.1", "1.0"]
+    noise_level = ["10.0", "100.0"]
 
     for worker in WORKERS:
         for model in MODELS:
             for noise in noise_level:
-                run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise)
+                # run_convergence_vs_worker_modeltype_fixed_noise(worker, model, noise)
+                run_convergence_vs_worker_modeltype_fixed_noise_new(worker, model, noise)
 
 
 
@@ -313,3 +434,30 @@ if __name__ == '__main__':
 
 
 
+
+# if noise_level == "10.0":
+#             build_run("hpml-hkbu/DDP-Train/l9e8lv4q", CIFAR10_RES18,
+#             {"": ""}, "sgd-noiFalse-resnet18-SGD-lr0.1")
+#             build_run("hpml-hkbu/DDP-Train/qlz1tgha", CIFAR10_RES18,
+#             {"": ""}, "sgd-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128--cifar10")
+#             build_run("hpml-hkbu/DDP-Train/bou6wpsq", CIFAR10_RES18,
+#             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5-cifar10")
+#             build_run("hpml-hkbu/DDP-Train/thqsro3o", CIFAR10_RES18,
+#             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-cifar10")
+#             build_run("hpml-hkbu/DDP-Train/3byp5sqf", CIFAR10_RES18,
+#             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5-cifar10-Detectbase")
+#             build_run("hpml-hkbu/DDP-Train/x6er9m3p", CIFAR10_RES18,
+#             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-cifar10-Detectbase")
+#         elif noise_level == "100.0":
+#             build_run("hpml-hkbu/DDP-Train/l9e8lv4q", CIFAR10_RES18,
+#             {"": ""}, "sgd-noiFalse-resnet18-SGD-lr0.1")
+#             build_run("hpml-hkbu/DDP-Train/sissp6wa", CIFAR10_RES18,
+#             {"": ""}, "sgd-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128--cifar10")
+#             build_run("hpml-hkbu/DDP-Train/gjf93u3w", CIFAR10_RES18,
+#             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5-cifar10")
+#             build_run("hpml-hkbu/DDP-Train/hk75lzzh", CIFAR10_RES18,
+#             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-cifar10")
+#             build_run("hpml-hkbu/DDP-Train/pepawunh", CIFAR10_RES18,
+#             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP5-cifar10-Detectbase")
+#             build_run("hpml-hkbu/DDP-Train/21tgcbf3", CIFAR10_RES18,
+#             {"": ""}, "sgd_with_sync-noiTrue-tburst-resnet18-lora-nw8-SGD-LG20-lr0.1-bs128-nstd0.0001-SyncP10-cifar10-Detectbase")
