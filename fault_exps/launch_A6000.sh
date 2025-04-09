@@ -74,7 +74,7 @@ training_type="${training_type:-pretrain}"
 finetune_type="${finetune_type:-lora}"
 peft_lora_r="${peft_lora_r:-8}"
 peft_lora_alpha="${peft_lora_alpha:-16}"
-max_steps=${max_steps:-3000}
+max_steps=${max_steps:-300000}
 # exp_name="${exp_name:-default}"
 
 # Loop to launch training on each node
@@ -111,6 +111,11 @@ grad_clipping=${grad_clipping:-False}
 clip_value_min=${clip_value_min:-0.0}
 clip_value_max=${clip_value_max:-0.0}
 load_quantization=${load_quantization:-"no"}
+add_noise_params=${add_noise_params:-False}
+add_noise_params_mu=${add_noise_params_mu:-0.0}
+add_noise_params_std=${add_noise_params_std:-0.01}
+avg_params_clip=${avg_params_clip:-False}
+avg_params_clip_threshold=${avg_params_clip_threshold:-0.01}
 
 while [ $i -lt $node_count ]
 do
@@ -161,6 +166,11 @@ do
         --add_noise $add_noise \
         --gaussian_mu $gaussian_mu \
         --gaussian_std $gaussian_std \
+        --add_noise_params $add_noise_params \
+        --add_noise_params_mu $add_noise_params_mu \
+        --add_noise_params_std $add_noise_params_std \
+        --avg_params_clip $avg_params_clip \
+        --avg_params_clip_threshold $avg_params_clip_threshold \
         --noise_type=$noise_type \
         --burst_freq=$burst_freq \
         --burst_magnitude=$burst_magnitude \

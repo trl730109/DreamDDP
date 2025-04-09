@@ -100,6 +100,26 @@ def add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
         # logger.info(f"======= Busrt gradient magnitude is adjusted as {gaussian_std} ======= ")
         gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.grad.data.device)
     param.grad.data += gaussian_noise
+    
+# def add_noise_to_averaged_params(param, gaussian_mu, gaussian_std):
+#     shape = param.data.size()  # 修改这里，使用param.data而不是param.grad.data
+#     gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.data.device)  # 修改这里
+    
+#     param.data += gaussian_noise  # 修改这里，直接将噪声添加到参数而不是梯度
+    
+def add_noise_to_averaged_params(param, gaussian_mu, gaussian_std):
+    shape = param.data.size()
+    
+    if param.data.dtype == torch.long or param.data.dtype == torch.int:
+
+        param_float = param.data.float()
+        gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.data.device)
+        param_float += gaussian_noise
+        param.data = param_float.to(param.data.dtype)
+    else:
+
+        gaussian_noise = torch.normal(mean=gaussian_mu, std=gaussian_std, size=shape, device=param.data.device)
+        param.data += gaussian_noise
 
 def bit_flip_param_grad(param, args):
     actual_flip_prob = args.flip_prob
@@ -397,7 +417,19 @@ def clip_gradients_by_value(param, clip_value_min, clip_value_max):
     
     return num_clipped
 
-
+def clip_params_by_diff(new_param, old_param, max_diff):
+    diff = new_param.data - old_param
+    
+    # 找出差值超过阈值的位置
+    mask = diff.abs() > max_diff
+    
+    # 记录被裁剪的参数数量
+    num_clipped = torch.sum(mask).item()
+    
+    # 对于差值过大的位置，保留旧参数
+    new_param.data[mask] = old_param[mask]
+    
+    return num_clipped
 
 def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None,
                    nsteps_param_sync=None, check_param_diversity=None, nsteps_param_diversity=None, param_sync=None, args=None):
@@ -514,10 +546,10 @@ def ssgd_with_dist(optimizer_name, add_noise, gaussian_mu, gaussian_std, overlap
                     # logger.info(f"name:{name} NOT requires_grad, param.shape:{param.shape}")
                     pass
 
-            print(f"time to do bit flipping: {bit_flipping_time}")
-            print(f"time to sync: {sync_time}")
-            print(f"num_params_flipped: {num_params_flipped}")
-            print(f"num_params_clipped: {num_params_clipped}")
+            # print(f"time to do bit flipping: {bit_flipping_time}")
+            # print(f"time to sync: {sync_time}")
+            # print(f"num_params_flipped: {num_params_flipped}")
+            # print(f"num_params_clipped: {num_params_clipped}")
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
@@ -691,13 +723,13 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                         add_nose_to_param_grad(param, gaussian_mu, gaussian_std, args, global_iters)
                     if (str2bool(args.bit_flipping) and global_iters % args.bit_flipping_interval == 0):
                         if name in params_flipping:
-                            print(f"name: {name} in params_flipping")
+                            # print(f"name: {name} in params_flipping")
                             num_params_flipped += bit_flip_param_grad(param, args)
                     if (str2bool(args.grad_clipping)):
                         num_params_clipped += clip_gradients_by_value(param, args.clip_value_min, args.clip_value_max)
             
-            print(f"num_params_clipped: {num_params_clipped}")
-            print(f"num_params_flipped: {num_params_flipped}")
+            # print(f"num_params_clipped: {num_params_clipped}")
+            # print(f"num_params_flipped: {num_params_flipped}")
             if dnn in ['lstm', 'lstmwt2']:
                 optimizer.synchronize()
                 torch.nn.utils.clip_grad_norm_(trainer.net.parameters(), 0.25)
@@ -818,11 +850,39 @@ def ssgd_with_param_sync(optimizer_name, add_noise, gaussian_mu, gaussian_std, o
                     else:
                         avg_params = allreduce_model_weights_not_inplace_async(trainer.net, _handles)
                 else:
+                    # if args.training_type == "finetune" and args.finetune_type == "lora":
+                    #     avg_params = allreduce_model_weights_not_inplace(trainer.get_peft_model())
+                    #     old_params = deepcopy(trainer.net.state_dict())
+                    #     for name, param in avg_params.items():
+                    #         if args.add_noise_params:
+                    #             add_noise_to_averaged_params(param, args.add_noise_params_mu, args.add_noise_params_std)
+                    #         if args.avg_params_clip:
+                    #             clip_params_by_diff(param, old_params[name], args.avg_params_clip_threshold)
                     if args.training_type == "finetune" and args.finetune_type == "lora":
-                        avg_params = allreduce_model_weights_not_inplace(trainer.get_peft_model())
+                        params = deepcopy(trainer.get_peft_model())
+                        for name, param in params.items():
+                            if args.add_noise_params:
+                                add_noise_to_averaged_params(param, args.add_noise_params_mu, args.add_noise_params_std)
+                        avg_params = allreduce_model_weights_not_inplace(params)
+                        for name, param in avg_params.items():
+                            if args.avg_params_clip:
+                                clip_params_by_diff(param, trainer.net.get_peft_model().get_parameter(name), args.avg_params_clip_threshold)
                     else:
-                        avg_params = allreduce_model_weights_not_inplace(trainer.net)
-
+                        # avg_params = allreduce_model_weights_not_inplace(trainer.net)
+                        # old_params = deepcopy(trainer.net.state_dict())
+                        # for name, param in avg_params.items():
+                        #     if args.add_noise_params:
+                        #         add_noise_to_averaged_params(param, args.add_noise_params_mu, args.add_noise_params_std)
+                        #     if args.avg_params_clip:
+                        #         clip_params_by_diff(param, old_params[name], args.avg_params_clip_threshold)
+                        params = deepcopy(trainer.net.state_dict())
+                        for name, param in params.items():
+                            if args.add_noise_params:
+                                add_noise_to_averaged_params(param, args.add_noise_params_mu, args.add_noise_params_std)
+                        avg_params = allreduce_model_weights_not_inplace(params)
+                        for name, param in avg_params.items():
+                            if args.avg_params_clip:
+                                clip_params_by_diff(param, trainer.net.state_dict()[name], args.avg_params_clip_threshold)
 
             ExpTool.upload()
 
@@ -1166,6 +1226,12 @@ if __name__ == '__main__':
     parser.add_argument('--gaussian_mu', type=float, default=0.0, help='Mean of the Gaussian Noise Mean.')
     parser.add_argument('--gaussian_std', type=float, default=0.01, help='Std of the Gaussian Noise std.')
     parser.add_argument('--add_noise', type=str, default='false', help='Whether to add noise to the averaged gradients.')
+    parser.add_argument('--add_noise_params', type=str, default='false', help='Whether to add noise to the averaged parameters.')
+    parser.add_argument('--add_noise_params_mu', type=float, default=0.0, help='Mean of the Gaussian Noise Mean.')
+    parser.add_argument('--add_noise_params_std', type=float, default=0.01, help='Std of the Gaussian Noise std.')
+    parser.add_argument('--avg_params_clip', type=str, default="False", help='Whether to clip params by value')
+    parser.add_argument('--avg_params_clip_threshold', type=float, default=0.01, help='Threshold for param clipping')
+    
     parser.add_argument('--noise_type', type=str, default='fix', choices=["fix", "burst"], help='')   # fix, 
     parser.add_argument('--burst_freq', type=int, default=100, help='')   # fix, 
     parser.add_argument('--burst_magnitude', type=float, default=1.0, help='')   # fix, 
@@ -1185,6 +1251,7 @@ if __name__ == '__main__':
     parser.add_argument('--flip_prob', type=float, default=0.01)
     parser.add_argument('--params_flipping_rate', type=float, default=0.01)
     parser.add_argument('--bit_flipping_interval', type=int, default=500)
+    
     # wandb, exp record related
     parser.add_argument("--wandb_offline", type=str, default="True")
     parser.add_argument("--wandb_console", type=str, default="False")
