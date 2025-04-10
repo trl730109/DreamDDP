@@ -1,0 +1,156 @@
+Server: A6000, Model: llama, Current Bandwidth: 10
+total communication time: 0.9368605017662048
+total bp time: 0.055243483905134505
+total layers: 91
+mean layer communication time: 0.010295170349079175
+mean layer bp time: 0.0006070712517047748
+----------------------- Final results -----------------------
+SGD time per iter: 0.9921039856713202
+Pipe SGD time per iter: 0.6173597849648443
+Localsgd time per iter: 0.14799267357998871
+Dreamddp time per iter: 0.11214110644513313
+Pipe seq Localsgd time per iter: 0.12553360390513452
+
+Server: A6000, Model: gpt, Current Bandwidth: 10
+total communication time: 0.9139519759586874
+total bp time: 0.06478173112216058
+total layers: 125
+mean layer communication time: 0.0073116158076694995
+mean layer bp time: 0.0005182538489772846
+----------------------- Final results -----------------------
+SGD time per iter: 0.9787337070808637
+Pipe SGD time per iter: 0.6131529166973568
+Localsgd time per iter: 0.15526297674207387
+Dreamddp time per iter: 0.11928579007216324
+Pipe seq Localsgd time per iter: 0.12817721912216057
+
+Server: A6000, Model: resnet18, Current Bandwidth: 10
+total communication time: 0.8036470413208008
+total bp time: 0.03878289002638598
+total layers: 46
+mean layer communication time: 0.017470587854800018
+mean layer bp time: 0.0008431063049214343
+----------------------- Final results -----------------------
+SGD time per iter: 0.8424299313471758
+Pipe SGD time per iter: 0.5209711148188596
+Localsgd time per iter: 0.11834394711714291
+Dreamddp time per iter: 0.09402375746638399
+Pipe seq Localsgd time per iter: 0.10108430302638598
+
+Server: A6000, Model: resnet50, Current Bandwidth: 10
+total communication time: 1.6430895328521729
+total bp time: 0.1346665345705472
+total layers: 119
+mean layer communication time: 0.013807475065984646
+mean layer bp time: 0.0011316515510130017
+----------------------- Final results -----------------------
+SGD time per iter: 1.77775606742268
+Pipe SGD time per iter: 1.1205202542818447
+Localsgd time per iter: 0.29733239832291647
+Dreamddp time per iter: 0.19566741110054842
+Pipe seq Localsgd time per iter: 0.2287545765705472
+
+Server: A800, Model: llama, Current Bandwidth: 10
+total communication time: 0.0678136276476311
+total bp time: 0.0171250449366721
+total layers: 84
+mean layer communication time: 0.0008073050910432275
+mean layer bp time: 0.00020386958257942976
+----------------------- Final results -----------------------
+SGD time per iter: 0.0849386725843017
+Pipe SGD time per iter: 0.05781322152525092
+Localsgd time per iter: 0.023838594073787717
+Dreamddp time per iter: 0.018198991986671912
+Pipe seq Localsgd time per iter: 0.0187807619366721
+
+Server: A800, Model: gpt, Current Bandwidth: 10
+total communication time: 0.1253299840859004
+total bp time: 0.0459840327501297
+total layers: 125
+mean layer communication time: 0.0010026398726872031
+mean layer bp time: 0.0003678722620010376
+----------------------- Final results -----------------------
+SGD time per iter: 0.17131401683602934
+Pipe SGD time per iter: 0.12118202320166922
+Localsgd time per iter: 0.0583917011746329
+Dreamddp time per iter: 0.04979268749012899
+Pipe seq Localsgd time per iter: 0.05022808575012969
+
+Server: A800, Model: resnet18, Current Bandwidth: 10
+total communication time: 0.0096097503389631
+total bp time: 0.010933956321404906
+total layers: 46
+mean layer communication time: 0.0002089076160644152
+mean layer bp time: 0.0002376947026392371
+----------------------- Final results -----------------------
+SGD time per iter: 0.020543706660368186
+Pipe SGD time per iter: 0.016699806524782562
+Localsgd time per iter: 0.011885321604962439
+Dreamddp time per iter: 0.01099470074140507
+Pipe seq Localsgd time per iter: 0.010933956321404906
+
+Server: A800, Model: resnet50, Current Bandwidth: 10
+total communication time: 0.02300773348127092
+total bp time: 0.03202748541929285
+total layers: 119
+mean layer communication time: 0.00019334229816194052
+mean layer bp time: 0.00026913853293523407
+----------------------- Final results -----------------------
+SGD time per iter: 0.05503521890056363
+Pipe SGD time per iter: 0.045832125508056105
+Localsgd time per iter: 0.0343052510339382
+Dreamddp time per iter: 0.03235399830929252
+Pipe seq Localsgd time per iter: 0.03202748541929285
+
+Server: H100, Model: llama, Current Bandwidth: 10
+total communication time: 0.17508032827666312
+total bp time: 0.01074757172621989
+total layers: 84
+mean layer communication time: 0.0020842896223412276
+mean layer bp time: 0.0001279472824549987
+----------------------- Final results -----------------------
+SGD time per iter: 0.18582790000288404
+Pipe SGD time per iter: 0.1157957686922194
+Localsgd time per iter: 0.028080524225609887
+Dreamddp time per iter: 0.02092240760622012
+Pipe seq Localsgd time per iter: 0.023374107726219888
+
+Server: H100, Model: gpt, Current Bandwidth: 10
+total communication time: 0.29091968706675936
+total bp time: 0.024202741895403182
+total layers: 125
+mean layer communication time: 0.0023273574965340747
+mean layer bp time: 0.00019362193516322544
+----------------------- Final results -----------------------
+SGD time per iter: 0.3151224289621649
+Pipe SGD time per iter: 0.1987545541354615
+Localsgd time per iter: 0.05300379091501186
+Dreamddp time per iter: 0.040253311925403226
+Pipe seq Localsgd time per iter: 0.043091792895403186
+
+Server: H100, Model: resnet18, Current Bandwidth: 10
+total communication time: 0.03737559914588928
+total bp time: 0.007124501831677498
+total layers: 46
+mean layer communication time: 0.0008125130249106365
+mean layer bp time: 0.00015488047460168473
+----------------------- Final results -----------------------
+SGD time per iter: 0.044500100977565814
+Pipe SGD time per iter: 0.029549861319210904
+Localsgd time per iter: 0.010824686147120677
+Dreamddp time per iter: 0.008095729451677629
+Pipe seq Localsgd time per iter: 0.008338569831677498
+
+Server: H100, Model: resnet50, Current Bandwidth: 10
+total communication time: 0.07544499635696411
+total bp time: 0.019815707693294608
+total layers: 119
+mean layer communication time: 0.0006339915660249085
+mean layer bp time: 0.0001665185520444925
+----------------------- Final results -----------------------
+SGD time per iter: 0.09526070405026035
+Pipe SGD time per iter: 0.06508270550747197
+Localsgd time per iter: 0.027284762332633893
+Dreamddp time per iter: 0.020757477863294686
+Pipe seq Localsgd time per iter: 0.01984666483615175
+
