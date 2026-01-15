@@ -67,7 +67,7 @@ cifar-10-batches-py
 *.tar
 *.png
 *.zip
-*.json
+# *.json
 
 
 
