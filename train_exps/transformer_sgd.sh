@@ -9,24 +9,23 @@ data_dir="/mnt/raid/tangzichen/wikitext2"
 model_dir="/mnt/raid/tangzichen/bert-base-uncased"
 # model_dir="/workspace/models/gpt2"
 # "/workspace/models/gpt2"
-
+interface=eth0
 # data_dir="/home/tangzhenheng/wikitext2"
 # model_dir="/home/tangzhenheng/gpt2"
 # PY="/mnt/raid/tangzhenheng/anaconda3/bin/python"
 PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 # PY="/home/tangzhenheng/anaconda3/bin/python"
 
-
-pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
+pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com NCCL_DEBUG=INFO NCCL_IB_DISABLE=1 NCCL_SOCKET_IFNAME=eth0"
 
 optimizer_name=Adam
 # dnn=llama2-124M
 # dnn=llama2-124M
-dnn=gpt2
+dnn=Qwen2.5-1.5B
 
 max_epochs=1
 # add_noise=True
-extra_name='gpt2'
+extra_name='Qwen2.5-1.5B'
 
 enable_wandb=false
 wandb_offline=true
@@ -38,12 +37,17 @@ exp_name=$exp_name
 # cluster_name=GZ4090ZHTANG
 cluster_name=A6000
 
-hosts=('ibgpu4' 'ibgpu1' 'ibgpu2' 'ibgpu3')
-ports=(31969 31749 31204 31936)
-# hosts=('ibgpu4')
-# ports=(31969)
+# hosts=('ibgpu4' 'ibgpu1' 'ibgpu2' 'ibgpu3')
+# ports=(31969 31749 31204 31936)
+# 10.244.19.223 
+# 10.244.3.143 
+hosts=('10.244.19.223' '10.244.3.143' '10.244.4.83' '10.244.5.184')
+ports=(22 22 22 22)
+# hosts=('10.244.3.143')
+# ports=(22)
 #
-master_port=2229
+#
+master_port=2778
 node_count=${#hosts[@]}
 nwpernode=8
 nworkers=$((nwpernode * node_count))

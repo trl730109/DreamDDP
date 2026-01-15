@@ -106,8 +106,8 @@ project_name=DDP-Train
 master_port="${master_port:-2395}"
 while [ $i -lt $node_count ]
 do
-    host=${hosts[$node_rank]}
-    port=${ports[$node_rank]}
+    host=${hosts[$i]}
+    port=${ports[$i]}
     echo "Entering node: $host"
     args="$pre_cmd  $PY -m torch.distributed.launch --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
         --alg $alg \
@@ -138,7 +138,10 @@ do
         --nsteps_param_diversity $nsteps_param_diversity \
         --momentum-correction $momentum_correction \
         --wandb_entity $wandb_entity --project_name $project_name --enable_wandb $enable_wandb --wandb_offline $wandb_offline \
-        --wandb_key $wandb_key"
+        --wandb_key $wandb_key \
+        --finetune_type ${finetune_type:-full} \
+        --peft_lora_r ${peft_lora_r:-8} \
+        --peft_lora_alpha ${peft_lora_alpha:-16}"
     echo "$host: $args"
     cmd="cd $directory; $args"
     echo "$host"

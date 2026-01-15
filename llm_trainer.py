@@ -114,10 +114,10 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
         'transformer', "gpt2", 'gpt2-custom', 
-        "bert-base-uncased", "llama2-7B", "llama2-124M"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B"]
 
 _llms = ['transformer', "gpt2", 'gpt2-custom', 
-        "bert-base-uncased", "llama2-7B", "llama2-124M"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B"]
 
 
 LLAMA2_7B_HF = "meta-llama/llama-2-7b-hf"
@@ -255,6 +255,54 @@ def create_net(dnn='gpt2', args=None, **kwargs):
             config.num_key_value_heads = 8
             logger.info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
+    elif dnn == "Qwen2.5-1.5B":
+        logger.info(f'Creating the Qwen2.5-1.5B.')
+        # 对 Qwen 系列使用 AutoConfig / AutoModel，并允许 trust_remote_code
+        device_map, quantization_config, torch_dtype = load_quantization_config(args)
+        logger.info(f'device_map: {device_map}')
+        logger.info(f'quantization_config: {quantization_config}')
+        logger.info(f'torch_dtype: {torch_dtype}')
+        config = AutoConfig.from_pretrained(
+            pretrained_model_name_or_path=kwargs["model_dir"],
+            trust_remote_code=True,
+        )
+        if kwargs["load_pretrain"]:
+            logger.info(f'Load {dnn} from pretrained.')
+            net = AutoModelForCausalLM.from_pretrained(
+                pretrained_model_name_or_path=kwargs["model_dir"],
+                quantization_config=quantization_config,
+                from_tf=False,
+                config=config,
+                low_cpu_mem_usage=True,
+                trust_remote_code=True,
+            )
+        else:
+            logger.info(f'Load {dnn} from scratch.')
+            net = AutoModelForCausalLM.from_config(config)
+    elif dnn == "Qwen2.5-7B":
+        logger.info(f'Creating the Qwen2.5-7B.')
+        # 对 Qwen 系列使用 AutoConfig / AutoModel，并允许 trust_remote_code
+        device_map, quantization_config, torch_dtype = load_quantization_config(args)
+        logger.info(f'device_map: {device_map}')
+        logger.info(f'quantization_config: {quantization_config}')
+        logger.info(f'torch_dtype: {torch_dtype}')
+        config = AutoConfig.from_pretrained(
+            pretrained_model_name_or_path=kwargs["model_dir"],
+            trust_remote_code=True,
+        )
+        if kwargs["load_pretrain"]:
+            logger.info(f'Load {dnn} from pretrained.')
+            net = AutoModelForCausalLM.from_pretrained(
+                pretrained_model_name_or_path=kwargs["model_dir"],
+                quantization_config=quantization_config,
+                from_tf=False,
+                config=config,
+                low_cpu_mem_usage=True,
+                trust_remote_code=True,
+            )
+        else:
+            logger.info(f'Load {dnn} from scratch.')
+            net = AutoModelForCausalLM.from_config(config)
         # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
         # net = AutoModelForCausalLM.from_pretrained(
         #     pretrained_model_name_or_path="openai-community/gpt2",
@@ -359,7 +407,7 @@ class LLMTrainer:
         else:
             self.dnn = dnn
             # TODO: Refact these codes!
-            if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased", "llama2-7B", "llama2-124M"]:
+            if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B"]:
                 if data_dir is not None:
                     self.data_prepare()
                 logger.info(f"Finish preparing loading datasets")
@@ -369,6 +417,7 @@ class LLMTrainer:
                     peft_config = LoraConfig(
                         r=self.args.peft_lora_r,
                         lora_alpha=self.args.peft_lora_alpha,
+                        target_modules="all-linear",
                         lora_dropout=0.05,
                         bias="none",
                         task_type="CAUSAL_LM",
@@ -379,12 +428,6 @@ class LLMTrainer:
                     number_params = get_parameter_number(self.net)
 
                     logger.info(f"dnn:{dnn}@!!!!! After Peft, get_parameter_number of Model : {number_params}")
-                    # for name, param in self.net.named_parameters():
-                    #     if param.requires_grad:
-                    #         logger.info(f"name:{name} requires_grad, param.shape:{param.shape}")
-                    #     else:
-                    #         logger.info(f"name:{name} NOT requires_grad, param.shape:{param.shape}")
-                    # exit()
                     self.net.config.use_cache = False  # silence the warnings. Please re-enable for inference!
                 elif self.args.finetune_type == "full":
                     pass
@@ -544,6 +587,16 @@ class LLMTrainer:
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
+        elif self.dnn in ["Qwen2.5-1.5B", "Qwen2.5-7B"]:
+            # Qwen 模型从本地 model_dir 加载 tokenizer，允许 trust_remote_code
+            tokenizer = AutoTokenizer.from_pretrained(
+                self.model_dir,
+                use_fast=False,
+                trust_remote_code=True,
+                padding_side="left",
+                padding=True,
+                truncation=True,
+            )
         else:
             raise NotImplementedError
         # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
@@ -637,6 +690,15 @@ class LLMTrainer:
             # tokenizer = AutoTokenizer.from_pretrained(self.model_dir, use_fast=False, padding_side="left", padding=True, truncation=True)
             tokenizer = AutoTokenizer.from_pretrained(self.model_dir, use_fast=False, use_auth_token=token, 
                                                       padding_side="left", padding=True, truncation=True)
+        elif self.dnn in ["Qwen2.5-1.5B", "Qwen2.5-7B"]:
+            tokenizer = AutoTokenizer.from_pretrained(
+                self.model_dir,
+                use_fast=False,
+                trust_remote_code=True,
+                padding_side="left",
+                padding=True,
+                truncation=True,
+            )
         else:
             raise NotImplementedError
         # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)
@@ -728,6 +790,18 @@ class LLMTrainer:
             data_collator = default_data_collator
             tokenizer.pad_token = "[PAD]"
             # data_collator = DataCollatorWithPadding(tokenizer)
+        elif self.dnn in ["Qwen2.5-1.5B", "Qwen2.5-7B"]:
+            # SFT 使用与 wikitext2 相同的 Qwen tokenizer 设置
+            tokenizer = AutoTokenizer.from_pretrained(
+                self.model_dir,
+                use_fast=False,
+                trust_remote_code=True,
+                padding_side="left",
+                padding=True,
+                truncation=True,
+            )
+            data_collator = default_data_collator
+            tokenizer.pad_token = tokenizer.eos_token if tokenizer.eos_token is not None else "[PAD]"
         else:
             raise NotImplementedError
         # tokenizer.pad_token = tokenizer.eos_token

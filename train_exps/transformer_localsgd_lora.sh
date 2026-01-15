@@ -11,11 +11,16 @@ pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
 
 optimizer_name=Adam
 # dnn=llama2-124M
-dnn=Qwen2.5-1.5B
-# Qwen2.5-7B
+dnn=Qwen2.5-7B
+
 max_epochs=2
 # add_noise=True
-extra_name="${dnn}"
+extra_name="${dnn}-lora"
+
+# LoRA training hyperparameters
+finetune_type='lora'
+peft_lora_r=16
+peft_lora_alpha=32
 
 enable_wandb=false
 wandb_offline=true
@@ -28,14 +33,8 @@ exp_name=$exp_name
 cluster_name=A6000
 
 
-# hosts=('ibgpu4')
-# ports=(31969)
-# hosts=('ibgpu4' 'ibgpu1' 'ibgpu2' 'ibgpu3')
-# ports=(31969 31749 31204 31936)
 hosts=('10.244.19.223' '10.244.3.143' '10.244.4.83' '10.244.5.184')
 ports=(22 22 22 22)
-# hosts=('10.244.4.83')
-# ports=(22)
 #
 master_port=2228
 node_count=${#hosts[@]}

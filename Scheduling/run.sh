@@ -1,0 +1,1 @@
+python3 Scheduling/dreamddp_scheduling.py /workspace/tzc/DDP-Train/time/Qwen2.5-7B/32 --H 10 --bp_multiplier 4.0 --comm_multiplier 10.0

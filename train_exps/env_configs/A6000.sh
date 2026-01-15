@@ -52,6 +52,8 @@ case "$cluster_name" in
             "gpt2") model_dir="/workspace/models/gpt2" ;;
             "bert-base-uncased") model_dir="/data2/share/zhtang/bert-base-uncased" ;;
             "llama2-124M") model_dir="/workspace/models/Llama-2-7b-hf" ;;
+            "Qwen2.5-1.5B") model_dir="/workspace/tzc/Qwen/Qwen2.5-1.5B" ;;
+            "Qwen2.5-7B") model_dir="/workspace/tzc/Qwen/Qwen2.5-7B-Instruct" ;;
             
         esac
         ;;

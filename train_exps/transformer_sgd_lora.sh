@@ -1,21 +1,36 @@
 lr=0.00001
 batch_size=1
-alg='transformer_localsgd'
+alg='transformer_sgd'
 dataset='wikitext2'
 
-data_dir="/workspace/wikitext2"
-model_dir="/workspace/models/${dnn}"
-PY="/workspace/pretrain/miniconda3/envs/ddp/bin/python3"
+data_dir="/mnt/raid/tangzichen/wikitext2"
+# model_dir="/mnt/raid/tangzichen/gpt2"
 
-pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com"
+model_dir="/mnt/raid/tangzichen/bert-base-uncased"
+# model_dir="/workspace/models/gpt2"
+# "/workspace/models/gpt2"
+interface=eth0
+# data_dir="/home/tangzhenheng/wikitext2"
+# model_dir="/home/tangzhenheng/gpt2"
+# PY="/mnt/raid/tangzhenheng/anaconda3/bin/python"
+PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
+# PY="/home/tangzhenheng/anaconda3/bin/python"
+
+pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com NCCL_DEBUG=INFO NCCL_IB_DISABLE=1 NCCL_SOCKET_IFNAME=eth0"
 
 optimizer_name=Adam
 # dnn=llama2-124M
-dnn=Qwen2.5-1.5B
-# Qwen2.5-7B
-max_epochs=2
+# dnn=llama2-124M
+dnn=Qwen2.5-7B
+
+max_epochs=1
 # add_noise=True
-extra_name="${dnn}"
+extra_name="${dnn}-lora"
+
+# LoRA training hyperparameters
+finetune_type='lora'
+peft_lora_r=16
+peft_lora_alpha=32
 
 enable_wandb=false
 wandb_offline=true
@@ -27,23 +42,17 @@ exp_name=$exp_name
 # cluster_name=GZ4090ZHTANG
 cluster_name=A6000
 
-
-# hosts=('ibgpu4')
-# ports=(31969)
-# hosts=('ibgpu4' 'ibgpu1' 'ibgpu2' 'ibgpu3')
-# ports=(31969 31749 31204 31936)
 hosts=('10.244.19.223' '10.244.3.143' '10.244.4.83' '10.244.5.184')
 ports=(22 22 22 22)
-# hosts=('10.244.4.83')
-# ports=(22)
 #
-master_port=2228
+#
+master_port=2778
 node_count=${#hosts[@]}
-echo "$node_count"
 nwpernode=8
 nworkers=$((nwpernode * node_count))
-nsteps_localsgd=10
 ngpu_per_node=$nwpernode
+nsteps_localsgd=10
+
 # lr_decay=None
 
 adam_beta1=0.9
@@ -51,20 +60,9 @@ adam_beta1=0.9
 lr=0.0001
 
 weight_decay=0.0001
-
-lr_decay='fixed'
-# source train_exps/launch_transformer_shenzhen.sh
-
 node_rank=1
-nsteps_localsgd=10
+lr_decay='fixed'
 source train_exps/launch_transformer_A6000.sh
-
-# node_rank=1
-# nsteps_localsgd=5
-# source train_exps/launch_transformer_A6000.sh
-
-# nsteps_localsgd=40
-# source train_exps/launch_transformer_A6000.sh
 
 # /workspace/DDP-Train/train_exps/launch_transformer_A6000.sh
 # dnn=llama2-124M

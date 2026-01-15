@@ -190,15 +190,8 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         seq_layernames, layerwise_times, layerwise_sizes = None, None, None
 
     logger.info('Broadcast parameters....')
-    # If using LoRA, only broadcast LoRA parameters
-    if args.finetune_type == "lora":
-        peft_state_dict = trainer.get_peft_model()
-        broadcast_parameters(peft_state_dict, root_rank=0)
-        trainer.update_peft_model(peft_state_dict)
-        logger.info('Broadcast LoRA parameters finished....')
-    else:
-        broadcast_parameters(trainer.net.state_dict(), root_rank=0)
-        logger.info('Broadcast parameters finished....')
+    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
+    logger.info('Broadcast parameters finished....')
 
 
     norm_clip = None
@@ -271,18 +264,10 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
            
             train_time_acc += (time.time() - s)
             comm_s = time.time()
-            # If using LoRA, only reduce LoRA parameter gradients
-            if args.finetune_type == "lora":
-                # Only reduce gradients for LoRA parameters (requires_grad=True)
-                for param in trainer.net.parameters():
-                    if param.requires_grad and param.grad is not None:
-                        dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
-            else:
-                # Full model: reduce all trainable parameter gradients
-                for param in trainer.net.parameters():
-                    if param.requires_grad:
-                        dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
-                        #param.grad.data /= dist.get_world_size()
+            for param in trainer.net.parameters():
+                if param.requires_grad:
+                    dist.all_reduce(param.grad.data, op=dist.ReduceOp.AVG)
+                    #param.grad.data /= dist.get_world_size()
             comm_time_acc += (time.time() - comm_s)
             
             # optimizer.synchronize()
@@ -341,13 +326,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         for name in bp_dict:
             if ('self_attn.rotary_emb' in name):
                 logger.info(f'self_attn.rotary_emb time:{bp_dict[name]}')
-            # 对 LoRA 模块名做一点规范化，使其与通信侧的名字一致
-            # BP:  base_model...mlp.down_proj.lora_A.default
-            # Comm: base_model...mlp.down_proj.lora_A
-            new_name = name
-            if name.endswith(".lora_A.default") or name.endswith(".lora_B.default") or name.endswith(".lora_dropout.default"):
-                new_name = name.replace(".default", "")
-            avg_bp_dict[new_name] = np.mean(bp_dict[name])
+            avg_bp_dict[name] = np.mean(bp_dict[name])
         # logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
         
         filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
@@ -502,15 +481,8 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     iters_per_epoch = trainer.num_batches_per_epoch
     
     logger.info(f'rank {rank} Broadcast parameters....')
-    # If using LoRA, only broadcast LoRA parameters
-    if args.finetune_type == "lora":
-        peft_state_dict = trainer.get_peft_model()
-        broadcast_parameters(peft_state_dict, root_rank=0)
-        trainer.update_peft_model(peft_state_dict)
-        logger.info(f'rank {rank} Broadcast LoRA parameters finished....')
-    else:
-        broadcast_parameters(trainer.net.state_dict(), root_rank=0)
-        logger.info(f'rank {rank} Broadcast parameters finished....')
+    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
+    logger.info(f'rank {rank} Broadcast parameters finished....')
     
     global_iters = 0
     train_time_acc = 0
@@ -569,45 +541,17 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             
             if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
                 start = time.time()
-                # If using LoRA, only communicate LoRA parameters
-                if args.finetune_type == "lora":
-                    # Get LoRA parameters and communicate them
-                    peft_state_dict = trainer.get_peft_model()
-                    for name, param_tensor in peft_state_dict.items():
-                        # name is a parameter key, we map it back to the corresponding module
-                        # so that keys are consistent with SGD's bp JSON
-                        # e.g. "....lora_A.default.weight" -> "....lora_A.default"
-                        if "." in name:
-                            module_name = ".".join(name.split(".")[:-1])
-                        else:
-                            module_name = name
-
+                for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
+                    if len(list(module.children())) == 0:  
                         torch.cuda.synchronize()
                         ls = time.time()
-                        dist.all_reduce(param_tensor, op=dist.ReduceOp.AVG, async_op=False)
+                        for param in module.parameters():
+                            dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
                         torch.cuda.synchronize()
                         layer_time = time.time() - ls
-
-                        # Use module_name so localsgd comm keys align with SGD bp keys
-                        if module_name not in comm_dict:
-                            comm_dict[module_name] = []
-                        comm_dict[module_name].append(layer_time)
-
-                    # Update the model with synchronized LoRA parameters
-                    trainer.update_peft_model(peft_state_dict)
-                else:
-                    # Full model: communicate all parameters
-                    for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
-                        if len(list(module.children())) == 0:  
-                            torch.cuda.synchronize()
-                            ls = time.time()
-                            for param in module.parameters():
-                                dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
-                            torch.cuda.synchronize()
-                            layer_time = time.time() - ls
-                            comm_dict[name].append(layer_time)
-                        else:
-                            pass
+                        comm_dict[name].append(layer_time)
+                    else:
+                        pass
                 comm_time_acc += (time.time() - start)
             else:
                 pass
@@ -628,15 +572,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         ExpTool.upload()
     avg_comm_dict = {}
     for name in comm_dict:
-        # 规范 LoRA 名称，使其与 BP 一致：
-        #   BP:   ...lora_A / ...lora_B / ...lora_dropout
-        #   Comm: ...lora_A.default / ...lora_B.default / ...lora_dropout.default
-        new_name = name
-        if name.endswith(".lora_A.default") or name.endswith(".lora_B.default") or name.endswith(".lora_dropout.default"):
-            new_name = name.replace(".default", "")
-
-        if len(comm_dict[name]) > 0:
-            avg_comm_dict[new_name] = np.mean(comm_dict[name])
+        avg_comm_dict[name] = np.mean(comm_dict[name])
     logger.info(f'Each layer comm time is {avg_comm_dict}')
     
     filename = 'comm' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
@@ -1256,8 +1192,6 @@ if __name__ == '__main__':
     parser.add_argument('--model_name_or_path', type=str,default='',help='Local model path for GPT or Bert.')
     parser.add_argument('--training_type', type=str,default='pretrain',help='training type, pretrain or lora finetunie.')
     parser.add_argument('--finetune_type', type=str,default='full',help='training type, pretrain or lora finetunie.')
-    parser.add_argument('--peft_lora_r', type=int, default=8, help='LoRA rank parameter.')
-    parser.add_argument('--peft_lora_alpha', type=int, default=16, help='LoRA alpha parameter.')
     # Check model divergence
     parser.add_argument('--check_param_diversity', type=str, default="False")
     parser.add_argument('--nsteps_param_diversity', type=int, default=5)
