@@ -682,7 +682,7 @@ def main():
         print("-" * 80)
         
         alg_names = ["sgd", "pipe_sgd", "localsgd", "pipe_seq_localsgd", "dream_ddp"]
-        alg_display_names = ["SGD", "Pipeline SGD", "LocalSGD", "Pipeline Seq LocalSGD", "DreamDDP"]
+        alg_display_names = ["SGD", "ASC-WFBP", "FLSGD", "PLSGD", "DreamDDP"]
         
         for alg_name, display_name in zip(alg_names, alg_display_names):
             print(f"{display_name:<25} ", end="")
@@ -748,7 +748,7 @@ def main():
             f.write("-" * 80 + "\n")
             
             alg_names = ["sgd", "pipe_sgd", "localsgd", "pipe_seq_localsgd", "dream_ddp"]
-            alg_display_names = ["SGD", "Pipeline SGD", "LocalSGD", "Pipeline Seq LocalSGD", "DreamDDP"]
+            alg_display_names = ["SGD", "ASC-WFBP", "FLSGD", "PLSGD", "DreamDDP"]
             
             for alg_name, display_name in zip(alg_names, alg_display_names):
                 f.write(f"{display_name:<25} ")

@@ -1,59 +1,60 @@
 # DreamDDP 调度结果总结
 
-**Table: Average iteration wall-clock time (in seconds) of 1000 running iterations. S₁ and S₂ represent the speedup of DreamDDP over Pipeline SGD and LocalSGD.**
+**Table: Average iteration wall-clock time (in seconds) of 1000 running iterations. S₁ and S₂ represent the speedup of DreamDDP over ASC-WFBP and FLSGD.**
 
-| Model | Qwen2.5-1.5B (8) | Qwen2.5-1.5B (32) | Qwen2.5-7B (8) | Qwen2.5-7B (32) |
-|:------|:----------------:|:-----------------:|:--------------:|:---------------:|
-| **SGD** | 26.05 | 164.78 | 4.54 | 15.63 |
-| **Pipeline SGD** | 16.39 | 99.63 | 4.16 | 10.81 |
-| **LocalSGD** | 4.29 | 18.03 | 3.70 | 4.79 |
-| **Pipeline Seq LocalSGD** | 3.45 | 17.32 | 3.61 | 4.38 |
-| **DreamDDP** | **3.12** | **16.51** | **3.61** | **4.21** |
-| **S₁** (vs Pipeline SGD) | 5.25× | 6.03× | 1.15× | 2.57× |
-| **S₂** (vs LocalSGD) | 1.38× | 1.09× | 1.02× | 1.14× |
+| Model | Qwen2.5-1.5B (8, H=5) | Qwen2.5-1.5B (32, H=5) | Qwen2.5-7B (8, H=5) | Qwen2.5-7B (32, H=5) |
+|:------|:---------------------:|:----------------------:|:-------------------:|:--------------------:|
+| **SGD** | 18.29 | 68.95 | 12.93 | 29.45 |
+| **ASC-WFBP** | 12.49 | 42.89 | 9.20 | 19.83 |
+| **FLSGD** | 6.68 | 16.77 | 5.46 | 10.18 |
+| **PLSGD** | 4.89 | 14.89 | 3.97 | 9.50 |
+| **DreamDDP** | **4.63** | **13.77** | **3.83** | **9.12** |
+| **S₁** (vs ASC-WFBP) | 2.70× | 3.12× | 2.40× | 2.18× |
+| **S₂** (vs FLSGD) | 1.44× | 1.22× | 1.42× | 1.12× |
 
 ## 详细数据
 
-### Qwen2.5-1.5B (8 workers, H=10)
-- SGD: 26.05 seconds
-- Pipeline SGD: 16.39 seconds
-- LocalSGD: 4.29 seconds
-- Pipeline Seq LocalSGD: 3.45 seconds
-- **DreamDDP: 3.12 seconds**
-- Speedup over Pipeline SGD: **5.25×**
-- Speedup over LocalSGD: **1.38×**
+### Qwen2.5-1.5B (8 workers, H=5)
+- SGD: 18.29 seconds
+- ASC-WFBP: 12.49 seconds
+- FLSGD: 6.68 seconds
+- PLSGD: 4.89 seconds
+- **DreamDDP: 4.63 seconds**
+- Speedup over ASC-WFBP: **2.70×**
+- Speedup over FLSGD: **1.44×**
 
-### Qwen2.5-1.5B (32 workers, H=10)
-- SGD: 164.78 seconds
-- Pipeline SGD: 99.63 seconds
-- LocalSGD: 18.03 seconds
-- Pipeline Seq LocalSGD: 17.32 seconds
-- **DreamDDP: 16.51 seconds**
-- Speedup over Pipeline SGD: **6.03×**
-- Speedup over LocalSGD: **1.09×**
+### Qwen2.5-1.5B (32 workers, H=5)
+- SGD: 68.95 seconds
+- ASC-WFBP: 42.89 seconds
+- FLSGD: 16.77 seconds
+- PLSGD: 14.89 seconds
+- **DreamDDP: 13.77 seconds**
+- Speedup over ASC-WFBP: **3.12×**
+- Speedup over FLSGD: **1.22×**
 
-### Qwen2.5-7B (8 workers, H=10)
-- SGD: 4.54 seconds
-- Pipeline SGD: 4.16 seconds
-- LocalSGD: 3.70 seconds
-- Pipeline Seq LocalSGD: 3.61 seconds
-- **DreamDDP: 3.61 seconds**
-- Speedup over Pipeline SGD: **1.15×**
-- Speedup over LocalSGD: **1.02×**
+### Qwen2.5-7B (8 workers, H=5)
+- SGD: 12.93 seconds
+- ASC-WFBP: 9.20 seconds
+- FLSGD: 5.46 seconds
+- PLSGD: 3.97 seconds
+- **DreamDDP: 3.83 seconds**
+- Speedup over ASC-WFBP: **2.40×**
+- Speedup over FLSGD: **1.42×**
 
-### Qwen2.5-7B (32 workers, H=10)
-- SGD: 15.63 seconds
-- Pipeline SGD: 10.81 seconds
-- LocalSGD: 4.79 seconds
-- Pipeline Seq LocalSGD: 4.38 seconds
-- **DreamDDP: 4.21 seconds**
-- Speedup over Pipeline SGD: **2.57×**
-- Speedup over LocalSGD: **1.14×**
+### Qwen2.5-7B (32 workers, H=5)
+- SGD: 29.45 seconds
+- ASC-WFBP: 19.83 seconds
+- FLSGD: 10.18 seconds
+- PLSGD: 9.50 seconds
+- **DreamDDP: 9.12 seconds**
+- Speedup over ASC-WFBP: **2.18×**
+- Speedup over FLSGD: **1.12×**
 
 ## 观察
 
 1. **DreamDDP 在所有配置下都达到了最低的平均迭代时间**（用粗体标记）。
-2. **Qwen2.5-1.5B** 在 8 和 32 workers 下，DreamDDP 相比 Pipeline SGD 的加速比分别为 **5.25×** 和 **6.03×**，显示出显著的性能提升。
-3. **Qwen2.5-7B** 在 8 workers 下，DreamDDP 与 Pipeline Seq LocalSGD 的性能非常接近（3.61 vs 3.61），但在 32 workers 下仍保持优势。
-4. 随着 worker 数量增加，DreamDDP 相比 Pipeline SGD 的加速比通常会增加（Qwen2.5-1.5B: 5.25× → 6.03×，Qwen2.5-7B: 1.15× → 2.57×）。
+2. **Qwen2.5-1.5B** 在 8 和 32 workers 下（H=5），DreamDDP 相比 ASC-WFBP 的加速比分别为 **2.70×** 和 **3.12×**，相比 FLSGD 的加速比分别为 **1.44×** 和 **1.22×**，显示出显著的性能提升。
+3. **Qwen2.5-7B** 在 8 和 32 workers 下（H=5），DreamDDP 相比 ASC-WFBP 的加速比分别为 **2.40×** 和 **2.18×**，相比 FLSGD 的加速比分别为 **1.42×** 和 **1.12×**。
+4. 随着 worker 数量增加，DreamDDP 相比 ASC-WFBP 的加速比在 Qwen2.5-1.5B 上增加（2.70× → 3.12×），但在 Qwen2.5-7B 上略有下降（2.40× → 2.18×）。
+5. 所有配置现在都使用 H=5，DreamDDP 在所有配置下都保持最佳性能，相比 ASC-WFBP 的加速比在 2.18× 到 3.12× 之间。
 
