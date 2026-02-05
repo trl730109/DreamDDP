@@ -20,9 +20,8 @@ case "$cluster_name" in
     "shenzhen")
         case "$dataset" in
             # "Tiny-ImageNet-200") data_dir="/datasets/tiny-imagenet-200" ;;
-            # "cifar10") data_dir="/home/yinyiming/datasets/cifar10" ;;
-            "cifar10") data_dir="/home/yinyiming/datasets/cifar10" ;;
-            "cifar100") data_dir="/home/yinyiming/datasets/cifar100" ;;
+            "cifar10") data_dir="/workspace/tzc/DreamDDP/cifar" ;;
+            "cifar100") data_dir="/workspace/tzc/DreamDDP/cifar" ;;
             "wikitext2") data_dir="/home/yinyiming/datasets/wikitext2" ;;
             # "fmnist") data_dir="/datasets/fmnist" ;;
             # "SVHN") data_dir="/datasets/SVHN" ;;

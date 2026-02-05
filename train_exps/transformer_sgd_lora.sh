@@ -23,7 +23,7 @@ optimizer_name=Adam
 # dnn=llama2-124M
 dnn=Qwen2.5-7B
 
-max_epochs=1
+max_epochs=0
 # add_noise=True
 extra_name="${dnn}-lora"
 
@@ -42,8 +42,8 @@ exp_name=$exp_name
 # cluster_name=GZ4090ZHTANG
 cluster_name=A6000
 
-hosts=('10.244.19.223' '10.244.3.143' '10.244.4.83' '10.244.5.184')
-ports=(22 22 22 22)
+hosts=('10.244.4.101')
+ports=(22)
 #
 #
 master_port=2778

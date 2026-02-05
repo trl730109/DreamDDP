@@ -532,10 +532,21 @@ class DLTrainer:
                 transforms.ToTensor(),
                 normalize,
                 ])
-        trainset = torchvision.datasets.CIFAR10(root=self.data_dir, train=True,
-                                                download=True, transform=train_transform)
-        testset = torchvision.datasets.CIFAR10(root=self.data_dir, train=False,
-                                               download=True, transform=test_transform)
+        # 检查数据集是否存在，避免网络下载问题
+        import os
+        cifar10_path = os.path.join(self.data_dir, 'cifar-10-batches-py')
+        if not os.path.exists(cifar10_path):
+            print(f"CIFAR10 dataset not found at {cifar10_path}, downloading...")
+            trainset = torchvision.datasets.CIFAR10(root=self.data_dir, train=True,
+                                                    download=True, transform=train_transform)
+            testset = torchvision.datasets.CIFAR10(root=self.data_dir, train=False,
+                                                   download=True, transform=test_transform)
+        else:
+            print(f"CIFAR10 dataset found at {cifar10_path}, skipping download.")
+            trainset = torchvision.datasets.CIFAR10(root=self.data_dir, train=True,
+                                                    download=False, transform=train_transform)
+            testset = torchvision.datasets.CIFAR10(root=self.data_dir, train=False,
+                                                   download=False, transform=test_transform)
         self.trainset = trainset
         self.testset = testset
 
@@ -577,10 +588,21 @@ class DLTrainer:
         test_transform = transform_test = transforms.Compose([
                 transforms.ToTensor(),
                 normalize])
-        trainset = torchvision.datasets.CIFAR100(root=self.data_dir, train=True,
-                                                download=True, transform=train_transform)
-        testset = torchvision.datasets.CIFAR100(root=self.data_dir, train=False,
-                                               download=True, transform=test_transform)
+        # 检查数据集是否存在，避免网络下载问题
+        import os
+        cifar100_path = os.path.join(self.data_dir, 'cifar-100-python')
+        if not os.path.exists(cifar100_path):
+            print(f"CIFAR100 dataset not found at {cifar100_path}, downloading...")
+            trainset = torchvision.datasets.CIFAR100(root=self.data_dir, train=True,
+                                                    download=True, transform=train_transform)
+            testset = torchvision.datasets.CIFAR100(root=self.data_dir, train=False,
+                                                   download=True, transform=test_transform)
+        else:
+            print(f"CIFAR100 dataset found at {cifar100_path}, skipping download.")
+            trainset = torchvision.datasets.CIFAR100(root=self.data_dir, train=True,
+                                                    download=False, transform=train_transform)
+            testset = torchvision.datasets.CIFAR100(root=self.data_dir, train=False,
+                                                   download=False, transform=test_transform)
         self.trainset = trainset
         self.testset = testset
 
@@ -614,10 +636,20 @@ class DLTrainer:
         self._input_shape = (self.batch_size, 1, image_size, image_size)
         self._output_shape = (self.batch_size, 10)
 
-        trainset = torchvision.datasets.MNIST(self.data_dir, train=True, download=True,
-                    transform=transforms.Compose(trans))
+        # 检查数据集是否存在，避免网络下载问题
+        import os
+        mnist_path = os.path.join(self.data_dir, 'MNIST', 'raw')
+        if not os.path.exists(mnist_path):
+            print(f"MNIST dataset not found at {mnist_path}, downloading...")
+            trainset = torchvision.datasets.MNIST(self.data_dir, train=True, download=True,
+                        transform=transforms.Compose(trans))
+            testset = torchvision.datasets.MNIST(self.data_dir, train=False, download=True, transform=transforms.Compose(trans))
+        else:
+            print(f"MNIST dataset found at {mnist_path}, skipping download.")
+            trainset = torchvision.datasets.MNIST(self.data_dir, train=True, download=False,
+                        transform=transforms.Compose(trans))
+            testset = torchvision.datasets.MNIST(self.data_dir, train=False, download=False, transform=transforms.Compose(trans))
         self.trainset = trainset
-        testset = torchvision.datasets.MNIST(self.data_dir, train=False, transform=transforms.Compose(trans))
         self.testset = testset
         train_sampler = None
         shuffle = True

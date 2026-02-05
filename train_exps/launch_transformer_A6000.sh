@@ -17,10 +17,6 @@ echo "model_dir: $model_dir"
 
 export NCCL_DEBUG=TRACE
 
-# Optionally, focus on socket information
-# export NCCL_DEBUG_SUBSYS=ALL
-# export NCCL_IB_DISABLE=1
-# export NCCL_SOCKET_IFNAME=eno0
 nworkers="${nworkers:-4}"
 density="${density:-1.0}"
 threshold="${threshold:-524288000}"
@@ -58,7 +54,7 @@ data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 model_dir="${model_dir:-/mnt/raid/gpt2}"
 group_num="${group_num:-6}"
 enlarge="${enlarge:-false}"
-host_ip='haigpu2'
+# host_ip='haigpu2'
 check_param_diversity="${check_param_diversity:-false}"
 nsteps_param_diversity=5
 
@@ -72,36 +68,27 @@ fi
 
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
-if [ "$alg" = "pipe_seq_localsgd" ]; then
-    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-elif [ "$alg" = "pipe_seq_localsgd_warmup" ]; then
-    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-elif [ "$alg" = "localsgd" ]; then
-    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-elif [ "$alg" = "transformer_localsgd" ]; then
-    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-    echo "Exp name: $exp_name"
-elif [ "$alg" = "transformer_dream_ddp" ]; then
-    exp_name="${extra_name}-${alg}-${dnn}-${enlarge}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-    echo "Exp name: $exp_name"
-elif [ "$alg" = "full_pipe_seq" ]; then
-    exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-    echo "Exp name: $exp_name"
-elif [ "$alg" = "dream_ddp" ]; then
-    exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-    echo "Exp name: $exp_name"
+
+common_suffix="${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
+
+if [ "$alg" = "transformer_dream_ddp" ]; then
+    exp_name="${extra_name}-${alg}-${dnn}-${enlarge}-${dataset}-${nsteps_localsgd}-${common_suffix}"
+elif [ "$alg" = "full_pipe_seq" ] || [ "$alg" = "dream_ddp" ]; then
+    exp_name="${extra_name}-${alg}_${group_num}-${dnn}-${dataset}-${nsteps_localsgd}-${common_suffix}"
+elif [ "$alg" = "pipe_seq_localsgd" ] || [ "$alg" = "pipe_seq_localsgd_warmup" ] || \
+     [ "$alg" = "localsgd" ] || [ "$alg" = "transformer_localsgd" ]; then
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-${nsteps_localsgd}-${common_suffix}"
 else
-    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-nstepsupdate${nstepsupdate}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
-    echo "Exp name: $exp_name"
+    exp_name="${extra_name}-${alg}-${dnn}-${dataset}-nstepsupdate${nstepsupdate}-${common_suffix}"
 fi
+
+echo "Exp name: $exp_name"
 if [ -z "$exp_name" ]; then
     echo "Error: exp_name is empty."
     exit 1
 fi
-# Loop to launch training on each node
+
 i=0
-host_port=30737
-host_ip="haigpu2"
 project_name=DDP-Train
 master_port="${master_port:-2395}"
 while [ $i -lt $node_count ]

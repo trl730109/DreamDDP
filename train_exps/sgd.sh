@@ -1,3 +1,7 @@
+PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
+
+pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com NCCL_DEBUG=INFO NCCL_IB_DISABLE=1 NCCL_SOCKET_IFNAME=eth0"
+
 lr=0.00001
 batch_size=1
 alg='sgd'
@@ -22,11 +26,13 @@ wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 check_param_diversity=false
 nsteps_param_diversity=5
 exp_name=$exp_name
-cluster_name=GZ_A6000
+cluster_name=A6000
 sync_momentum=false
 
 
-hosts=('10.120.17.54')
+hosts=('10.244.4.101')
+ports=(22)
+
 master_port=2228
 node_count=${#hosts[@]}
 extra_name="${node_count}Nodes"

@@ -40,6 +40,10 @@ if [ $(expr $node_rank + $node_count) -gt $total_host ] || [ $node_rank -lt 0 ];
 fi
 master_host=${hosts[$node_rank]}
 wandb_key="${wandb_key:-None}"
+enable_wandb="${enable_wandb:-False}"
+wandb_offline="${wandb_offline:-False}"
+wandb_entity="${wandb_entity:-hpml-hkbu}"
+master_port="${master_port:-2285}"
 # Training settings
 nwpernode="${nwpernode:-4}"
 nstepsupdate="${nstepsupdate:-1}"
@@ -52,7 +56,6 @@ sync="${sync:-avg}"
 alg="${alg:-sgd}"
 GRADSPATH=./logs/tzc
 lr="${lr:-0.0001}"
-global_lr="${global_lr:-0.01}"
 lr_decay="${lr_decay:-None}"
 weight_decay="${weight_decay:-0.0001}"
 adam_beta1="${adam_beta1:-0.9}"
@@ -62,8 +65,6 @@ dataset="${dataset:-cifar10}"
 data_dir="${data_dir:-/home/comp/amelieczhou/datasets/cifar10}"
 model_dir="${model_dir:-/mnt/raid/gpt2}"
 load_pretrain="${load_pretrain:-False}"
-sync_momentum="${sync_momentum:-False}"
-
 group_num="${group_num:-6}"
 
 check_param_diversity="${check_param_diversity:-false}"
@@ -79,7 +80,7 @@ fi
 
 if [ "$alg" = "localsgd" ] || [ "$alg" = "train_with_global_momentum" ]; then
     alg_name="local${optimizer_name}"
-    if [ "$compressor" != "None" ] && [ "$sync_momentum" = true ]; then
+    if [ "$compressor" != "None" ]; then
         echo "compressor is not None"
         alg_name="${compressor}_${density}-${alg_name}"
     fi
@@ -91,10 +92,6 @@ exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
 base_name="${dnn}-${dataset}-${bandwidth}-lr${lr}-lr_decay${lr_decay}-nodes${total_host}-nworkers${nworkers}"
 
-if [ "$sync_momentum" = true ] && [ "$alg" = "localsgd" ]; then
-    extra_name="${extra_name}-syncOpt"
-fi
-
 # Check specific conditions for algorithms that require different formatting
 case "$alg" in
     "pipe_seq_localsgd"|"pipe_seq_localsgd_warmup")
@@ -104,7 +101,7 @@ case "$alg" in
         exp_name="${extra_name}-${alg_name}-${nsteps_localsgd}-${base_name}"
         ;;
     "train_with_global_momentum")
-        exp_name="${extra_name}-${alg_name}-Global_Momentum_lr_${global_lr}-${nsteps_localsgd}-${base_name}"
+        exp_name="${extra_name}-${alg_name}-Global_Momentum-${nsteps_localsgd}-${base_name}"
         ;;
     "full_pipe_seq"|"dream_ddp")
         exp_name="${extra_name}-${alg}_${group_num}-${nsteps_localsgd}-${base_name}"
@@ -122,7 +119,7 @@ while [ $i -lt $node_count ]
 do
     host=${hosts[$node_rank]}
     echo "Entering node: $host"
-    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=2282 $script \
+    args="$pre_cmd $PY -m torch.distributed.run --nproc_per_node=$ngpu_per_node --nnodes=$node_count --node_rank=$i --master_addr=$master_host --master_port=$master_port $script \
         --alg $alg \
         --exp_name $exp_name \
         --optimizer_name $optimizer_name \
@@ -138,8 +135,6 @@ do
         --model_dir $model_dir \
         --load_pretrain $load_pretrain \
         --lr $lr \
-        --global_lr $global_lr
-        --sync_momentum $sync_momentum \
         --lr_decay $lr_decay \
         --weight_decay $weight_decay \
         --adam_beta1 $adam_beta1 \

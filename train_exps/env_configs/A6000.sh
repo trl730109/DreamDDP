@@ -39,9 +39,7 @@ case "$cluster_name" in
         ;;
     "A6000")
         case "$dataset" in
-            "cifar10") data_dir="/data2/share/cifar10" ;;
-            "cifar100") data_dir="/data2/share/zhtang/cifar100" ;;
-            # "wikitext2") data_dir="/mnt/raid/tangzichen/wikitext2" ;;
+            "cifar10" | "cifar100" | "mnist") data_dir="/workspace/tzc/DreamDDP/cifar" ;;
             "wikitext2") data_dir="/workspace/wikitext2" ;;
             "openwebtext") data_dir="/workspace/encoded_openwebtext" ;;
             # "openwebtext") data_dir="/workspace/openwebtext" ;;

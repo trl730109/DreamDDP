@@ -22,7 +22,12 @@ runs
 *.npy
 bk/
 *.npy*
+cifar
+exp_savefiles_DDP-Train
 
+
+audio_data/*
+bert/
 
 gpt2/*
 .wandb/*
