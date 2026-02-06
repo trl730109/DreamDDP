@@ -57,6 +57,7 @@ enlarge="${enlarge:-false}"
 # host_ip='haigpu2'
 check_param_diversity="${check_param_diversity:-false}"
 nsteps_param_diversity=5
+profile="${profile:-False}"
 
 if [ "$interface" = "eno0" ]; then
     bandwidth="1G"
@@ -123,6 +124,7 @@ do
         --enlarge $enlarge \
         --check_param_diversity $check_param_diversity \
         --nsteps_param_diversity $nsteps_param_diversity \
+        --profile $profile \
         --momentum-correction $momentum_correction \
         --wandb_entity $wandb_entity --project_name $project_name --enable_wandb $enable_wandb --wandb_offline $wandb_offline \
         --wandb_key $wandb_key \

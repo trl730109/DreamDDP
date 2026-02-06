@@ -154,7 +154,7 @@ def record_param_diversity_with_period(model, global_iters, nsteps_param_diversi
             logger.info(f'Params have diversity: {total_diversity} !!!!!!!!.')
             
 def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
-                         nsteps_param_diversity=None, check_param_diversity=None, args=None):
+                         nsteps_param_diversity=None, check_param_diversity=None, args=None, profile=False):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -221,27 +221,23 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
     backward_time_acc = 0.0
     
 
-    layer_bp_timestamps = {}
-    def add_backward_hook(layer, name):
-        def backward_hook(module, grad_input, grad_output):
-            # Record the current time as the end time for this layer's backward computation
-            # if ('mlp.gate_proj' in name):
-            #     logger.info(f'Hook registered on self_attn.rotary_emb is triggered')
-            torch.cuda.synchronize()
-            layer_bp_timestamps[name] = time.time()
-                
-        layer.register_full_backward_hook(backward_hook)
-    for name, module in trainer.net.named_modules():
-        if len(list(module.children())) == 0: 
-            add_backward_hook(module, name)
-            # if ('self_attn.rotary_emb' in name):
-            #     logger.info(f'Hook registered on self_attn.rotary_emb layers')
-            
-    for epoch in range(max_epochs):
-        bp_dict = {}
+    if profile:
+        layer_bp_timestamps = {}
+        def add_backward_hook(layer, name):
+            def backward_hook(module, grad_input, grad_output):
+                torch.cuda.synchronize()
+                layer_bp_timestamps[name] = time.time()
+            layer.register_full_backward_hook(backward_hook)
         for name, module in trainer.net.named_modules():
             if len(list(module.children())) == 0: 
-                bp_dict[name] = []
+                add_backward_hook(module, name)
+            
+    for epoch in range(max_epochs):
+        if profile:
+            bp_dict = {}
+            for name, module in trainer.net.named_modules():
+                if len(list(module.children())) == 0: 
+                    bp_dict[name] = []
         hidden = None
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
@@ -250,7 +246,8 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         # train_epoch_acc = 0.0
         train_epoch_ppl = 0.0
         result_dict = {}
-        layer_bp_timestamps = {}
+        if profile:
+            layer_bp_timestamps = {}
         for i in range(iters_per_epoch//nsteps_update):
             global_iters += 1
             result_dict = {}
@@ -321,12 +318,13 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
 
-            previous_time = trainer.backward_stamp
-            for name in layer_bp_timestamps:
-                current_stamp = layer_bp_timestamps[name]
-                bp_dict[name].append(current_stamp - previous_time)
-                previous_time = current_stamp
-            layer_bp_timestamps = {}
+            if profile:
+                previous_time = trainer.backward_stamp
+                for name in layer_bp_timestamps:
+                    current_stamp = layer_bp_timestamps[name]
+                    bp_dict[name].append(current_stamp - previous_time)
+                    previous_time = current_stamp
+                layer_bp_timestamps = {}
             
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_ppl, test_loss = trainer.test(epoch)
@@ -336,27 +334,21 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
         
-        
-        avg_bp_dict = {}
-        for name in bp_dict:
-            if ('self_attn.rotary_emb' in name):
-                logger.info(f'self_attn.rotary_emb time:{bp_dict[name]}')
-            # 对 LoRA 模块名做一点规范化，使其与通信侧的名字一致
-            # BP:  base_model...mlp.down_proj.lora_A.default
-            # Comm: base_model...mlp.down_proj.lora_A
-            new_name = name
-            if name.endswith(".lora_A.default") or name.endswith(".lora_B.default") or name.endswith(".lora_dropout.default"):
-                new_name = name.replace(".default", "")
-            avg_bp_dict[new_name] = np.mean(bp_dict[name])
-        # logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
-        
-        filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-        # save_path = os.path.join(f'./time/bp/{dnn}', filename)
-        save_path = os.path.join(f'./time/{dnn}/{nworkers}/bp/', filename)
-        import json
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        with open(save_path, 'w') as file:
-            json.dump(avg_bp_dict, file, indent=4)
+        if profile:
+            avg_bp_dict = {}
+            for name in bp_dict:
+                if ('self_attn.rotary_emb' in name):
+                    logger.info(f'self_attn.rotary_emb time:{bp_dict[name]}')
+                new_name = name
+                if name.endswith(".lora_A.default") or name.endswith(".lora_B.default") or name.endswith(".lora_dropout.default"):
+                    new_name = name.replace(".default", "")
+                avg_bp_dict[new_name] = np.mean(bp_dict[name])
+            filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+            save_path = os.path.join('./time', dnn, str(nworkers), 'bp', filename)
+            import json
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            with open(save_path, 'w') as file:
+                json.dump(avg_bp_dict, file, indent=4)
             
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
@@ -481,7 +473,7 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
         ExpTool.upload()
           
 def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
-             check_param_diversity=None, nsteps_param_diversity=None, args=None):
+             check_param_diversity=None, nsteps_param_diversity=None, args=None, profile=False):
     assert nsteps_localsgd > 1
     set_seed(3000)
     rank = dist.get_rank()
@@ -517,10 +509,11 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     comm_time_acc = 0
     iteration_time_acc = 0
     
-    comm_dict = {}
-    for name, module in trainer.net.named_modules():
-        if len(list(module.children())) == 0: 
-            comm_dict[name] = []
+    if profile:
+        comm_dict = {}
+        for name, module in trainer.net.named_modules():
+            if len(list(module.children())) == 0: 
+                comm_dict[name] = []
     
     for epoch in range(max_epochs):
         trainer.net.train()
@@ -582,16 +575,16 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
                         else:
                             module_name = name
 
-                        torch.cuda.synchronize()
-                        ls = time.time()
+                        if profile:
+                            torch.cuda.synchronize()
+                            ls = time.time()
                         dist.all_reduce(param_tensor, op=dist.ReduceOp.AVG, async_op=False)
-                        torch.cuda.synchronize()
-                        layer_time = time.time() - ls
-
-                        # Use module_name so localsgd comm keys align with SGD bp keys
-                        if module_name not in comm_dict:
-                            comm_dict[module_name] = []
-                        comm_dict[module_name].append(layer_time)
+                        if profile:
+                            torch.cuda.synchronize()
+                            layer_time = time.time() - ls
+                            if module_name not in comm_dict:
+                                comm_dict[module_name] = []
+                            comm_dict[module_name].append(layer_time)
 
                     # Update the model with synchronized LoRA parameters
                     trainer.update_peft_model(peft_state_dict)
@@ -599,13 +592,15 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
                     # Full model: communicate all parameters
                     for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
                         if len(list(module.children())) == 0:  
-                            torch.cuda.synchronize()
-                            ls = time.time()
+                            if profile:
+                                torch.cuda.synchronize()
+                                ls = time.time()
                             for param in module.parameters():
                                 dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
-                            torch.cuda.synchronize()
-                            layer_time = time.time() - ls
-                            comm_dict[name].append(layer_time)
+                            if profile:
+                                torch.cuda.synchronize()
+                                layer_time = time.time() - ls
+                                comm_dict[name].append(layer_time)
                         else:
                             pass
                 comm_time_acc += (time.time() - start)
@@ -626,26 +621,23 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
         ExpTool.upload()
-    avg_comm_dict = {}
-    for name in comm_dict:
-        # 规范 LoRA 名称，使其与 BP 一致：
-        #   BP:   ...lora_A / ...lora_B / ...lora_dropout
-        #   Comm: ...lora_A.default / ...lora_B.default / ...lora_dropout.default
-        new_name = name
-        if name.endswith(".lora_A.default") or name.endswith(".lora_B.default") or name.endswith(".lora_dropout.default"):
-            new_name = name.replace(".default", "")
+        
+    if profile:
+        avg_comm_dict = {}
+        for name in comm_dict:
+            new_name = name
+            if name.endswith(".lora_A.default") or name.endswith(".lora_B.default") or name.endswith(".lora_dropout.default"):
+                new_name = name.replace(".default", "")
 
-        if len(comm_dict[name]) > 0:
-            avg_comm_dict[new_name] = np.mean(comm_dict[name])
-    logger.info(f'Each layer comm time is {avg_comm_dict}')
-    
-    filename = 'comm' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-    # save_path = os.path.join('./time/comm/', filename)
-    save_path = os.path.join(f'./time/{dnn}/{nworkers}/comm/', filename)
-    import json
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    with open(save_path, 'w') as file:
-        json.dump(avg_comm_dict, file, indent=4)
+            if len(comm_dict[name]) > 0:
+                avg_comm_dict[new_name] = np.mean(comm_dict[name])
+        logger.info(f'Each layer comm time is {avg_comm_dict}')
+        filename = 'comm' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+        save_path = os.path.join('./time', dnn, str(nworkers), 'comm', filename)
+        import json
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, 'w') as file:
+            json.dump(avg_comm_dict, file, indent=4)
 
 def transformer_pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
              check_param_diversity=None, nsteps_param_diversity=None, args=None):
@@ -1261,7 +1253,7 @@ if __name__ == '__main__':
     # Check model divergence
     parser.add_argument('--check_param_diversity', type=str, default="False")
     parser.add_argument('--nsteps_param_diversity', type=int, default=5)
-
+    parser.add_argument('--profile', type=str, default="False", help='Enable profiling: bp (layer backward time), save to json')
 
     # wandb, exp record related
     parser.add_argument("--wandb_offline", type=str, default="True")
@@ -1357,12 +1349,12 @@ if __name__ == '__main__':
     if (args.alg == 'transformer_localsgd'):
         logger.info("Alg used: transformer training.")
         transformer_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.max_epochs, args.nwpernode, args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
-             check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
+             check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args, profile=args.profile)
         
     elif (args.alg == 'transformer_sgd'):
         logger.info("Alg used: transformer_sgd.")
         transformer_ssgd(args.optimizer_name, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, lr_decay=args.lr_decay,
-                        check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
+                        check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args, profile=args.profile)
         
     elif (args.alg == 'transformer_pipe_sgd'):
         logger.info("Alg used: transformer_pipe_sgd.")

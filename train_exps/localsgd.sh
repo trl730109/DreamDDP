@@ -10,9 +10,9 @@ script="dist_trainer.py"
 interface=eth0
 # interface=ens5f0, eno0
 optimizer_name=SGD
-dnn=resnet18
-dataset=cifar10
-max_epochs=1
+dnn=resnet50
+dataset=cifar100
+max_epochs=3
 # add_noise=True
 
 
@@ -26,12 +26,15 @@ exp_name=$exp_name
 cluster_name=A6000
 sync_momentum=false
 
-hosts=('10.244.4.101')
+hosts=('10.244.5.205 ')
 ports=(22)
 master_port=3333
 #
 node_count=${#hosts[@]}
-nworkers=$((4 * node_count))
+nworkers=$((8 * node_count))
+profile=True
+
+
 nsteps_localsgd=10
 ngpu_per_node=$nwpernode
 extra_name="${node_count}Nodes"
@@ -41,7 +44,7 @@ extra_name="${node_count}Nodes"
 
 node_rank=1
 nsteps_localsgd=10
-optimizer_name=Adam
+# optimizer_name=Adam
 lr_decay='exp'
 nstepsupdate=1
 lr=0.1

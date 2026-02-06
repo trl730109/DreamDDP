@@ -158,7 +158,7 @@ def record_param_diversity_with_period(model, global_iters, nsteps_param_diversi
 
 
 def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
-             check_param_diversity=None, nsteps_param_diversity=None):
+             check_param_diversity=None, nsteps_param_diversity=None, profile=False):
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
     #print("The ssgd_with_horovod is called by rank: ", rank)
@@ -217,22 +217,23 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
     backward_time_acc = 0.0
     
 
-    # layer_bp_timestamps = {}
-    # def add_backward_hook(layer, name):
-    #     def backward_hook(module, grad_input, grad_output):
-    #         # Record the current time as the end time for this layer's backward computation
-    #         torch.cuda.synchronize()
-    #         layer_bp_timestamps[name] = time.time()
-    #     layer.register_full_backward_hook(backward_hook)
-    # for name, module in trainer.net.named_modules():
-    #     if len(list(module.children())) == 0: 
-    #         add_backward_hook(module, name)
-            
-    for epoch in range(max_epochs):
-        bp_dict = {}
+    if profile:
+        layer_bp_timestamps = {}
+        def add_backward_hook(layer, name):
+            def backward_hook(module, grad_input, grad_output):
+                torch.cuda.synchronize()
+                layer_bp_timestamps[name] = time.time()
+            layer.register_full_backward_hook(backward_hook)
         for name, module in trainer.net.named_modules():
             if len(list(module.children())) == 0: 
-                bp_dict[name] = []
+                add_backward_hook(module, name)
+            
+    for epoch in range(max_epochs):
+        if profile:
+            bp_dict = {}
+            for name, module in trainer.net.named_modules():
+                if len(list(module.children())) == 0: 
+                    bp_dict[name] = []
         hidden = None
         if dnn in ['lstm', 'lstmwt2']:
             hidden = trainer.net.init_hidden()
@@ -240,7 +241,8 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
         train_epoch_loss = 0.0
         train_epoch_acc = 0.0
         result_dict = {}
-        layer_bp_timestamps = {}
+        if profile:
+            layer_bp_timestamps = {}
         for i in range(iters_per_epoch//nsteps_update):
             global_iters += 1
             result_dict = {}
@@ -300,29 +302,30 @@ def ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch_size, nstep
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
 
-            # previous_time = trainer.backward_stamp
-            # for name in layer_bp_timestamps:
-            #     current_stamp = layer_bp_timestamps[name]
-            #     bp_dict[name].append(current_stamp - previous_time)
-            #     previous_time = current_stamp
-            # layer_bp_timestamps = {}
+            if profile:
+                previous_time = trainer.backward_stamp
+                for name in layer_bp_timestamps:
+                    current_stamp = layer_bp_timestamps[name]
+                    bp_dict[name].append(current_stamp - previous_time)
+                    previous_time = current_stamp
+                layer_bp_timestamps = {}
             
         logger.info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_acc = trainer.test(epoch)
         result_dict["val_acc"] = val_acc
         result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
         result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-        # avg_bp_dict = {}
-        # for name in bp_dict:
-        #     avg_bp_dict[name] = np.mean(bp_dict[name])
-        # logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
-        
-        # filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-        # save_path = os.path.join('./time/new_bp/', filename)
-        # import json
-        # os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        # with open(save_path, 'w') as file:
-        #     json.dump(avg_bp_dict, file, indent=4)
+        if profile:
+            avg_bp_dict = {}
+            for name in bp_dict:
+                avg_bp_dict[name] = np.mean(bp_dict[name])
+            logger.info(f'Avg bp time for each layer: {avg_bp_dict}')
+            filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+            save_path = os.path.join('./time', dnn, str(nworkers), 'bp', filename)
+            import json
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            with open(save_path, 'w') as file:
+                json.dump(avg_bp_dict, file, indent=4)
             
         ExpTool.record(result_dict)
         ExpTool.record({"global_iters": global_iters, "epochs": epoch})
@@ -569,7 +572,7 @@ def localsgd_measure(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_up
     logger.info(f'Each layer backward time {backward_dict}')
 
 def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None,
-             check_param_diversity=None, nsteps_param_diversity=None):
+             check_param_diversity=None, nsteps_param_diversity=None, profile=False):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
     logger.info('the rank of current process: %d', rank)
@@ -638,10 +641,11 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
     #              record_shapes=True,
     #              with_stack=False) as prof:
     
-    # comm_dict = {}
-    # for name, module in trainer.net.named_modules():
-    #     if len(list(module.children())) == 0: 
-    #         comm_dict[name] = []
+    if profile:
+        comm_dict = {}
+        for name, module in trainer.net.named_modules():
+            if len(list(module.children())) == 0: 
+                comm_dict[name] = []
             
     for epoch in range(max_epochs):
         logger.info(f"Trainer using the {trainer.optimizer_name} optimizer.")
@@ -706,13 +710,15 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
                 start = time.time()
                 for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
                     if len(list(module.children())) == 0:  
-                        # torch.cuda.synchronize()
-                        # ls = time.time()
+                        if profile:
+                            torch.cuda.synchronize()
+                            ls = time.time()
                         for param in module.parameters():
                             dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
-                        # torch.cuda.synchronize()
-                        # layer_time = time.time() - ls
-                        # comm_dict[name].append(layer_time)
+                        if profile:
+                            torch.cuda.synchronize()
+                            layer_time = time.time() - ls
+                            comm_dict[name].append(layer_time)
                         # for state in trainer.optimizer.state.values():
                         #     for k, v in state.items():
                         #         if isinstance(v, torch.Tensor):
@@ -740,19 +746,19 @@ def localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, ma
         ExpTool.upload()
     # trace_path = os.path.join(log_dir, f'trace_epoch_1.json')
     # prof.export_chrome_trace(trace_path)
-    # print(f"Trace saved to {trace_path}")s
+    # print(f"Trace saved to {trace_path}")
     ##########################################
-    # avg_comm_dict = {}
-    # for name in comm_dict:
-    #     avg_comm_dict[name] = np.mean(comm_dict[name])
-    # logger.info(f'Each layer comm time is {avg_comm_dict}')
-    
-    # filename = 'comm' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-    # save_path = os.path.join('./time/comm/', filename)
-    # import json
-    # os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    # with open(save_path, 'w') as file:
-    #     json.dump(avg_comm_dict, file, indent=4)
+    if profile:
+        avg_comm_dict = {}
+        for name in comm_dict:
+            avg_comm_dict[name] = np.mean(comm_dict[name])
+        logger.info(f'Each layer comm time is {avg_comm_dict}')
+        filename = 'comm' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
+        save_path = os.path.join('./time', dnn, str(nworkers), 'comm', filename)
+        import json
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, 'w') as file:
+            json.dump(avg_comm_dict, file, indent=4)
 
 def pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, overlap_scalar, threshold,name, gradient_path=None, momentum_correction=False, prefix=None, nsteps_localsgd=1, lr_decay=None,
              check_param_diversity=None, nsteps_param_diversity=None):
@@ -1683,6 +1689,7 @@ if __name__ == '__main__':
     # Check model divergence
     parser.add_argument('--check_param_diversity', type=str, default="False")
     parser.add_argument('--nsteps_param_diversity', type=int, default=5)
+    parser.add_argument('--profile', type=str, default="False", help='Enable profiling: bp (layer backward time in sgd) and comm (layer comm time in localsgd), save to json')
 
     
     # wandb, exp record related
@@ -1771,11 +1778,11 @@ if __name__ == '__main__':
     if (args.alg == 'localsgd'):
         logger.info("Alg used: localsgd.")
         localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd, args.lr_decay, 
-             args.check_param_diversity, args.nsteps_param_diversity)
+             args.check_param_diversity, args.nsteps_param_diversity, args.profile)
     elif (args.alg == 'sgd'):
         logger.info("Alg used: sgd.")
         ssgd(args.optimizer_name, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix, args.lr_decay, 
-             args.check_param_diversity, args.nsteps_param_diversity)
+             args.check_param_diversity, args.nsteps_param_diversity, args.profile)
     elif (args.alg == 'pipe_sgd'):
         logger.info("Alg used: pipelined seq.")
         ssgd_with_pipe(args.optimizer_name,  args.overlap_scalar, args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy, args.threshold, gradient_relative_path, momentum_correction, prefix, args.lr_decay)

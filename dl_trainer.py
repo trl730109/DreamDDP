@@ -392,18 +392,20 @@ class DLTrainer:
     def remake_optimizer(self):
         if (self.optimizer_name == 'Adam'):
             self.optimizer = optim.Adam(
-            self.net.parameters(),
+            filter(lambda p: p.requires_grad, self.net.parameters()),
             lr=self.lr,
+            betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
             weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'AdamW'):
             self.optimizer = optim.AdamW(
-            self.net.parameters(),
+            filter(lambda p: p.requires_grad, self.net.parameters()),
             lr=self.lr,
+            betas=(self.args.adam_beta1, self.args.adam_beta2), eps=1e-08, 
             weight_decay=self.weight_decay
         )
         elif(self.optimizer_name == 'SGD'):
-            self.optimizer = optim.SGD(self.net.parameters(), 
+            self.optimizer = optim.SGD(filter(lambda p: p.requires_grad, self.net.parameters()), 
                 lr=self.lr,
                 momentum=self.m, 
                 weight_decay=self.weight_decay,
@@ -534,7 +536,7 @@ class DLTrainer:
                 ])
         # 检查数据集是否存在，避免网络下载问题
         import os
-        cifar10_path = os.path.join(self.data_dir, 'cifar-10-batches-py')
+        cifar10_path = os.path.join(self.data_dir, 'cifar10')
         if not os.path.exists(cifar10_path):
             print(f"CIFAR10 dataset not found at {cifar10_path}, downloading...")
             trainset = torchvision.datasets.CIFAR10(root=self.data_dir, train=True,
@@ -590,7 +592,7 @@ class DLTrainer:
                 normalize])
         # 检查数据集是否存在，避免网络下载问题
         import os
-        cifar100_path = os.path.join(self.data_dir, 'cifar-100-python')
+        cifar100_path = os.path.join(self.data_dir, 'cifar100')
         if not os.path.exists(cifar100_path):
             print(f"CIFAR100 dataset not found at {cifar100_path}, downloading...")
             trainset = torchvision.datasets.CIFAR100(root=self.data_dir, train=True,
