@@ -11,5 +11,5 @@
 #kill -9 `ps aux|grep 'python -m mpi4py horovod_trainer.py' | awk '{print $2}'`
 #kill -9 `ps aux|grep 'python -m mpi4py hovorod_trainer.py' | awk '{print $2}'`
 
-kill -9 `ps aux|grep 'dist_trainer_new.py' | awk '{print $2}'`
+kill -9 `ps aux|grep 'dist_trainer_transformer.py' | awk '{print $2}'`
 

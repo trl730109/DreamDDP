@@ -186,6 +186,18 @@ def process_model_from_dir(base_dir, H_values=[5, 10], bp_multiplier=1.0, comm_m
                 comm_dict, bp_dict, H
             )
             
+            # print(f'scheduling result:H={H}')
+            # print(f'schedule: {schedule}')
+            scheduling_path = os.path.join(base_dir, 'dreamddp_scheduling.json')
+            output = {"H": H, "schedule": schedule}
+            with open(scheduling_path, 'w', encoding='utf-8') as f:
+                json.dump(output, f, indent=2, ensure_ascii=False, default=lambda x: x.item() if hasattr(x, 'item') else x)
+            print(f'scheduling result saved to {scheduling_path} (H={H})')
+            # print(f'plsgd_wait_list: {plsgd_wait_list}')
+            # print(f'wait_time: {wait_time}')
+            # print(f'total_iterations: {total_iterations}')
+            # print(f'nsteps_localsgd: {nsteps_localsgd}')
+            
             time_list = [
                 bp_sum, 
                 comm_sum, 

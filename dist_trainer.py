@@ -6,6 +6,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 import argparse
+import json
 import os
 import settings
 from multiprocessing import set_start_method
@@ -1532,18 +1533,37 @@ def dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, m
     # logger.info(f"nsteps_localsgd:{nsteps_localsgd} \n len(modules): {len(named_modules)} "
     #             f"\n layer_per_iter:{layer_per_iter}")
 
+    scheduling_path = os.path.join('./time', dnn, str(nworkers), 'dreamddp_scheduling.json')
+    dreamddp_schedule = None
+    dreamddp_schedule_H = None
+    if os.path.isfile(scheduling_path):
+        with open(scheduling_path) as f:
+            raw = json.load(f)
+        if 'schedule' in raw:
+            dreamddp_schedule_H = raw['H']
+            dreamddp_schedule = raw['schedule']
+        else:
+            dreamddp_schedule = raw
+        logger.info(f'loaded dreamddp schedule from {scheduling_path}' + (f' (H={dreamddp_schedule_H})' if dreamddp_schedule_H is not None else ''))
+    else:
+        logger.info(f'dreamddp_scheduling.json not found at {scheduling_path}, using resnet_groups_dream')
+
     grad_accs = []
     for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
         if (len(list(module.children()))) == 0: 
             if is_root():
                 logger.info(f"name: {name}, module id: {id(module)}")
 
-            group_index_list = resnet_groups_dream[dnn][nworkers][group_num][name]
-            # group_index = resnet_groups[group_num][name]
+            if dreamddp_schedule is not None and name in dreamddp_schedule:
+                v = dreamddp_schedule[name]
+                group_index_list = v if isinstance(v, list) else [v]
+            else:
+                raise ValueError(f'name {name} not found in dreamddp_schedule')
+            
             for param in module.parameters():
                 p_tmp = param.expand_as(param)
                 grad_acc = p_tmp.grad_fn.next_functions[0][0]
-                grad_acc.register_hook(_make_hook(module, param, group_index_list, gap_iters=group_num, name=name, layer_index=layer_index))
+                grad_acc.register_hook(_make_hook(module, param, group_index_list, gap_iters=dreamddp_schedule_H, name=name, layer_index=layer_index))
 
                 grad_accs.append(grad_acc)
         else:

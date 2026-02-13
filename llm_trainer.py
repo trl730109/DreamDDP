@@ -52,6 +52,15 @@ cudnn.benchmark = False
 cudnn.deterministic = True
 from settings import logger, formatter
 import struct
+
+
+def log_info(msg, *args, **kwargs):
+    """仅在 rank 0 上打印，避免多卡重复输出"""
+    rank = int(os.environ.get('RANK', 0)) if not dist.is_initialized() else dist.get_rank()
+    if rank == 0:
+        logger.info(msg, *args, **kwargs)
+
+
 import models
 import logging
 import utils
@@ -136,10 +145,10 @@ def init_processes(rank, size, backend='tcp', master='gpu10'):
 
     #master_ip = "gpu20"
     #master_mt = '%s://%s:%s' % (backend, master_ip, '5955')
-    logger.info("initialized trainer rank: %d of %d......" % (rank, size))
+    log_info("initialized trainer rank: %d of %d......" % (rank, size))
     #dist.init_process_group(backend=backend, init_method=master_mt, rank=rank, world_size=size)
     dist.init_process_group(backend=backend, rank=rank, world_size=size)
-    logger.info("finished trainer rank: %d......" % rank)
+    log_info("finished trainer rank: %d......" % rank)
 
 
 def get_available_gpu_device_ids(ngpus):
@@ -184,7 +193,7 @@ def create_net(dnn='gpt2', args=None, **kwargs):
         # config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
         config = GPT2Config.from_pretrained("openai-community/gpt2")
         if kwargs["load_pretrain"]:
-            logger.info(f'Load {dnn} from pretrained.')
+            log_info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=dnn,
                 cache_dir=kwargs["model_dir"],
@@ -194,13 +203,13 @@ def create_net(dnn='gpt2', args=None, **kwargs):
                 trust_remote_code=False
             )
         else:
-            logger.info(f'Load {dnn} from scratch.')
+            log_info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
     elif dnn == 'gpt2-custom':
         if kwargs["load_pretrain"]:
             raise NotImplementedError
         else:
-            logger.info(f'Load {dnn} from pretrained.')
+            log_info(f'Load {dnn} from pretrained.')
             vocab_size = 50257
             n_embd = 768
             n_layer = 12
@@ -228,17 +237,17 @@ def create_net(dnn='gpt2', args=None, **kwargs):
         else:
             net = AutoModelForCausalLM.from_config(config)
     elif dnn == 'llama2-7B':
-        logger.info(f'Creating the llama2.')
+        log_info(f'Creating the llama2.')
         # config = LlamaConfig.from_pretrained(LLAMA2_7B_HF, cache_dir=kwargs["model_dir"])
         config = LlamaConfig.from_pretrained(kwargs["model_dir"])
         device_map, quantization_config, torch_dtype = load_quantization_config(args)
         # device_map=device_map,
         # torch_dtype=torch_dtype,
-        logger.info(f'device_map: {device_map}')
-        logger.info(f'quantization_config: {quantization_config}')
-        logger.info(f'torch_dtype: {torch_dtype}')
+        log_info(f'device_map: {device_map}')
+        log_info(f'quantization_config: {quantization_config}')
+        log_info(f'torch_dtype: {torch_dtype}')
         if kwargs["load_pretrain"]:
-            logger.info(f'Load {dnn} from pretrained.')
+            log_info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=kwargs["model_dir"],
                 quantization_config=quantization_config,
@@ -253,21 +262,21 @@ def create_net(dnn='gpt2', args=None, **kwargs):
             config.hidden_size = 512
             config.num_attention_heads = 8
             config.num_key_value_heads = 8
-            logger.info(f'Load {dnn} from scratch.')
+            log_info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
     elif dnn == "Qwen2.5-1.5B":
-        logger.info(f'Creating the Qwen2.5-1.5B.')
+        log_info(f'Creating the Qwen2.5-1.5B.')
         # 对 Qwen 系列使用 AutoConfig / AutoModel，并允许 trust_remote_code
         device_map, quantization_config, torch_dtype = load_quantization_config(args)
-        logger.info(f'device_map: {device_map}')
-        logger.info(f'quantization_config: {quantization_config}')
-        logger.info(f'torch_dtype: {torch_dtype}')
+        log_info(f'device_map: {device_map}')
+        log_info(f'quantization_config: {quantization_config}')
+        log_info(f'torch_dtype: {torch_dtype}')
         config = AutoConfig.from_pretrained(
             pretrained_model_name_or_path=kwargs["model_dir"],
             trust_remote_code=True,
         )
         if kwargs["load_pretrain"]:
-            logger.info(f'Load {dnn} from pretrained.')
+            log_info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=kwargs["model_dir"],
                 quantization_config=quantization_config,
@@ -277,21 +286,21 @@ def create_net(dnn='gpt2', args=None, **kwargs):
                 trust_remote_code=True,
             )
         else:
-            logger.info(f'Load {dnn} from scratch.')
+            log_info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
     elif dnn == "Qwen2.5-7B":
-        logger.info(f'Creating the Qwen2.5-7B.')
+        log_info(f'Creating the Qwen2.5-7B.')
         # 对 Qwen 系列使用 AutoConfig / AutoModel，并允许 trust_remote_code
         device_map, quantization_config, torch_dtype = load_quantization_config(args)
-        logger.info(f'device_map: {device_map}')
-        logger.info(f'quantization_config: {quantization_config}')
-        logger.info(f'torch_dtype: {torch_dtype}')
+        log_info(f'device_map: {device_map}')
+        log_info(f'quantization_config: {quantization_config}')
+        log_info(f'torch_dtype: {torch_dtype}')
         config = AutoConfig.from_pretrained(
             pretrained_model_name_or_path=kwargs["model_dir"],
             trust_remote_code=True,
         )
         if kwargs["load_pretrain"]:
-            logger.info(f'Load {dnn} from pretrained.')
+            log_info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=kwargs["model_dir"],
                 quantization_config=quantization_config,
@@ -301,7 +310,7 @@ def create_net(dnn='gpt2', args=None, **kwargs):
                 trust_remote_code=True,
             )
         else:
-            logger.info(f'Load {dnn} from scratch.')
+            log_info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
         # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
         # net = AutoModelForCausalLM.from_pretrained(
@@ -313,10 +322,10 @@ def create_net(dnn='gpt2', args=None, **kwargs):
         #     trust_remote_code=False
         # )
     elif dnn == 'llama2-124M':
-        logger.info(f'Creating the llama2.')
+        log_info(f'Creating the llama2.')
         config = LlamaConfig.from_pretrained(LLAMA2_7B_HF, cache_dir=kwargs["model_dir"])
         if kwargs["load_pretrain"]:
-            logger.info(f'Load {dnn} from pretrained.')
+            log_info(f'Load {dnn} from pretrained.')
             net = AutoModelForCausalLM.from_pretrained(
                 pretrained_model_name_or_path=LLAMA2_7B_HF,
                 cache_dir=kwargs["model_dir"],
@@ -331,7 +340,7 @@ def create_net(dnn='gpt2', args=None, **kwargs):
             config.hidden_size = 512
             config.num_attention_heads = 8
             config.num_key_value_heads = 8
-            logger.info(f'Load {dnn} from scratch.')
+            log_info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
         # config = GPT2Config.from_pretrained("openai-community/gpt2", cache_dir=kwargs["model_dir"])
         # net = AutoModelForCausalLM.from_pretrained(
@@ -351,7 +360,7 @@ def create_net(dnn='gpt2', args=None, **kwargs):
 
     number_params = get_parameter_number(net)
 
-    logger.info(f"dnn:{dnn}@!!!!! get_parameter_number of Model : {number_params}")
+    log_info(f"dnn:{dnn}@!!!!! get_parameter_number of Model : {number_params}")
 
     return net, ext
 
@@ -410,9 +419,9 @@ class LLMTrainer:
             if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B"]:
                 if data_dir is not None:
                     self.data_prepare()
-                logger.info(f"Finish preparing loading datasets")
+                log_info(f"Finish preparing loading datasets")
                 self.net, self.ext = create_net(dnn=self.dnn, args=self.args, model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
-                logger.info(f"LOAD PRETRAIN is: {self.args.load_pretrain}===========")
+                log_info(f"LOAD PRETRAIN is: {self.args.load_pretrain}===========")
                 if self.args.finetune_type == "lora":
                     peft_config = LoraConfig(
                         r=self.args.peft_lora_r,
@@ -427,14 +436,14 @@ class LLMTrainer:
 
                     number_params = get_parameter_number(self.net)
 
-                    logger.info(f"dnn:{dnn}@!!!!! After Peft, get_parameter_number of Model : {number_params}")
+                    log_info(f"dnn:{dnn}@!!!!! After Peft, get_parameter_number of Model : {number_params}")
                     self.net.config.use_cache = False  # silence the warnings. Please re-enable for inference!
                 elif self.args.finetune_type == "full":
                     pass
                 else:
                     raise NotImplementedError
                 
-                logger.info(f"Finish preparing loading model")
+                log_info(f"Finish preparing loading model")
             elif self.dnn == 'bert':
                 pass
   
@@ -452,7 +461,7 @@ class LLMTrainer:
             else:
                 self.net.cuda()
         self.net.share_memory()
-        logger.info(f"Finish model sharing memory")
+        log_info(f"Finish model sharing memory")
         self.accuracy = 0
         self.loss = 0.0
         self.ppl = 0.0
@@ -462,7 +471,7 @@ class LLMTrainer:
         self.average_iter = 0
         if dist:
             init_processes(rank, size, master=master)
-        logger.info(f"Finish model init processes")
+        log_info(f"Finish model init processes")
         if self.dataset != 'an4':
             if self.is_cuda:
                 self.criterion = nn.CrossEntropyLoss().cuda()
@@ -497,14 +506,14 @@ class LLMTrainer:
                 momentum=self.m, 
                 weight_decay=self.weight_decay,
                 nesterov=nesterov)
-        logger.info(f"Finish init optimizer processes")
+        log_info(f"Finish init optimizer processes")
 
         self.train_epoch = 0
 
         if self.pretrain is not None and os.path.isfile(self.pretrain):
-            logger.info(f'Load the model from the pretrain.')
+            log_info(f'Load the model from the pretrain.')
             self.load_model_from_file(self.pretrain)
-        logger.info(f"Finish load from pretrain processes")
+        log_info(f"Finish load from pretrain processes")
 
         self.sparsities = []
         self.compression_ratios = []
@@ -513,13 +522,12 @@ class LLMTrainer:
         self.v = {} # 
         self.target_sparsities = [1.]
         self.sparsity = sparsity
-        logger.info('target_sparsities: %s', self.target_sparsities)
+        log_info('target_sparsities: %s', self.target_sparsities)
         self.avg_loss_per_epoch = 0.0
-        self.timer = 0.0
-        self.forwardtime = 0.0
-        self.backwardtime = 0.0
-        self.backwardtime_tmp = 0.0
-        self.iotime = 0.0
+        self.forward_acc = 0.0   # 累计 forward 时间
+        self.backward_acc = 0.0  # 累计 backward 时间
+        self.backwardtime_tmp = 0.0  # 当前步 BP 时间，供 dist（如 transformer_sgd）挂 hook 测 bp 用
+        self.step_acc = 0.0      # 累计单步（含 forward+backward）时间
         self.epochs_info = []
         self.distributions = {}
         self.gpu_caches = {}
@@ -529,8 +537,8 @@ class LLMTrainer:
         
         if apex is not None:
             self.init_fp16()
-        logger.info('num_batches_per_epoch: %d'% self.num_batches_per_epoch)
-        logger.info(f"Finish LLM trainer initialize processes")
+        log_info('num_batches_per_epoch: %d'% self.num_batches_per_epoch)
+        log_info(f"Finish LLM trainer initialize processes")
 
 
     def init_fp16(self):
@@ -570,7 +578,7 @@ class LLMTrainer:
         lr = checkpoint.get('lr', None)
         if lr:
             self.lr = lr
-        logger.info('Load pretrain model: %s, start from epoch %d and iter: %d', filename, self.train_epoch, self.train_iter)
+        log_info('Load pretrain model: %s, start from epoch %d and iter: %d', filename, self.train_epoch, self.train_iter)
 
     def get_num_of_training_samples(self):
         return len(self.trainset)
@@ -647,7 +655,7 @@ class LLMTrainer:
         # encoded_dataset = tokenized_dataset.map(group_texts, batched=True)
         # save_path = "worksapce/tokenized_openwebtext"
         # encoded_dataset.save_to_disk(save_path)
-        # logger.info(f'Save the tokenized dataset to {save_path}')
+        # log_info(f'Save the tokenized dataset to {save_path}')
         
         trainset = encoded_dataset['train']
         valset = encoded_dataset['validation']
@@ -741,8 +749,8 @@ class LLMTrainer:
         trainset = encoded_dataset['train']
         valset = encoded_dataset['validation']
         self.trainset = trainset
-        logger.info(f"self.trainset : {self.trainset}")
-        logger.info(f"length, self.trainset : {len(self.trainset)}")
+        log_info(f"self.trainset : {self.trainset}")
+        log_info(f"length, self.trainset : {len(self.trainset)}")
         # exit()
         train_sampler = None
         shuffle = True
@@ -845,8 +853,8 @@ class LLMTrainer:
         trainset = encoded_dataset['train']
         valset = encoded_dataset['test']
         self.trainset = trainset
-        logger.info(f"self.trainset : {self.trainset}")
-        logger.info(f"length, self.trainset : {len(self.trainset)}")
+        log_info(f"self.trainset : {self.trainset}")
+        log_info(f"length, self.trainset : {len(self.trainset)}")
         # exit()
         train_sampler = None
         shuffle = True
@@ -890,18 +898,18 @@ class LLMTrainer:
         # self.trainset = tokenized_train_dataset
         # self.testset = tokenized_test_dataset
 
-        # logger.info(f"show train dataset, length: {self.trainset}")
-        # logger.info(f"show test dataset, length: {self.testset}")
-        # # logger.info(f"show dataset, length: {trainset['train']}")
-        # # logger.info(self.trainset[0:10])
+        # log_info(f"show train dataset, length: {self.trainset}")
+        # log_info(f"show test dataset, length: {self.testset}")
+        # # log_info(f"show dataset, length: {trainset['train']}")
+        # # log_info(self.trainset[0:10])
         # # for i, example in enumerate(self.trainset):
         # #     if i > 5:
         # #         break
-        # #     logger.info(example)
-        # #     logger.info(f"length: {len(example)}")
-        # #     logger.info(f"length input_ids: {len(example['input_ids'])}")
-        # #     logger.info(f"length attention_mask: {len(example['attention_mask'])}")
-        # #     logger.info(f"length labels: {len(example['labels'])}")
+        # #     log_info(example)
+        # #     log_info(f"length: {len(example)}")
+        # #     log_info(f"length input_ids: {len(example['input_ids'])}")
+        # #     log_info(f"length attention_mask: {len(example['attention_mask'])}")
+        # #     log_info(f"length labels: {len(example['labels'])}")
         # # exit()
 
         # train_sampler = None
@@ -1073,13 +1081,13 @@ class LLMTrainer:
         #         param_group['lr'] = self.lr
         #     return self.lr
         if self.lr_decay == 'cosine':
-            #logger.info(f'Use the cosine learning rate decay.')
+            #log_info(f'Use the cosine learning rate decay.')
             total_epochs = 181  # Assuming you have total_epochs defined
             self.lr = self.base_lr  * 0.5 * (1 + np.cos(np.pi * progress / total_epochs))
             for param_group in optimizer.param_groups:
                 param_group['lr'] = self.lr
         elif self.lr_decay == 'linear':
-            #logger.info(f'Use the step learning rate decay.')
+            #log_info(f'Use the step learning rate decay.')
             first = 61
             second = 81
             third= 181
@@ -1343,15 +1351,13 @@ class LLMTrainer:
 
     def train(self, num_of_iters=1, data=None, hidden=None):
         self.loss = 0.0
-        # logger.info('Enter LLM Trainer')
-        s = time.time()
+        train_start = time.time()
         self.net.train()
         for i in range(num_of_iters):
-            # logger.info(f'Enter LLM Trainer {i}')
             self.adjust_learning_rate(self.train_epoch, self.optimizer)
             if self.train_iter % self.num_batches_per_epoch == 0 and self.train_iter > 0:
                 self.train_epoch += 1
-                logger.info('Epoch %d, avg train acc: %f, lr: %f, avg loss: %f' % (
+                log_info('Epoch %d, avg train acc: %f, lr: %f, avg loss: %f' % (
                     self.train_iter // self.num_batches_per_epoch, 
                     np.mean(self.train_acc_top1), self.lr, self.avg_loss_per_epoch / self.num_batches_per_epoch
                 ))
@@ -1367,35 +1373,18 @@ class LLMTrainer:
                 if self.train_sampler and (self.nworkers > 1):
                     self.train_sampler.set_epoch(self.train_epoch)
 
-            
-            
-            # if self.is_cuda: 
-            #     keys = list(batch.keys())
-            #     device_batch = {
-            #         k: v.cuda(non_blocking=True)
-            #         for k, v in batch.items()
-            #         if k in keys  # Add more keywords here if needed
-            #     }
-
-            # inputs, labels_cpu = data
-            # if self.is_cuda:
-            #     inputs, labels = inputs.cuda(non_blocking=True), labels_cpu.cuda(non_blocking=True)
-            # else:
-            #     labels = labels_cpu
 
             batch = self.data_iter()
-            ss = time.time()
-            self.iotime += (time.time() - ss)
-            
             device_batch = self.to_device(batch)
-            sforward = time.time()
+            forward_start = time.time()
             outputs = self.net(**device_batch)
             loss = outputs.loss
-            self.forwardtime += (time.time() - sforward)
+            self.forward_acc += (time.time() - forward_start)
             
             torch.cuda.synchronize()
-            sbackward = time.time()
-            self.backward_stamp = sbackward
+            
+            backward_start = time.time()
+            self.backward_stamp = backward_start
             if self.amp_handle is not None:
                 with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
                     scaled_loss.backward()
@@ -1403,13 +1392,15 @@ class LLMTrainer:
             else:
                 loss.backward()
             loss_value = loss.item()
-            self.backwardtime += (time.time() - sbackward)
-        
+            
+            backward_end = time.time()
+            step_bp = backward_end - backward_start
+            self.backward_acc += step_bp
+            self.backwardtime_tmp = step_bp  # 当前步 BP 时长，供 dist 累加 backward_time_acc；profile 用 backward_stamp 作首层 BP 开始时间
+
             self.loss += loss_value 
             self.avg_loss_per_epoch += loss_value
 
-            # acc1, = self.cal_accuracy(outputs, labels, topk=(1,))
-            # self.train_acc_top1.append(float(acc1))
             self.train_loss.append(loss)
             
             ppl = torch.exp(torch.stack(self.train_loss).mean())
@@ -1417,16 +1408,7 @@ class LLMTrainer:
             self.train_iter += 1
             self.num_of_updates_during_comm += 1
             self.loss /= num_of_iters 
-            self.timer += time.time() - s 
-
-            display = 40
-            if self.train_iter % display == 0:
-                logger.warn('[%3d][%5d/%5d][rank:%d] loss: %.3f, average forward (%f) and backward (%f) time: %f, iotime: %f ' %
-                    (self.train_epoch, self.train_iter, self.num_batches_per_epoch, self.rank,  self.loss, self.forwardtime/display, self.backwardtime/display, self.timer/display, self.iotime/display))
-                self.timer = 0.0
-                self.iotime = 0.0
-                self.forwardtime = 0.0
-                self.backwardtime = 0.0
+            self.step_acc += time.time() - train_start
 
         # self.update_model()
         return num_of_iters
@@ -1467,7 +1449,7 @@ class LLMTrainer:
         test_ppl = math.exp(test_loss)
         # acc = correct_top1 / total
         # acc5 = correct_top5 / total
-        logger.info('Epoch %d, lr: %f, val loss: %f, val ppl: %f' % (epoch, self.lr, test_loss, test_ppl))
+        log_info('Epoch %d, lr: %f, val loss: %f, val ppl: %f' % (epoch, self.lr, test_loss, test_ppl))
         
         self.net.train()
         return test_ppl, test_loss

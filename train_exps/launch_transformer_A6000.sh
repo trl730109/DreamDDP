@@ -28,14 +28,15 @@ ngpu_per_node="${ngpu_per_node:-4}"
 node_count="${node_count:-1}"
 node_rank="${node_rank:-1}"
 echo "node_count: $node_count"
-node_rank=$(expr $node_rank - 1)  # Adjust for zero-based indexing
-if [ $(expr $node_rank + $node_count) -gt $total_host ] || [ $node_rank -lt 0 ]; then
-    echo "node_rank: $node_rank"
-    echo "node_count: $node_count"
+node_rank_0based=$(expr $node_rank - 1)  # 1-based -> 0-based，仅用于选 master 和范围检查
+if [ $(expr $node_rank_0based + $node_count) -gt $total_host ] || [ $node_rank_0based -lt 0 ]; then
+    echo "node_rank (1-based): $node_rank -> 0-based: $node_rank_0based"
+    echo "node_count: $node_count, total_host: $total_host"
     echo "Required nodes are out of the range: from gpu1 to gpu$total_host"
-    exit 0
+    echo "Hint: 使用前 node_count 台机器时请设 node_rank=1（master 为第 1 台），不要设成 node_rank=\$node_count"
+    exit 1
 fi
-master_host=${hosts[$node_rank]}
+master_host=${hosts[$node_rank_0based]}
 wandb_key="${wandb_key:-None}"
 # Training settings
 nwpernode="${nwpernode:-4}"
@@ -139,7 +140,6 @@ do
     else
         ssh -p $port $host $cmd &
     fi
-    node_rank=$(expr $node_rank + 1)
     i=$(expr $i + 1)
 done
 
