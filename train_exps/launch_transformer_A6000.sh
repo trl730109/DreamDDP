@@ -60,13 +60,16 @@ check_param_diversity="${check_param_diversity:-false}"
 nsteps_param_diversity=5
 profile="${profile:-False}"
 
-if [ "$interface" = "eno0" ]; then
-    bandwidth="1G"
-elif [ "$interface" = "ens5f0" ]; then
-    bandwidth="10G"
-else
-    bandwidth="100G"
-fi
+bandwidth="${bandwidth:-10Gbps}"
+
+
+# if [ "$interface" = "eno0" ]; then
+#     bandwidth="1G"
+# elif [ "$interface" = "ens5f0" ]; then
+#     bandwidth="10G"
+# else
+#     bandwidth="100G"
+# fi
 
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
@@ -114,6 +117,7 @@ do
         --model_dir $model_dir \
         --lr $lr \
         --lr_decay $lr_decay \
+        --bandwidth $bandwidth \
         --group_num $group_num \
         --nsteps-update $nstepsupdate \
         --nwpernode $nwpernode \

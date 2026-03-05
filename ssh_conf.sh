@@ -3,7 +3,7 @@
 # === Config ===
 HOST="10.249.40.11"
 # 在这里填入所有端口号，用空格分隔
-PORTS=(32322 30105)
+PORTS=(31850 30017)
 USER="root"
 EMAIL="ztangap@connect.ust.hk"
 

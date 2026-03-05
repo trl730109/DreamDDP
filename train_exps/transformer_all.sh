@@ -5,7 +5,7 @@
 lr=0.0001
 batch_size=1
 dataset='wikitext2'
-max_epochs=3
+max_epochs=2
 
 data_dir="/mnt/raid/tangzichen/wikitext2"
 interface=eth0
@@ -67,7 +67,7 @@ source train_exps/launch_transformer_A6000.sh
 master_port=$((master_port + 1))
 
 # --- full: gpt2 + transformer_dream_ddp（需存在 ./time/gpt2/8/dreamddp_scheduling.json）---
-alg='transformer_dream_ddp_optimized'
+alg='transformer_dream_ddp'
 dnn=gpt2
 extra_name="${dnn}"
 finetune_type=full

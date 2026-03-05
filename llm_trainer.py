@@ -1380,6 +1380,9 @@ class LLMTrainer:
             outputs = self.net(**device_batch)
             loss = outputs.loss
             self.forward_acc += (time.time() - forward_start)
+            print(f"Forward time: {time.time() - forward_start}")
+            
+            exit()
             
             torch.cuda.synchronize()
             

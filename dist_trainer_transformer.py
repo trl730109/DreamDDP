@@ -4,10 +4,12 @@ import time
 import datetime
 import torch
 import torch.optim as optim
+
 import numpy as np
 import argparse
 import json
 import os
+import re
 import settings
 from multiprocessing import set_start_method
 from collections import defaultdict
@@ -39,6 +41,15 @@ from mpi4py import MPI
 
 from helpers.exp_path import ExpTool
 import layer_group
+
+
+def _bandwidth_to_int(s):
+    """Parse bandwidth string (e.g. '5gbt', '10Gbps') to int for wandb."""
+    s = str(s).strip() if s else ''
+    m = re.match(r'^(\d+)', s)
+    return int(m.group(1)) if m else 0
+
+
 from layer_group import resnet_groups, resnet_groups_dream, llm_groups_dream, llm_groups_dream_enlarge
 comm = MPI.COMM_WORLD
 writer = None
@@ -228,6 +239,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
     train_time_acc = 0.0
     iter_time_acc = 0.0
     backward_time_acc = 0.0
+    fp_bp_time_acc = 0.0
 
     if profile:
         layer_bp_timestamps = {}
@@ -260,9 +272,12 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         for i in range(iters_per_epoch//nsteps_update):
             global_iters += 1
             result_dict = {}
-            optimizer.zero_grad()
             
             iter_start = time.time()
+            
+            optimizer.zero_grad()
+            
+            fp_bp_start = time.time()
             for j in range(nsteps_update):
                 if j < nsteps_update - 1 and nsteps_update > 1:
                     optimizer.local = True
@@ -273,6 +288,9 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
                 else:
                     trainer.train(1)
                 backward_time_acc += trainer.backwardtime_tmp
+            fp_bp_end = time.time()
+            fp_bp_time_acc += (fp_bp_end - fp_bp_start)
+            
             iter_train_end = time.time()
             train_time_acc += (iter_train_end - iter_start)
             
@@ -318,7 +336,9 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
                         "train_ppl": train_ppl, "total train time": train_time_acc,
                         "total comm time": comm_time_acc, "total iteration time": iter_time_acc,
                         "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
-                        "total BP and comm time": total_bp_comm})
+                        "total BP and comm time": total_bp_comm, "total fp_bp time": fp_bp_time_acc,
+                        "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc + comm_time_acc,
+                        "bandwidth": _bandwidth_to_int(args.bandwidth)})
             
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()
@@ -349,14 +369,13 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
                     new_name = name.replace(".default", "")
                 avg_bp_dict[new_name] = np.mean(bp_dict[name])
             filename = 'bp' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-            save_path = os.path.join('./time', dnn, str(nworkers), 'bp', filename)
-            import json
+            save_path = os.path.join('./time', dnn, str(nworkers), args.bandwidth, 'bp', filename)
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             with open(save_path, 'w') as file:
-                json.dump(avg_bp_dict, file, indent=4)
+                json.dump(avg_bp_dict, file, indent=4, ensure_ascii=False)
             
         ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch, "bandwidth": _bandwidth_to_int(args.bandwidth)})
         ExpTool.upload()
 
 def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir, nworkers, lr, batch_size, nsteps_update, max_epochs, nwpernode, pretrain, num_steps, compressor, density, strategy, threshold, gradient_path=None, momentum_correction=False, prefix=None, lr_decay=None,
@@ -467,10 +486,11 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_ppl": train_ppl, "total iteration time": iter_time_acc,
                         "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
-                        "total BP and comm time": total_bp_comm})
+                        "total BP and comm time": total_bp_comm,
+                        "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()    
-            
+
         #log_info(f'The current training epoch is {trainer.get_train_epoch()}')
         val_ppl, test_loss = trainer.test(epoch)
         result_dict["test_loss"] = test_loss
@@ -520,6 +540,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     comm_time_acc = 0.0
     iter_time_acc = 0.0
     backward_time_acc = 0.0
+    fp_bp_time_acc = 0.0
     display = 1 if iters_per_epoch > 40 else max(1, iters_per_epoch - 1)
 
     if profile:
@@ -539,9 +560,13 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         
         # log_info(f' Rank {rank} Enter epochs')
         for j in range(iters_per_epoch):
+            global_iters += 1
             iter_start = time.time()
             trainer.zero_grad()
+            fp_bp_start = time.time()
             trainer.train(1)
+            fp_bp_end = time.time()
+            fp_bp_time_acc += (fp_bp_end - fp_bp_start)
             backward_time_acc += trainer.backwardtime_tmp
 
             train_loss = trainer.loss
@@ -554,28 +579,12 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
 
             trainer.update_model()
-            iter_end = time.time()
-            train_time = iter_end - iter_start
-            times.append(train_time)
+            iter_train_end = time.time()
+            train_time = iter_train_end - iter_start
             train_time_acc += train_time
 
-            if j % display == 0 and j > 0: 
-                time_per_iter = np.mean(times)
-                log_info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
-                times = []
-                result_dict["time_per_iter"] = time_per_iter
-                result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
-                
-            ExpTool.record(result_dict)
-            # ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-            #             "train_acc": train_acc, "train_ppl": train_ppl})
-            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                          "train_ppl": train_ppl})
-            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-            ExpTool.upload()
-            
-            if global_iters % nsteps_localsgd == nsteps_localsgd - 1:
-                start = time.time()
+            if global_iters % nsteps_localsgd == 0:
+                comm_start = time.time()
                 # If using LoRA, only communicate LoRA parameters
                 if args.finetune_type == "lora":
                     # Get LoRA parameters and communicate them
@@ -617,19 +626,39 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
                                 comm_dict[name].append(layer_time)
                         else:
                             pass
-                comm_this = time.time() - start
+                comm_this = time.time() - comm_start
                 comm_time_acc += comm_this
             else:
                 pass
             
-            iter_time_acc += (time.time() - iter_start)
-            total_bp_comm = trainer.backward_acc + comm_time_acc
-            ExpTool.record({"global_iters": global_iters, "iteration time": iter_time_acc, "total train time": train_time_acc,
-                        "total comm time": comm_time_acc,
-                        "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
-                        "total BP and comm time": total_bp_comm})
-            global_iters += 1
+            iter_end = time.time()
+            iter_time = iter_end - iter_start
+            iter_time_acc += iter_time
+            times.append(iter_time)
+
+            if j % display == 0 and j > 0: 
+                time_per_iter = np.mean(times)
+                log_info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
+                times = []
+                result_dict["time_per_iter"] = time_per_iter
+                result_dict["samples_per_seconds"] = batch_size * nsteps_update / time_per_iter
                 
+            ExpTool.record(result_dict)
+            # ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+            #             "train_acc": train_acc, "train_ppl": train_ppl})
+            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
+                          "train_ppl": train_ppl})
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            ExpTool.upload()
+            
+            total_bp_comm = trainer.backward_acc + comm_time_acc
+            ExpTool.record({"global_iters": global_iters, "total train time": train_time_acc,
+                        "total comm time": comm_time_acc, "total iteration time": iter_time_acc,
+                        "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
+"total BP and comm time": total_bp_comm, "total fp_bp time": fp_bp_time_acc,
+                        "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc + comm_time_acc,
+                        "bandwidth": _bandwidth_to_int(args.bandwidth)})
+            
         val_ppl, test_loss = trainer.test(epoch)
         result_dict["test_loss"] = test_loss
         result_dict["val_ppl"] = val_ppl
@@ -652,11 +681,11 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
                 avg_comm_dict[new_name] = np.mean(comm_dict[name])
         log_info(f'Each layer comm time is {avg_comm_dict}')
         filename = 'comm' + '_' + dnn + '_' + dataset + '_' + str(nworkers) + 'workers' + '.json'
-        save_path = os.path.join('./time', dnn, str(nworkers), 'comm', filename)
+        save_path = os.path.join('./time', dnn, str(nworkers), args.bandwidth, 'comm', filename)
         import json
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         with open(save_path, 'w') as file:
-            json.dump(avg_comm_dict, file, indent=4)
+            json.dump(avg_comm_dict, file, indent=4, ensure_ascii=False)
 
 def transformer_pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
              check_param_diversity=None, nsteps_param_diversity=None, args=None):
@@ -831,7 +860,8 @@ def transformer_pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_si
                         "train_ppl": train_ppl, "total wait time": wait_time_acc,
                         "total train time": train_time_acc, "total comm time": wait_time_acc,
                         "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
-                        "total BP and comm time": total_bp_comm})
+                        "total BP and comm time": total_bp_comm,
+                        "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc + wait_time_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()  
 
@@ -1019,7 +1049,8 @@ def transformer_full_pipe_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_s
                         "train_ppl": train_ppl, "total wait time": wait_time_acc,
                         "total train time": train_time_acc, "total comm time": wait_time_acc,
                         "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
-                        "total BP and comm time": total_bp_comm})
+                        "total BP and comm time": total_bp_comm,
+                        "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc + wait_time_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
             ExpTool.upload()  
 
@@ -1034,257 +1065,6 @@ def transformer_full_pipe_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_s
         ExpTool.upload()
         
 def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
-             check_param_diversity=None, nsteps_param_diversity=None, args=None):
-    assert nsteps_localsgd > 1
-    rank = dist.get_rank()
-    log_info('the rank of current process: %d', rank)
-
-    selected_gpu = rank % nwpernode
-    torch.cuda.set_device(selected_gpu)
-    if rank != 0:
-        pretrain = None
-    trainer = LLMTrainer(rank, nworkers,localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer,optimizer_name="Adam", lr_decay = lr_decay,
-                         args=args)
-    init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
-    init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
-    dist.broadcast(init_epoch, src=0)
-    dist.broadcast(init_iter, src=0)
-    trainer.set_train_epoch(int(init_epoch.item()))
-    trainer.set_train_iter(int(init_iter.item()))
-
-    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
-        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
-        if rank == 0:
-            log_info('layerwise backward times: %s', list(layerwise_times))
-            log_info('layerwise backward sizes: %s', list(layerwise_sizes))
-        log_info('Bencharmked backward time: %f', np.sum(layerwise_times))
-        log_info('Model size: %d', np.sum(layerwise_sizes))
-    else:
-        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
-    log_info('All the steps before broadcasting params are correct.')
-    log_info('Broadcast parameters....')
-    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
-    log_info('Broadcast parameters finished....')
-
-
-    norm_clip = None
-    if dnn in ['lstm', 'lstmwt2']:
-        norm_clip = 0.25
-    elif dnn == 'lstman4':
-        norm_clip = 400
-
-    optimizer = trainer.optimizer
-    iters_per_epoch = trainer.num_batches_per_epoch
-    #max_epochs=0
-
-    times = []
-    log_info('max_epochs: %d', max_epochs)
-    display = 1 if iters_per_epoch > 40 else max(1, iters_per_epoch - 1)
-
-    _handles = {}
-    _buffer_params = {}
-    _parameter_names = {}
-
-    def is_communicate(__module, gap_iters, begin_comm_iter_list):
-        return ((__module.sgd_iters % gap_iters) in begin_comm_iter_list)
-
-    import copy
-
-    def _make_hook(__module, __param, begin_comm_iter_list, gap_iters, name, layer_index):
-        def hook(*ignore):
-            if is_communicate(__param, gap_iters, begin_comm_iter_list):
-                if is_root():
-                    log_info(f"Cur iter: {__param.sgd_iters} gap_iters:{gap_iters} begin_comm_iter_list:{begin_comm_iter_list}, communicated successfully "
-                                f"layer:{name}/{layer_index}-th, __module: {type(__module)}")
-
-                #buffer_param = copy.deepcopy(__param.data)
-                #handle = dist.all_reduce(buffer_param, op=dist.ReduceOp.SUM, async_op=True)
-                handle = dist.all_reduce(__param.data, op=dist.ReduceOp.AVG, async_op=True)
-                _handles[__param] = (handle, None, 1)
-
-        return hook
-
-    # module_names = count_leaf_layers(trainer.net)
-    # layer_per_iter = int(len(module_names) / nsteps_localsgd) + 1
-    # # named_modules = dict(trainer.net.named_modules())
-    # # layer_per_iter = int(len(named_modules) / nsteps_localsgd) + 1
-    # log_info(f"nsteps_localsgd:{nsteps_localsgd} \n len(modules): {len(module_names)} "
-    #             f"\n layer_per_iter:{layer_per_iter}")
-
-    scheduling_path = os.path.join('./time', dnn, str(nworkers), 'dreamddp_scheduling.json')
-    dreamddp_schedule = None
-    dreamddp_schedule_H = None  # H value from JSON, for later use
-    if os.path.isfile(scheduling_path):
-        with open(scheduling_path) as f:
-            raw = json.load(f)
-        if 'schedule' in raw:
-            dreamddp_schedule_H = raw['H']
-            dreamddp_schedule = raw['schedule']
-        else:
-            dreamddp_schedule = raw
-        log_info(f'loaded dreamddp schedule from {scheduling_path}' + (f' (H={dreamddp_schedule_H})' if dreamddp_schedule_H is not None else ''))
-        # exit()
-    else:
-        raise FileNotFoundError(f'dreamddp_scheduling.json not found at {scheduling_path}')
-
-    def schedule_lookup_name(module_name, schedule_dict):
-        """与 sgd/localsgd 一致：LoRA 时把 base_model.model.model.xxx 映射为 schedule 里的 key。"""
-        n = module_name
-        if getattr(args, 'finetune_type', 'full') != 'lora':
-            return n if n in schedule_dict else None
-        # LoRA 下 PEFT 会加 base_model. 等前缀，尝试多种 strip 直到在 schedule 中找到（先试 base_model.model. 以得到 model.xxx）
-        for prefix in ('base_model.model.', 'base_model.model.model.', 'base_model.'):
-            if not n.startswith(prefix):
-                continue
-            n2 = n[len(prefix):]
-            if n2.endswith('.lora_A.default'):
-                n2 = n2[:-len('.lora_A.default')]
-            elif n2.endswith('.lora_B.default'):
-                n2 = n2[:-len('.lora_B.default')]
-            elif n2.endswith('.lora_dropout.default'):
-                n2 = n2[:-len('.lora_dropout.default')]
-            if n2 in schedule_dict:
-                return n2
-        return n if n in schedule_dict else None
-
-    grad_accs = []
-    for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
-        if (len(list(module.children()))) == 0: 
-            if is_root():
-                log_info(f"name: {name}, module id: {id(module)}")
-                
-            if(args.enlarge == False):
-                log_info(f'using the original schedule.')
-                schedule_key = schedule_lookup_name(name, dreamddp_schedule or {})
-                # 对于在调度文件中不存在的层（例如 embedding 等），直接跳过，不强制要求每个 leaf 都在 schedule 里
-                if dreamddp_schedule is None or schedule_key is None:
-                    if is_root():
-                        log_info(f'skip module without schedule: name={name}, mapped_key={schedule_key}')
-                    continue
-                if schedule_key not in dreamddp_schedule:
-                    if is_root():
-                        log_info(f'skip module: name={name}, mapped_key={schedule_key} not in dreamddp_schedule')
-                    continue
-
-                v = dreamddp_schedule[schedule_key]
-                group_index_list = v if isinstance(v, list) else [v]
-            else:
-                raise ValueError(f'enlarge schedule is not supported yet.')
-            # group_index = resnet_groups[group_num][name]
-            for param in module.parameters():
-                p_tmp = param.expand_as(param)
-                grad_acc = p_tmp.grad_fn.next_functions[0][0]
-                grad_acc.register_hook(_make_hook(module, param, group_index_list, gap_iters=dreamddp_schedule_H, name=name, layer_index=layer_index))
-
-                grad_accs.append(grad_acc)
-        else:
-            pass
-            
-    def update_model_sgd_iters(model, sgd_iters):
-        for module in model.modules():
-            module.sgd_iters = sgd_iters
-            for param in module.parameters():
-                param.sgd_iters = sgd_iters
-
-    def synchronize_all_reduced_models():
-        for tensor, value in _handles.items():
-            handle, ctx, density = value
-            handle.wait()
-
-        _handles.clear()
-        _buffer_params.clear()
-
-    global_iters = 0
-    wait_time_acc = 0.0
-    backward_time_acc = 0.0
-    train_time_acc = 0.0
-
-    for epoch in range(max_epochs):
-        log_info(f"Trainer using the {trainer.optimizer_name} optimizer.")
-        hidden = None
-        
-        result_dict = {}
-        train_epoch_loss = 0.0
-        train_epoch_ppl = 0.0
-        
-        if dnn in ['lstm', 'lstmwt2']:
-            hidden = trainer.net.init_hidden()
-        for i in range(iters_per_epoch//nsteps_update):
-            #_buffer_params = {}
-            global_iters += 1
-            result_dict = {}
-            
-            update_model_sgd_iters(trainer.net, i)
-            
-            iter_start = time.time()
-            
-            optimizer.zero_grad()
-            # with record_function("Train_models"):
-            for j in range(nsteps_update):
-                if dnn in ['lstm', 'lstmwt2']:
-                    _, hidden = trainer.train(1, hidden=hidden)
-                else:
-                    trainer.train(1)
-                backward_time_acc += trainer.backwardtime_tmp
-
-            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
-            
-            
-            torch.cuda.synchronize()
-            bp_end_time = time.time()
-            synchronize_all_reduced_models()
-            dreamddp_extra_wait_time = time.time() - bp_end_time
-            
-            wait_time_acc += dreamddp_extra_wait_time
-            
-            log_info(f'Global iteration: {global_iters} wait time: {dreamddp_extra_wait_time} total wait time: {wait_time_acc}')
-            
-            train_loss = trainer.loss
-            # train_acc = np.mean(trainer.train_acc_top1)
-            train_ppl = trainer.ppl
-            train_epoch_loss += train_loss
-            # train_epoch_acc += train_acc
-            train_epoch_ppl += train_ppl
-            
-            trainer.update_model()
-            iter_end = time.time()
-            train_time = iter_end - iter_start
-            times.append(train_time)
-            train_time_acc += train_time
-            
-            if i % display == 0 and i > 0: 
-                time_per_iter = np.mean(times)
-                # log_info('Time per iteration including communication: %f, Speed: %f images/s', time_per_iter, batch_size * nsteps_update / time_per_iter)
-                samples_per_seconds = batch_size * nsteps_update / time_per_iter
-                times = []
-                result_dict["time_per_iter"] = time_per_iter
-                result_dict["samples_per_seconds"] = samples_per_seconds
-                
-            total_bp_comm = trainer.backward_acc + wait_time_acc
-            
-            ExpTool.record(result_dict)
-            ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
-                        "train_ppl": train_ppl, "total wait time": wait_time_acc,
-                        "total train time": train_time_acc, "total comm time": wait_time_acc, "total BP time": trainer.backward_acc,
-                        "total FP time": trainer.forward_acc,
-                        "total BP and comm time": total_bp_comm})
-            
-            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-            ExpTool.upload()  
-
-        val_ppl, test_loss = trainer.test(epoch)
-        result_dict["val_ppl"] = val_ppl
-        result_dict["test_loss"] = test_loss
-        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-        result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
-
-        ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
-        ExpTool.upload()
-        
-        
-def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
              check_param_diversity=None, nsteps_param_diversity=None, args=None):
     assert nsteps_localsgd > 1
     rank = dist.get_rank()
@@ -1346,7 +1126,7 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
                 _handle_list.append(handle)
         return hook
 
-    scheduling_path = os.path.join('./time', dnn, str(nworkers), 'dreamddp_scheduling.json')
+    scheduling_path = os.path.join('./time', dnn, str(nworkers), args.bandwidth, 'dreamddp_scheduling.json')
     dreamddp_schedule = None
     dreamddp_schedule_H = None
     if os.path.isfile(scheduling_path):
@@ -1397,9 +1177,12 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
             else:
                 raise ValueError(f'enlarge schedule is not supported yet.')
             
-            for param in module.parameters():
+            for name, param in module.named_parameters():
                 # 记录调度规则，用于后续预计算
                 # 格式: (周期 H, 触发列表)
+                # if is_root():
+                #     log_info(f"param name: {name}")
+                #     log_info("")
                 param._dreamddp_schedule_info = (dreamddp_schedule_H, group_index_list)
                 _registered_params.append(param)
                 
@@ -1408,6 +1191,8 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
                 # 注册极速 Hook
                 grad_acc.register_hook(_make_fast_hook(param))
                 grad_accs.append(grad_acc)
+                
+    # exit()
 
     def update_model_sgd_iters(model, sgd_iters):
         for module in model.modules():
@@ -1423,8 +1208,13 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
 
     global_iters = 0
     wait_time_acc = 0.0
-    # backward_time_acc = 0.0 # (可选) 既然使用了 trainer.backward_acc, 这个局部变量其实可以移除
     train_time_acc = 0.0
+    iter_time_acc = 0.0
+    sync_flag_time_acc = 0.0
+    update_sgd_iters_time_acc = 0.0
+    do_sync_loop_time_acc = 0.0
+    fp_bp_time_acc = 0.0
+    cuda_sync_time_acc = 0.0   # DreamDDP 独有：wait() 前的 torch.cuda.synchronize()，不计入 train
 
     for epoch in range(max_epochs):
         log_info(f"Trainer using the {trainer.optimizer_name} optimizer.")
@@ -1441,30 +1231,41 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
             global_iters += 1
             result_dict = {}
             
-            update_model_sgd_iters(trainer.net, i)
+            iter_start = time.time()
+            # schedule 为 0-based（与 dreamddp_scheduling.json 一致），训练中 global_iters 为 1-based，故用 global_iters-1 查表
+            sgd_iters_0based = global_iters - 1
+            update_model_sgd_iters(trainer.net, sgd_iters_0based)
+            t_after_update_sgd_iters = time.time()
+            update_sgd_iters_time_acc += (t_after_update_sgd_iters - iter_start)
             
             # === 核心优化: 预计算本轮 Sync Flag ===
-            # 将复杂的模运算移出 Hook 热路径，大幅降低 Hook 开销
             for param in _registered_params:
                 gap, begin_list = param._dreamddp_schedule_info
-                # 这里的 param.sgd_iters 已经在 update_model_sgd_iters 中被设为 i 了
                 param._do_sync = (param.sgd_iters % gap) in begin_list
+            t_after_do_sync_loop = time.time()
+            do_sync_loop_time_acc += (t_after_do_sync_loop - t_after_update_sgd_iters)
+            sync_flag_time_acc += (t_after_do_sync_loop - iter_start)
             
-            iter_start = time.time()
+            # 口径约定：train = zero_grad + FP+BP + clip_grad（训练步计算）；torch.cuda.synchronize() 单独计，不算 train
+            train_start = t_after_do_sync_loop
             optimizer.zero_grad()
-            
+            fp_bp_start = time.time()
             for j in range(nsteps_update):
                 if dnn in ['lstm', 'lstmwt2']:
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
                 # backward_time_acc += trainer.backwardtime_tmp
+            fp_bp_end = time.time()
+            fp_bp_time_acc += (fp_bp_end - fp_bp_start)
 
             clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
-            
-            # === 修正后的计时逻辑 ===
-            # 1. 强制等待 GPU 完成 BP 和 Clip
+            train_end = time.time()
+            train_time_acc += (train_end - train_start)   # train = zero_grad + fp_bp + clip_grad
+
+            _t0 = time.time()
             torch.cuda.synchronize()
+            cuda_sync_time_acc += (time.time() - _t0)
             bp_end_time = time.time()
             
             # 2. 等待通信完成
@@ -1483,9 +1284,9 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
             
             trainer.update_model()
             iter_end = time.time()
-            train_time = iter_end - iter_start
-            times.append(train_time)
-            train_time_acc += train_time
+            iter_time = iter_end - iter_start
+            iter_time_acc += iter_time
+            times.append(iter_time)
             
             if i % display == 0 and i > 0: 
                 time_per_iter = np.mean(times)
@@ -1494,10 +1295,11 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
                 result_dict["time_per_iter"] = time_per_iter
                 result_dict["samples_per_seconds"] = samples_per_seconds
                 
-            # === 正确的 Total 指标 ===
-            # 使用 trainer 内部累积的 BP 时间 + 外部累积的 Wait 时间
+            # === Total 指标口径 ===
+            # total train time = zero_grad + fp_bp + clip_grad（不含 cuda.sync / 通信）
+            # total fp_bp time = 仅 FP+BP；dreamddp_cuda_sync_time = wait() 前的 cuda.synchronize()
             total_bp_comm = trainer.backward_acc + wait_time_acc
-            
+
             ExpTool.record(result_dict)
             ExpTool.record({
                 "global_iters": global_iters, 
@@ -1507,9 +1309,17 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
                 "total wait time": wait_time_acc,
                 "total train time": train_time_acc, 
                 "total comm time": wait_time_acc, 
+                "total iteration time": iter_time_acc,
                 "total BP time": trainer.backward_acc,
                 "total FP time": trainer.forward_acc,
-                "total BP and comm time": total_bp_comm
+                "total BP and comm time": total_bp_comm,
+                "total sync flag time": sync_flag_time_acc,
+                "total FP,BP,Comm time": trainer.backward_acc + trainer.forward_acc + wait_time_acc,
+                "dreamddp_update_sgd_iters_time": update_sgd_iters_time_acc,
+                "dreamddp_do_sync_loop_time": do_sync_loop_time_acc,
+                "dreamddp_cuda_sync_time": cuda_sync_time_acc,
+                "total fp_bp time": fp_bp_time_acc,
+                "bandwidth": _bandwidth_to_int(args.bandwidth)
             })
             
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
@@ -1522,7 +1332,277 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
         result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch // nsteps_update)
 
         ExpTool.record(result_dict)
-        ExpTool.record({"global_iters": global_iters, "epochs": epoch})
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch, "bandwidth": _bandwidth_to_int(args.bandwidth)})
+        ExpTool.upload()
+        
+def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_size, max_epochs, nwpernode, nsteps_update, tokenizer_name=None, nsteps_localsgd=20, lr_decay = 'step',
+             check_param_diversity=None, nsteps_param_diversity=None, args=None):
+    assert nsteps_localsgd > 1
+    rank = dist.get_rank()
+    log_info('the rank of current process: %d', rank)
+
+    selected_gpu = rank % nwpernode
+    torch.cuda.set_device(selected_gpu)
+    if rank != 0:
+        pretrain = None
+    trainer = LLMTrainer(rank, nworkers, localsgd=True, dist=False, batch_size=batch_size, is_weak_scaling=True, ngpus=1, data_dir=data_dir, dataset=dataset, dnn=dnn, lr=lr, nworkers=nworkers, prefix=prefix, pretrain=None, num_steps=35, tb_writer=writer, optimizer_name="Adam", lr_decay=lr_decay,
+                         args=args)
+    init_epoch = (torch.ones(1) * trainer.get_train_epoch()).to(selected_gpu)
+    init_iter = (torch.ones(1) * trainer.get_train_iter()).to(selected_gpu)
+    dist.broadcast(init_epoch, src=0)
+    dist.broadcast(init_iter, src=0)
+    trainer.set_train_epoch(int(init_epoch.item()))
+    trainer.set_train_iter(int(init_iter.item()))
+
+    if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
+        seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
+        layerwise_times = comm.bcast(layerwise_times, root=0)
+        if rank == 0:
+            log_info('layerwise backward times: %s', list(layerwise_times))
+            log_info('layerwise backward sizes: %s', list(layerwise_sizes))
+        log_info('Bencharmked backward time: %f', np.sum(layerwise_times))
+        log_info('Model size: %d', np.sum(layerwise_sizes))
+    else:
+        seq_layernames, layerwise_times, layerwise_sizes = None, None, None
+    log_info('All the steps before broadcasting params are correct.')
+    log_info('Broadcast parameters....')
+    broadcast_parameters(trainer.net.state_dict(), root_rank=0)
+    log_info('Broadcast parameters finished....')
+
+    norm_clip = None
+    if dnn in ['lstm', 'lstmwt2']:
+        norm_clip = 0.25
+    elif dnn == 'lstman4':
+        norm_clip = 400
+
+    optimizer = trainer.optimizer
+    iters_per_epoch = trainer.num_batches_per_epoch
+
+    times = []
+    log_info('max_epochs: %d', max_epochs)
+    display = 1 if iters_per_epoch > 40 else max(1, iters_per_epoch - 1)
+
+    _handle_list = []
+    _registered_params = []
+
+    # === 极致优化: 微秒级无损 Hook ===
+    # 接收过滤好的参数列表和 list 引用，摒弃所有 if 判断和 getattr
+    def _make_ultra_fast_hook(piggyback_params, sync_flag_ref):
+        def hook(*args): # 兼容不同版本 PyTorch 的 hook 签名
+            if sync_flag_ref[0]: # O(1) 极速读取
+                for p in piggyback_params:
+                    # 直接发，因为 piggyback_params 已经过滤过 requires_grad 了
+                    _handle_list.append(dist.all_reduce(p.data, op=dist.ReduceOp.AVG, async_op=True))
+        return hook
+
+    scheduling_path = os.path.join('./time', dnn, str(nworkers), args.bandwidth, 'dreamddp_scheduling.json')
+    dreamddp_schedule = None
+    dreamddp_schedule_H = None
+    if os.path.isfile(scheduling_path):
+        with open(scheduling_path) as f:
+            raw = json.load(f)
+        if 'schedule' in raw:
+            dreamddp_schedule_H = raw['H']
+            dreamddp_schedule = raw['schedule']
+        else:
+            dreamddp_schedule = raw
+        log_info(f'loaded dreamddp schedule from {scheduling_path}' + (f' (H={dreamddp_schedule_H})' if dreamddp_schedule_H is not None else ''))
+    else:
+        raise FileNotFoundError(f'dreamddp_scheduling.json not found at {scheduling_path}')
+
+    def schedule_lookup_name(module_name, schedule_dict):
+        n = module_name
+        if getattr(args, 'finetune_type', 'full') != 'lora':
+            return n if n in schedule_dict else None
+        for prefix in ('base_model.model.', 'base_model.model.model.', 'base_model.'):
+            if not n.startswith(prefix):
+                continue
+            n2 = n[len(prefix):]
+            if n2.endswith('.lora_A.default'):
+                n2 = n2[:-len('.lora_A.default')]
+            elif n2.endswith('.lora_B.default'):
+                n2 = n2[:-len('.lora_B.default')]
+            elif n2.endswith('.lora_dropout.default'):
+                n2 = n2[:-len('.lora_dropout.default')]
+            if n2 in schedule_dict:
+                return n2
+        return n if n in schedule_dict else None
+
+    for layer_index, (name, module) in enumerate(trainer.net.named_modules()):
+        if len(list(module.children())) == 0: 
+            if is_root():
+                log_info(f"name: {name}, module id: {id(module)}")
+            
+            if args.enlarge == False:
+                schedule_key = schedule_lookup_name(name, dreamddp_schedule or {})
+                if dreamddp_schedule is None or schedule_key is None:
+                    continue
+                if schedule_key not in dreamddp_schedule:
+                    continue
+
+                v = dreamddp_schedule[schedule_key]
+                group_index_list = v if isinstance(v, list) else [v]
+            else:
+                raise ValueError(f'enlarge schedule is not supported yet.')
+            
+            # 提前过滤：只留下需要求梯度的参数
+            valid_params = [p for p in module.parameters() if p.requires_grad]
+            
+            if len(valid_params) > 0:
+                trigger_param = valid_params[0]
+                
+                # 使用 List 传递引用，替代原来的 Object Attribute
+                sync_flag = [False]
+                
+                trigger_param._dreamddp_schedule_info = (dreamddp_schedule_H, group_index_list)
+                trigger_param._sync_flag_ref = sync_flag
+                
+                _registered_params.append(trigger_param)
+                
+                # 生成闭包
+                hook_func = _make_ultra_fast_hook(valid_params, sync_flag)
+                
+                # 尝试使用 PyTorch 2.x 最新的原生态参数 Hook，零额外开销
+                if hasattr(trigger_param, 'register_post_accumulate_grad_hook'):
+                    trigger_param.register_post_accumulate_grad_hook(hook_func)
+                else:
+                    # 兼容老版本：依然使用 expand_as
+                    p_tmp = trigger_param.expand_as(trigger_param)
+                    grad_acc = p_tmp.grad_fn.next_functions[0][0]
+                    grad_acc.register_hook(hook_func)
+
+    def update_model_sgd_iters(model, sgd_iters):
+        for module in model.modules():
+            module.sgd_iters = sgd_iters
+            for param in module.parameters():
+                param.sgd_iters = sgd_iters
+
+    def synchronize_all_reduced_models():
+        for handle in _handle_list:
+            handle.wait()
+        _handle_list.clear() 
+
+    global_iters = 0
+    wait_time_acc = 0.0
+    train_time_acc = 0.0
+    iter_time_acc = 0.0
+    sync_flag_time_acc = 0.0
+    update_sgd_iters_time_acc = 0.0
+    do_sync_loop_time_acc = 0.0
+    fp_bp_time_acc = 0.0
+    cuda_sync_time_acc = 0.0   
+
+    for epoch in range(max_epochs):
+        log_info(f"Trainer using the {trainer.optimizer_name} optimizer.")
+        hidden = None
+        
+        result_dict = {}
+        train_epoch_loss = 0.0
+        train_epoch_ppl = 0.0
+        
+        if dnn in ['lstm', 'lstmwt2']:
+            hidden = trainer.net.init_hidden()
+            
+        for i in range(iters_per_epoch // nsteps_update):
+            global_iters += 1
+            result_dict = {}
+            
+            iter_start = time.time()
+            sgd_iters_0based = global_iters - 1
+            update_model_sgd_iters(trainer.net, sgd_iters_0based)
+            t_after_update_sgd_iters = time.time()
+            update_sgd_iters_time_acc += (t_after_update_sgd_iters - iter_start)
+            
+            # === 核心优化: 预计算本轮 Sync Flag，O(1) 赋值 ===
+            for param in _registered_params:
+                gap, begin_list = param._dreamddp_schedule_info
+                # 直接修改 List 引用的值，Hook 内实时生效
+                param._sync_flag_ref[0] = (param.sgd_iters % gap) in begin_list
+                
+            t_after_do_sync_loop = time.time()
+            do_sync_loop_time_acc += (t_after_do_sync_loop - t_after_update_sgd_iters)
+            sync_flag_time_acc += (t_after_do_sync_loop - iter_start)
+            
+            train_start = t_after_do_sync_loop
+            optimizer.zero_grad()
+            fp_bp_start = time.time()
+            for j in range(nsteps_update):
+                if dnn in ['lstm', 'lstmwt2']:
+                    _, hidden = trainer.train(1, hidden=hidden)
+                else:
+                    trainer.train(1)
+            fp_bp_end = time.time()
+            fp_bp_time_acc += (fp_bp_end - fp_bp_start)
+
+            clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
+            train_end = time.time()
+            train_time_acc += (train_end - train_start)   
+
+            _t0 = time.time()
+            torch.cuda.synchronize()
+            cuda_sync_time_acc += (time.time() - _t0)
+            bp_end_time = time.time()
+            
+            synchronize_all_reduced_models()
+            
+            dreamddp_extra_wait_time = time.time() - bp_end_time
+            wait_time_acc += dreamddp_extra_wait_time
+            
+            log_info(f'Global iteration: {global_iters} wait time: {dreamddp_extra_wait_time} total wait time: {wait_time_acc}')
+            
+            train_loss = trainer.loss
+            train_ppl = trainer.ppl
+            train_epoch_loss += train_loss
+            train_epoch_ppl += train_ppl
+            
+            trainer.update_model()
+            iter_end = time.time()
+            iter_time = iter_end - iter_start
+            iter_time_acc += iter_time
+            times.append(iter_time)
+            
+            if i % display == 0 and i > 0: 
+                time_per_iter = np.mean(times)
+                samples_per_seconds = batch_size * nsteps_update / time_per_iter
+                times = []
+                result_dict["time_per_iter"] = time_per_iter
+                result_dict["samples_per_seconds"] = samples_per_seconds
+                
+            total_bp_comm = trainer.backward_acc + wait_time_acc
+
+            ExpTool.record(result_dict)
+            ExpTool.record({
+                "global_iters": global_iters, 
+                "epochs": epoch, 
+                "train_loss": train_loss,
+                "train_ppl": train_ppl, 
+                "total wait time": wait_time_acc,
+                "total train time": train_time_acc, 
+                "total comm time": wait_time_acc, 
+                "total iteration time": iter_time_acc,
+                "total BP time": trainer.backward_acc,
+                "total FP time": trainer.forward_acc,
+                "total BP and comm time": total_bp_comm,
+                "total sync flag time": sync_flag_time_acc,
+                "total FP,BP,Comm time": trainer.backward_acc + trainer.forward_acc + wait_time_acc,
+                "dreamddp_update_sgd_iters_time": update_sgd_iters_time_acc,
+                "dreamddp_do_sync_loop_time": do_sync_loop_time_acc,
+                "dreamddp_cuda_sync_time": cuda_sync_time_acc,
+                "total fp_bp time": fp_bp_time_acc,
+                "bandwidth": _bandwidth_to_int(args.bandwidth)
+            })
+            
+            record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
+            ExpTool.upload()  
+
+        val_ppl, test_loss = trainer.test(epoch)
+        result_dict["val_ppl"] = val_ppl
+        result_dict["test_loss"] = test_loss
+        result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch // nsteps_update)
+        result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch // nsteps_update)
+
+        ExpTool.record(result_dict)
+        ExpTool.record({"global_iters": global_iters, "epochs": epoch, "bandwidth": _bandwidth_to_int(args.bandwidth)})
         ExpTool.upload()
         
 def arg_str2bool(args):
@@ -1535,6 +1615,11 @@ def arg_str2bool(args):
 
 if __name__ == '__main__':
     #torch.multiprocessing.set_start_method('spawn')
+    
+    # import torch
+    # torch.backends.cuda.matmul.allow_tf32 = False
+    # torch.backends.cudnn.allow_tf32 = False
+    
     parser = argparse.ArgumentParser(description="AllReduce trainer")
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--nsteps-update', type=int, default=1)
@@ -1594,7 +1679,9 @@ if __name__ == '__main__':
     parser.add_argument("--override_cmd_args", action="store_true")
     parser.add_argument("--tag", type=str, default="debug")
     parser.add_argument("--exp_tool_init_sub_dir", type=str, default="no")
-
+    
+    parser.add_argument("--bandwidth", type=str, default="10Gbps", help='Bandwidth for the network')
+    
     parser.add_argument("--enable_wandb", type=str, default="False")
     args = parser.parse_args()
     arg_str2bool(args)
@@ -1690,6 +1777,7 @@ if __name__ == '__main__':
         log_info("Alg used: transformer_dream_ddp_optimized.")
         transformer_dream_ddp_optimized(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size,args.max_epochs, args.nwpernode,args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
              check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args)
+
     ExpTool.finish(args)
 
     #local_sgd_with_dist(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size, args.nsteps_update, args.max_epochs, args.nwpernode, args.pretrain, args.num_steps, args.compressor, args.density, args.strategy,args.overlap_scalar, args.threshold,args.optimizer_name, gradient_relative_path, momentum_correction, prefix, args.nsteps_localsgd)
