@@ -527,6 +527,17 @@ class LLMTrainer:
         self.forward_acc = 0.0   # 累计 forward 时间
         self.backward_acc = 0.0  # 累计 backward 时间
         self.backwardtime_tmp = 0.0  # 当前步 BP 时间，供 dist（如 transformer_sgd）挂 hook 测 bp 用
+        # CUDA Event 计时器：仅初始化一次，后续每 step 复用
+        
+        if self.is_cuda:
+            self.cuda_event_clock_initialized = True
+        self.fp_start = torch.cuda.Event(enable_timing=True) if self.is_cuda else None
+        self.fp_end = torch.cuda.Event(enable_timing=True) if self.is_cuda else None
+        self.bp_start = torch.cuda.Event(enable_timing=True) if self.is_cuda else None
+        self.bp_end = torch.cuda.Event(enable_timing=True) if self.is_cuda else None
+        
+        if self.rank == 0:
+            print(f"Cuda event clock initialized: {self.cuda_event_clock_initialized}")
         self.step_acc = 0.0      # 累计单步（含 forward+backward）时间
         self.epochs_info = []
         self.distributions = {}
@@ -1376,29 +1387,33 @@ class LLMTrainer:
 
             batch = self.data_iter()
             device_batch = self.to_device(batch)
-            forward_start = time.time()
+
+            # FP: 使用 CUDA Event 记录纯 GPU 计算时间
+            self.fp_start.record()
             outputs = self.net(**device_batch)
             loss = outputs.loss
-            self.forward_acc += (time.time() - forward_start)
-            print(f"Forward time: {time.time() - forward_start}")
             
-            exit()
-            
-            torch.cuda.synchronize()
-            
-            backward_start = time.time()
-            self.backward_stamp = backward_start
+            self.fp_end.record()
+            # 兼容 profile 逻辑：保留 CPU 时间戳
+            self.backward_stamp = time.time()
+            # BP: 使用 CUDA Event 记录纯 GPU 计算时间
+            self.bp_start.record()
             if self.amp_handle is not None:
                 with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
                     scaled_loss.backward()
                     loss = scaled_loss
             else:
                 loss.backward()
-            loss_value = loss.item()
-            
-            backward_end = time.time()
-            step_bp = backward_end - backward_start
+            self.bp_end.record()
+            # 在提取 event 时间前强制等待当前 step 计算完成
+            torch.cuda.synchronize()
+
+            step_fp = self.fp_start.elapsed_time(self.fp_end) / 1000.0
+            step_bp = self.bp_start.elapsed_time(self.bp_end) / 1000.0
+            self.forward_acc += step_fp
             self.backward_acc += step_bp
+
+            loss_value = loss.item()
             self.backwardtime_tmp = step_bp  # 当前步 BP 时长，供 dist 累加 backward_time_acc；profile 用 backward_stamp 作首层 BP 开始时间
 
             self.loss += loss_value 

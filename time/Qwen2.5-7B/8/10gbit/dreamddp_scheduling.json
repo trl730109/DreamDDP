@@ -390,8 +390,8 @@
     "base_model.model.model.layers.0.self_attn.v_proj.lora_B": 0,
     "base_model.model.model.layers.0.self_attn.v_proj.lora_A": 0,
     "base_model.model.model.layers.0.self_attn.k_proj.lora_B": 0,
-    "base_model.model.model.layers.0.self_attn.k_proj.lora_A": 1,
-    "base_model.model.model.layers.0.self_attn.q_proj.lora_B": 2,
-    "base_model.model.model.layers.0.self_attn.q_proj.lora_A": 3
+    "base_model.model.model.layers.0.self_attn.k_proj.lora_A": 0,
+    "base_model.model.model.layers.0.self_attn.q_proj.lora_B": 0,
+    "base_model.model.model.layers.0.self_attn.q_proj.lora_A": 0
   }
 }

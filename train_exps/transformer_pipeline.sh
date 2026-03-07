@@ -33,10 +33,13 @@ cluster_name=A6000
 # hosts=('10.244.9.73' '10.244.19.3')
 # ports=(22 22)
 
-hosts=('10.244.19.3' '10.244.3.185')
+# hosts=('10.244.19.3' '10.244.3.185')
+# ports=(22 22)
+
+hosts=('10.244.3.187' '10.244.19.4')
 ports=(22 22)
 
-master_port=3124
+master_port=3127
 node_count=${#hosts[@]}
 nwpernode=8
 nworkers=$((nwpernode * node_count))
@@ -60,11 +63,11 @@ COMM_MULTIPLIER=1
 # )
 
 declare -a dnn_list=(
-    "gpt2"
+    "Qwen2.5-7B"
 )
 
 bandwidth="10gbit"
-max_epochs=3
+max_epochs=2
 # ========== Step 1: Profile ==========
 if [ "$MODE" = "all" ]; then
     echo "========== Starting Profile =========="
@@ -129,23 +132,23 @@ for dnn in "${dnn_list[@]}"; do
         extra_name="${dnn}"
     fi
     
-    # # Train transformer_sgd (full-precision)
-    # alg='transformer_sgd'
-    # source train_exps/launch_transformer_A6000.sh
-    # master_port=$((master_port + 1))
+    # Train transformer_sgd (full-precision)
+    alg='transformer_sgd'
+    source train_exps/launch_transformer_A6000.sh
+    master_port=$((master_port + 1))
     
     # Train transformer_localsgd (low-precision)
     alg='transformer_localsgd'
     source train_exps/launch_transformer_A6000.sh
     master_port=$((master_port + 1))
     
-#     # Train transformer_dream_ddp_optimized (optimized)
-#     alg='transformer_dream_ddp'
-#     source train_exps/launch_transformer_A6000.sh
-#     master_port=$((master_port + 1))
+    # Train transformer_dream_ddp_optimized (optimized)
+    alg='transformer_dream_ddp'
+    source train_exps/launch_transformer_A6000.sh
+    master_port=$((master_port + 1))
 
-#     # Train transformer_dream_ddp_optimized (optimized)
-#     alg='transformer_dream_ddp_optimized'
-#     source train_exps/launch_transformer_A6000.sh
-#     master_port=$((master_port + 1))
+    # Train transformer_dream_ddp_optimized (optimized)
+    alg='transformer_dream_ddp_optimized'
+    source train_exps/launch_transformer_A6000.sh
+    master_port=$((master_port + 1))
 done

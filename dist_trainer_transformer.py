@@ -239,7 +239,6 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
     train_time_acc = 0.0
     iter_time_acc = 0.0
     backward_time_acc = 0.0
-    fp_bp_time_acc = 0.0
 
     if profile:
         layer_bp_timestamps = {}
@@ -277,7 +276,6 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             
             optimizer.zero_grad()
             
-            fp_bp_start = time.time()
             for j in range(nsteps_update):
                 if j < nsteps_update - 1 and nsteps_update > 1:
                     optimizer.local = True
@@ -288,8 +286,6 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
                 else:
                     trainer.train(1)
                 backward_time_acc += trainer.backwardtime_tmp
-            fp_bp_end = time.time()
-            fp_bp_time_acc += (fp_bp_end - fp_bp_start)
             
             iter_train_end = time.time()
             train_time_acc += (iter_train_end - iter_start)
@@ -335,8 +331,9 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_ppl": train_ppl, "total train time": train_time_acc,
                         "total comm time": comm_time_acc, "total iteration time": iter_time_acc,
-                        "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
-                        "total BP and comm time": total_bp_comm, "total fp_bp time": fp_bp_time_acc,
+                        "total BP time": trainer.backward_acc,
+                        "total FP time": trainer.forward_acc,
+                        "total BP and comm time": total_bp_comm,
                         "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc + comm_time_acc,
                         "bandwidth": _bandwidth_to_int(args.bandwidth)})
             
@@ -485,7 +482,8 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
             total_bp_comm = trainer.backward_acc
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_ppl": train_ppl, "total iteration time": iter_time_acc,
-                        "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
+                        "total BP time": trainer.backward_acc,
+                        "total FP time": trainer.forward_acc,
                         "total BP and comm time": total_bp_comm,
                         "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
@@ -540,7 +538,6 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
     comm_time_acc = 0.0
     iter_time_acc = 0.0
     backward_time_acc = 0.0
-    fp_bp_time_acc = 0.0
     display = 1 if iters_per_epoch > 40 else max(1, iters_per_epoch - 1)
 
     if profile:
@@ -563,10 +560,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             global_iters += 1
             iter_start = time.time()
             trainer.zero_grad()
-            fp_bp_start = time.time()
             trainer.train(1)
-            fp_bp_end = time.time()
-            fp_bp_time_acc += (fp_bp_end - fp_bp_start)
             backward_time_acc += trainer.backwardtime_tmp
 
             train_loss = trainer.loss
@@ -649,15 +643,17 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                           "train_ppl": train_ppl})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
-            ExpTool.upload()
             
             total_bp_comm = trainer.backward_acc + comm_time_acc
             ExpTool.record({"global_iters": global_iters, "total train time": train_time_acc,
                         "total comm time": comm_time_acc, "total iteration time": iter_time_acc,
-                        "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
-"total BP and comm time": total_bp_comm, "total fp_bp time": fp_bp_time_acc,
+                        "total BP time": trainer.backward_acc,
+                        "total FP time": trainer.forward_acc,
+"total BP and comm time": total_bp_comm,
                         "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc + comm_time_acc,
                         "bandwidth": _bandwidth_to_int(args.bandwidth)})
+            
+            ExpTool.upload()
             
         val_ppl, test_loss = trainer.test(epoch)
         result_dict["test_loss"] = test_loss
@@ -859,7 +855,8 @@ def transformer_pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_si
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_ppl": train_ppl, "total wait time": wait_time_acc,
                         "total train time": train_time_acc, "total comm time": wait_time_acc,
-                        "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
+                        "total BP time": trainer.backward_acc,
+                        "total FP time": trainer.forward_acc,
                         "total BP and comm time": total_bp_comm,
                         "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc + wait_time_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
@@ -1048,7 +1045,8 @@ def transformer_full_pipe_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_s
             ExpTool.record({"global_iters": global_iters, "epochs": epoch, "train_loss": train_loss,
                         "train_ppl": train_ppl, "total wait time": wait_time_acc,
                         "total train time": train_time_acc, "total comm time": wait_time_acc,
-                        "total BP time": trainer.backward_acc, "total FP time": trainer.forward_acc,
+                        "total BP time": trainer.backward_acc,
+                        "total FP time": trainer.forward_acc,
                         "total BP and comm time": total_bp_comm,
                         "total FP,BP,Comm time": trainer.forward_acc + trainer.backward_acc + wait_time_acc})
             record_param_diversity_with_period(trainer.net, global_iters, nsteps_param_diversity, check_param_diversity)
@@ -1213,7 +1211,6 @@ def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, max_
     sync_flag_time_acc = 0.0
     update_sgd_iters_time_acc = 0.0
     do_sync_loop_time_acc = 0.0
-    fp_bp_time_acc = 0.0
     cuda_sync_time_acc = 0.0   # DreamDDP 独有：wait() 前的 torch.cuda.synchronize()，不计入 train
 
     for epoch in range(max_epochs):
@@ -1249,23 +1246,21 @@ def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, max_
             # 口径约定：train = zero_grad + FP+BP + clip_grad（训练步计算）；torch.cuda.synchronize() 单独计，不算 train
             train_start = t_after_do_sync_loop
             optimizer.zero_grad()
-            fp_bp_start = time.time()
             for j in range(nsteps_update):
                 if dnn in ['lstm', 'lstmwt2']:
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
                 # backward_time_acc += trainer.backwardtime_tmp
-            fp_bp_end = time.time()
-            fp_bp_time_acc += (fp_bp_end - fp_bp_start)
 
             clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
             train_end = time.time()
             train_time_acc += (train_end - train_start)   # train = zero_grad + fp_bp + clip_grad
 
-            _t0 = time.time()
+            sync_start = time.time()
+            # 先等本轮 FP/BP 计算完全结束，再开始 CPU 侧等待通信
             torch.cuda.synchronize()
-            cuda_sync_time_acc += (time.time() - _t0)
+            cuda_sync_time_acc += (time.time() - sync_start)
             bp_end_time = time.time()
             
             # 2. 等待通信完成
@@ -1297,7 +1292,6 @@ def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, max_
                 
             # === Total 指标口径 ===
             # total train time = zero_grad + fp_bp + clip_grad（不含 cuda.sync / 通信）
-            # total fp_bp time = 仅 FP+BP；dreamddp_cuda_sync_time = wait() 前的 cuda.synchronize()
             total_bp_comm = trainer.backward_acc + wait_time_acc
 
             ExpTool.record(result_dict)
@@ -1318,7 +1312,6 @@ def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, max_
                 "dreamddp_update_sgd_iters_time": update_sgd_iters_time_acc,
                 "dreamddp_do_sync_loop_time": do_sync_loop_time_acc,
                 "dreamddp_cuda_sync_time": cuda_sync_time_acc,
-                "total fp_bp time": fp_bp_time_acc,
                 "bandwidth": _bandwidth_to_int(args.bandwidth)
             })
             
@@ -1489,7 +1482,6 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
     sync_flag_time_acc = 0.0
     update_sgd_iters_time_acc = 0.0
     do_sync_loop_time_acc = 0.0
-    fp_bp_time_acc = 0.0
     cuda_sync_time_acc = 0.0   
 
     for epoch in range(max_epochs):
@@ -1525,22 +1517,20 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
             
             train_start = t_after_do_sync_loop
             optimizer.zero_grad()
-            fp_bp_start = time.time()
             for j in range(nsteps_update):
                 if dnn in ['lstm', 'lstmwt2']:
                     _, hidden = trainer.train(1, hidden=hidden)
                 else:
                     trainer.train(1)
-            fp_bp_end = time.time()
-            fp_bp_time_acc += (fp_bp_end - fp_bp_start)
 
             clip_grad(trainer.net, dnn, GPT2_MAX_GRAD_NORM)
             train_end = time.time()
             train_time_acc += (train_end - train_start)   
 
-            _t0 = time.time()
+            sync_start = time.time()
+            # 先等本轮 FP/BP 计算完全结束，再开始 CPU 侧等待通信
             torch.cuda.synchronize()
-            cuda_sync_time_acc += (time.time() - _t0)
+            cuda_sync_time_acc += (time.time() - sync_start)
             bp_end_time = time.time()
             
             synchronize_all_reduced_models()
@@ -1588,7 +1578,6 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
                 "dreamddp_update_sgd_iters_time": update_sgd_iters_time_acc,
                 "dreamddp_do_sync_loop_time": do_sync_loop_time_acc,
                 "dreamddp_cuda_sync_time": cuda_sync_time_acc,
-                "total fp_bp time": fp_bp_time_acc,
                 "bandwidth": _bandwidth_to_int(args.bandwidth)
             })
             
