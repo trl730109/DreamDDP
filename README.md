@@ -46,10 +46,6 @@ To enable multi-node distributed training, password-free SSH login must be confi
 * **Configure SSH Keys**: Edit the target `HOST`, `PORTS`, `USER`, and `EMAIL` variables in `ssh_conf.sh`, then run `bash ssh_conf.sh` to automatically generate and distribute the SSH keys.
 * **Update Training Script**: Configure the cluster topology in `train_exps/transformer_pipeline.sh` by updating the `hosts` (e.g., `('10.244.3.188' '10.244.4.109')`), `ports` (e.g., `(22 22)`), and `master_port` variables to match your actual node IPs and SSH ports.
 
-## 🚀 Quick Start (Profiling & Training)
-```bash
-bash ./train_exps/transformer_pipeline.sh
-```
 
 **4. Configure Models and Datasets:**
 The models and datasets used in our paper are automatically downloaded:
@@ -58,6 +54,10 @@ The models and datasets used in our paper are automatically downloaded:
 
 After downloading the datasets, you should revise the data path in the configuration file, located at `./train_exps/env_configs/A6000.sh`.
 
+## 🚀 Quick Start (Profiling & Training)
+```bash
+bash ./train_exps/transformer_pipeline.sh
+```
 
 ## 🚀 Customizing the Training
 
