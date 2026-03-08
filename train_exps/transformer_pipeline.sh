@@ -1,10 +1,4 @@
 #!/bin/bash
-# 合并的 transformer pipeline: 先 profile，然后运行调度，最后运行实际训练
-# 顺序：profile -> Scheduling/run.sh -> 实际训练
-# Usage: bash transformer_pipeline.sh [all|train]
-#   all: 执行所有步骤（包括 profile）
-#   train: 跳过 profile，只执行 scheduling 和训练
-
 MODE=${1:-all}
 
 lr=0.0001
@@ -80,7 +74,7 @@ if [ "$MODE" = "all" ]; then
             peft_lora_alpha=16
             extra_name="${dnn}"
         fi
-        model_dir="/workspace/models/${dnn}"
+        # model_dir="/workspace/models/${dnn}"
         
         # Profile transformer_sgd (full-precision)
         alg='transformer_sgd'

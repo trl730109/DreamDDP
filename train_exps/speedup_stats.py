@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-从 cpu_clock 结果统计 DreamDDP 相对 pipe_sgd、localsgd 的提升并写入 speedup.txt。
-公式: (其他算法时间 - dreamddp时间) / dreamddp时间
+Calculate the speedup of DreamDDP relative to pipe_sgd and localsgd from cpu_clock results and write to speedup.txt.
+Formula: (other algorithm time - dreamddp time) / dreamddp time
 """
 import argparse
 import os
@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--bandwidth", type=str, required=True)
     args = parser.parse_args()
 
-    # 使用脚本所在仓库的 results 目录，不依赖当前工作目录
+    # use the results directory in the root of the repository
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     results_base = os.path.join(repo_root, "results", args.time_stamp)
     subdir = f"{args.dnn}-{args.nworkers}-{args.bandwidth}"
