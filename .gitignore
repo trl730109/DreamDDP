@@ -40,6 +40,9 @@ wandb_sync/*
 ./*/*/*/*/wandb
 ./*/*/*/*/*/wandb
 
+results/*
+exp_savefiles_DDP-Train/*
+
 
 *.swp
 *.npz

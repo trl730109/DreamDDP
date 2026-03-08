@@ -2,7 +2,7 @@
 
 # Set Python and script environment
 directory=$(pwd)
-script="${script:-dist_trainer_transformer.py}"  # Assuming this is the PyTorch distributed training script
+script="${script:-dist_trainer_transformer_final.py}"  # Assuming this is the PyTorch distributed training script
 params="${params:-}"
 echo "launch dir: $directory"
 
@@ -28,12 +28,12 @@ ngpu_per_node="${ngpu_per_node:-4}"
 node_count="${node_count:-1}"
 node_rank="${node_rank:-1}"
 echo "node_count: $node_count"
-node_rank_0based=$(expr $node_rank - 1)  # 1-based -> 0-based，仅用于选 master 和范围检查
+node_rank_0based=$(expr $node_rank - 1)  # 1-based -> 0-based, only used for selecting master and range check
 if [ $(expr $node_rank_0based + $node_count) -gt $total_host ] || [ $node_rank_0based -lt 0 ]; then
     echo "node_rank (1-based): $node_rank -> 0-based: $node_rank_0based"
     echo "node_count: $node_count, total_host: $total_host"
     echo "Required nodes are out of the range: from gpu1 to gpu$total_host"
-    echo "Hint: 使用前 node_count 台机器时请设 node_rank=1（master 为第 1 台），不要设成 node_rank=\$node_count"
+    echo "Hint: Use node_count machines, set node_rank=1 (master is the 1st machine), do not set node_rank=\$node_count"
     exit 1
 fi
 master_host=${hosts[$node_rank_0based]}
@@ -59,10 +59,10 @@ enlarge="${enlarge:-false}"
 check_param_diversity="${check_param_diversity:-false}"
 nsteps_param_diversity=5
 profile="${profile:-False}"
-
+profiler_trace="${profiler_trace:-False}"
 bandwidth="${bandwidth:-10Gbps}"
-
-
+cpu_clock="${cpu_clock:-False}"
+time_stamp="${time_stamp:-time_stamp}"
 # if [ "$interface" = "eno0" ]; then
 #     bandwidth="1G"
 # elif [ "$interface" = "ens5f0" ]; then
@@ -118,14 +118,17 @@ do
         --lr $lr \
         --lr_decay $lr_decay \
         --bandwidth $bandwidth \
+        --cpu_clock $cpu_clock \
         --group_num $group_num \
         --nsteps-update $nstepsupdate \
         --nwpernode $nwpernode \
         --density $density \
         --compressor $compressor \
         --interface $interface \
+        --time_stamp $time_stamp \
         --threshold $threshold \
         --saved-dir $GRADSPATH \
+        --profiler_trace $profiler_trace \
         --enlarge $enlarge \
         --check_param_diversity $check_param_diversity \
         --nsteps_param_diversity $nsteps_param_diversity \
@@ -137,7 +140,7 @@ do
         --peft_lora_r ${peft_lora_r:-8} \
         --peft_lora_alpha ${peft_lora_alpha:-16}"
     echo "$host: $args"
-    cmd="cd $directory; bash ./set_mul_bandwidth.sh; $args"
+    cmd="cd $directory; bash ./set_mul_bandwidth.sh \"$bandwidth\"; $args"
     echo "$host"
     if [ $(expr $i + 1) -eq $node_count ]; then
         ssh -p $port $host $cmd   # return until finished or interrupted
@@ -146,4 +149,6 @@ do
     fi
     i=$(expr $i + 1)
 done
+
+
 

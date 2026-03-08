@@ -257,7 +257,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         def __exit__(self, *args): pass
 
     if profiler_trace:
-        prof_log_dir = os.path.join('./logs_traced', 'profiler_trace_ssgd', dnn, str(nworkers), str(args.bandwidth))
+        prof_log_dir = os.path.join(f'./results/{args.time_stamp}/logs_traced', 'profiler_trace_ssgd', f'{dnn}-{nworkers}-{args.bandwidth}')
         os.makedirs(prof_log_dir, exist_ok=True)
         profiler_ctx = torch.profiler.profile(
             activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
@@ -406,7 +406,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
         cpu_clock_end = time.time()
         elapsed = cpu_clock_end - cpu_clock_start
         log_info('CPU clock time: %f', elapsed)
-        cpu_clock_dir = os.path.join('./cpu_clocks',"sgd", dnn, str(nworkers), str(args.bandwidth))
+        cpu_clock_dir = os.path.join(f'./results/{args.time_stamp}/cpu_clocks', "sgd", f'{dnn}-{nworkers}-{args.bandwidth}')
         os.makedirs(cpu_clock_dir, exist_ok=True)
         clock_path = os.path.join(cpu_clock_dir, f'cpu_clock_time_rank{rank}.txt')
         with open(clock_path, 'w') as f:
@@ -489,7 +489,7 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
         def __exit__(self, *a): pass
 
     if profiler_trace:
-        prof_log_dir = os.path.join('./logs_traced', 'profiler_trace_pipe_sgd', dnn, str(nworkers), str(args.bandwidth))
+        prof_log_dir = os.path.join(f'./results/{args.time_stamp}/logs_traced', 'profiler_trace_pipe_sgd', f'{dnn}-{nworkers}-{args.bandwidth}')
         os.makedirs(prof_log_dir, exist_ok=True)
         profiler_ctx = torch.profiler.profile(
             activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
@@ -583,7 +583,7 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
         cpu_clock_end = time.time()
         elapsed = cpu_clock_end - cpu_clock_start
         log_info('CPU clock time: %f', elapsed)
-        cpu_clock_dir = os.path.join('./cpu_clocks', "pipe_sgd", dnn, str(nworkers), str(args.bandwidth))
+        cpu_clock_dir = os.path.join(f'./results/{args.time_stamp}/cpu_clocks', "pipe_sgd", f'{dnn}-{nworkers}-{args.bandwidth}')
         os.makedirs(cpu_clock_dir, exist_ok=True)
         clock_path = os.path.join(cpu_clock_dir, f'cpu_clock_time_rank{rank}.txt')
         with open(clock_path, 'w') as f:
@@ -650,7 +650,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         def __exit__(self, *args): pass
 
     if profiler_trace:
-        prof_log_dir = os.path.join('./logs_traced', 'profiler_trace_localsgd', dnn, str(nworkers), str(args.bandwidth))
+        prof_log_dir = os.path.join(f'./results/{args.time_stamp}/logs_traced', 'profiler_trace_localsgd', f'{dnn}-{nworkers}-{args.bandwidth}')
         os.makedirs(prof_log_dir, exist_ok=True)
         profiler_ctx = torch.profiler.profile(
             activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
@@ -781,7 +781,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
         cpu_clock_end = time.time()
         elapsed = cpu_clock_end - cpu_clock_start
         log_info('CPU clock time: %f', elapsed)
-        cpu_clock_dir = os.path.join('./cpu_clocks',"localsgd", dnn, str(nworkers), str(args.bandwidth))
+        cpu_clock_dir = os.path.join(f'./results/{args.time_stamp}/cpu_clocks', "localsgd", f'{dnn}-{nworkers}-{args.bandwidth}')
         os.makedirs(cpu_clock_dir, exist_ok=True)
         clock_path = os.path.join(cpu_clock_dir, f'cpu_clock_time_rank{rank}.txt')
         with open(clock_path, 'w') as f:
@@ -1603,7 +1603,7 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
         def __exit__(self, *args): pass
 
     if profiler_trace:
-        prof_log_dir = os.path.join('./logs_traced', 'profiler_trace_dreamddp', dnn, str(nworkers), str(args.bandwidth))
+        prof_log_dir = os.path.join(f'./results/{args.time_stamp}/logs_traced', 'profiler_trace_dreamddp', f'{dnn}-{nworkers}-{args.bandwidth}')
         os.makedirs(prof_log_dir, exist_ok=True)
         profiler_ctx = profile(
             activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
@@ -1669,7 +1669,7 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
         cpu_clock_end = time.time()
         elapsed = cpu_clock_end - cpu_clock_start
         log_info('CPU clock time: %f', elapsed)
-        cpu_clock_dir = os.path.join('./cpu_clocks',"dreamddp", dnn, str(nworkers), str(args.bandwidth))
+        cpu_clock_dir = os.path.join(f'./results/{args.time_stamp}/cpu_clocks',"dreamddp", f'{dnn}-{nworkers}-{args.bandwidth}')
         os.makedirs(cpu_clock_dir, exist_ok=True)
         clock_path = os.path.join(cpu_clock_dir, f'cpu_clock_time_rank{rank}.txt')
         with open(clock_path, 'w') as f:
@@ -1762,6 +1762,7 @@ if __name__ == '__main__':
     parser.add_argument("--override_cmd_args", action="store_true")
     parser.add_argument("--tag", type=str, default="debug")
     parser.add_argument("--exp_tool_init_sub_dir", type=str, default="no")
+    parser.add_argument("--time_stamp", type=str, default="time_stamp", help='Time stamp for the experiment')
     
     parser.add_argument("--bandwidth", type=str, default="10Gbps", help='Bandwidth for the network')
     
@@ -1852,8 +1853,8 @@ if __name__ == '__main__':
         transformer_full_pipe_localsgd(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size,args.max_epochs, args.nwpernode,args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
              check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args, profiler_trace=args.profiler_trace)
 
-    elif (args.alg == 'transformer_dream_ddp_optimized'):
-        log_info("Alg used: transformer_dream_ddp_optimized.")
+    elif (args.alg == 'transformer_dream_ddp'):
+        log_info("Alg used: transformer_dream_ddp.")
         transformer_dream_ddp_optimized(args.dnn, args.dataset, args.data_dir, args.nworkers, args.lr, args.batch_size,args.max_epochs, args.nwpernode,args.nsteps_update, tokenizer_name=None, nsteps_localsgd=args.nsteps_localsgd, lr_decay=args.lr_decay, 
              check_param_diversity=args.check_param_diversity, nsteps_param_diversity=args.nsteps_param_diversity, args=args, profiler_trace=args.profiler_trace)
 

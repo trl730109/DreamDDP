@@ -27,19 +27,11 @@ nsteps_param_diversity=5
 
 cluster_name=A6000
 
-# hosts=('10.244.1.115' '10.244.3.176' '10.244.10.55' '10.244.4.104')
-# ports=(22 22 22 22)
 
-# hosts=('10.244.9.73' '10.244.19.3')
-# ports=(22 22)
-
-# hosts=('10.244.19.3' '10.244.3.185')
-# ports=(22 22)
-
-hosts=('10.244.3.187' '10.244.19.4')
+hosts=('10.244.3.188' '10.244.4.109')
 ports=(22 22)
 
-master_port=3127
+master_port=3188
 node_count=${#hosts[@]}
 nwpernode=8
 nworkers=$((nwpernode * node_count))
@@ -63,10 +55,11 @@ COMM_MULTIPLIER=1
 # )
 
 declare -a dnn_list=(
-    "Qwen2.5-7B"
+    # "Qwen2.5-7B"
+    "llama2-124M"
 )
 
-bandwidth="10gbit"
+bandwidth="1gbit"
 max_epochs=2
 # ========== Step 1: Profile ==========
 if [ "$MODE" = "all" ]; then
@@ -115,11 +108,18 @@ done
 echo "========== Scheduling Generation Completed =========="
 
 profile=False
-enable_wandb=true
-max_epochs=3
+enable_wandb=false
+max_epochs=1
 
 for dnn in "${dnn_list[@]}"; do
-    # Set parameters based on model
+    # Set time stamp
+    time_stamp_dnn="${dnn}-$(date +%Y%m%d_%H%M%S)"
+    time_stamp=$time_stamp_dnn
+
+    profiler_trace=False
+    cpu_clock=True
+
+
     if [ "$dnn" = "Qwen2.5-7B" ]; then
         finetune_type=lora
         peft_lora_r=16
@@ -132,23 +132,28 @@ for dnn in "${dnn_list[@]}"; do
         extra_name="${dnn}"
     fi
     
-    # Train transformer_sgd (full-precision)
-    alg='transformer_sgd'
+    # # Train transformer_sgd
+    # alg='transformer_sgd'
+    # source train_exps/launch_transformer_A6000.sh
+    # master_port=$((master_port + 1))
+
+    # Train transformer_pipe_sgd
+    alg='transformer_pipe_sgd'
     source train_exps/launch_transformer_A6000.sh
     master_port=$((master_port + 1))
     
-    # Train transformer_localsgd (low-precision)
+    # Train transformer_localsgd
     alg='transformer_localsgd'
     source train_exps/launch_transformer_A6000.sh
     master_port=$((master_port + 1))
     
-    # Train transformer_dream_ddp_optimized (optimized)
+    # Train transformer_dream_ddp
     alg='transformer_dream_ddp'
     source train_exps/launch_transformer_A6000.sh
     master_port=$((master_port + 1))
 
-    # Train transformer_dream_ddp_optimized (optimized)
-    alg='transformer_dream_ddp_optimized'
-    source train_exps/launch_transformer_A6000.sh
-    master_port=$((master_port + 1))
+    # Calculate speedup of dreamddp relative to pipe_sgd and localsgd
+    $PY train_exps/speedup_stats.py --time_stamp "$time_stamp" --dnn "$dnn" --nworkers "$nworkers" --bandwidth "$bandwidth"
+
+    
 done
