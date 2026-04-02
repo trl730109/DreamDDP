@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # === Config ===
-HOST="10.249.40.11"
+HOST="172.17.0.6"
 # 在这里填入所有端口号，用空格分隔
-PORTS=(31972 31521)
+PORTS=(22)
 USER="root"
 EMAIL="ztangap@connect.ust.hk"
 

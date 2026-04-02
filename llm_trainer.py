@@ -6,8 +6,8 @@ import time
 import psutil
 
 import torch
-import torchvision
-import torchvision.transforms as transforms
+# import torchvision
+# import torchvision.transforms as transforms
 import torch.distributed as dist
 import torch.utils.data.distributed
 import numpy as np

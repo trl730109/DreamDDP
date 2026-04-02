@@ -7,7 +7,7 @@ dataset='wikitext2'
 
 data_dir="/mnt/raid/tangzichen/wikitext2"
 interface=eth0
-PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
+PY="/root/miniconda3/envs/dreamddp/bin/python3"
 
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com NCCL_DEBUG=INFO NCCL_IB_DISABLE=1 NCCL_SOCKET_IFNAME=eth0"
 
@@ -19,15 +19,15 @@ wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
 check_param_diversity=false
 nsteps_param_diversity=5
 
-cluster_name=A6000
+cluster_name=autodl
 
 
-hosts=('10.244.3.188' '10.244.4.109')
-ports=(22 22)
+hosts=('172.17.0.6')
+ports=(22)
 
 master_port=3188
 node_count=${#hosts[@]}
-nwpernode=8
+nwpernode=1
 nworkers=$((nwpernode * node_count))
 ngpu_per_node=$nwpernode
 nsteps_localsgd=10
@@ -50,11 +50,11 @@ COMM_MULTIPLIER=1
 
 declare -a dnn_list=(
     # "Qwen2.5-7B"
-    "llama2-124M"
+    "gpt2"
 )
 
 bandwidth="1gbit"
-max_epochs=2
+max_epochs=1
 # ========== Step 1: Profile ==========
 if [ "$MODE" = "all" ]; then
     echo "========== Starting Profile =========="
@@ -81,10 +81,10 @@ if [ "$MODE" = "all" ]; then
         source train_exps/launch_transformer_A6000.sh
         master_port=$((master_port + 1))
         
-        # Profile transformer_localsgd (low-precision)
-        alg='transformer_localsgd'
-        source train_exps/launch_transformer_A6000.sh
-        master_port=$((master_port + 1))
+        # # Profile transformer_localsgd (low-precision)
+        # alg='transformer_localsgd'
+        # source train_exps/launch_transformer_A6000.sh
+        # master_port=$((master_port + 1))
     done
 fi
 
@@ -131,23 +131,23 @@ for dnn in "${dnn_list[@]}"; do
     # source train_exps/launch_transformer_A6000.sh
     # master_port=$((master_port + 1))
 
-    # Train transformer_pipe_sgd
-    alg='transformer_pipe_sgd'
-    source train_exps/launch_transformer_A6000.sh
-    master_port=$((master_port + 1))
+    # # Train transformer_pipe_sgd
+    # alg='transformer_pipe_sgd'
+    # source train_exps/launch_transformer_A6000.sh
+    # master_port=$((master_port + 1))
     
-    # Train transformer_localsgd
-    alg='transformer_localsgd'
-    source train_exps/launch_transformer_A6000.sh
-    master_port=$((master_port + 1))
+    # # Train transformer_localsgd
+    # alg='transformer_localsgd'
+    # source train_exps/launch_transformer_A6000.sh
+    # master_port=$((master_port + 1))
     
-    # Train transformer_dream_ddp
-    alg='transformer_dream_ddp'
-    source train_exps/launch_transformer_A6000.sh
-    master_port=$((master_port + 1))
+    # # Train transformer_dream_ddp
+    # alg='transformer_dream_ddp'
+    # source train_exps/launch_transformer_A6000.sh
+    # master_port=$((master_port + 1))
 
-    # Calculate speedup of dreamddp relative to pipe_sgd and localsgd
-    $PY train_exps/speedup_stats.py --time_stamp "$time_stamp" --dnn "$dnn" --nworkers "$nworkers" --bandwidth "$bandwidth"
+    # # Calculate speedup of dreamddp relative to pipe_sgd and localsgd
+    # $PY train_exps/speedup_stats.py --time_stamp "$time_stamp" --dnn "$dnn" --nworkers "$nworkers" --bandwidth "$bandwidth"
 
     
 done

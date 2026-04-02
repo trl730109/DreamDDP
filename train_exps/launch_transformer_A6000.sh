@@ -140,7 +140,8 @@ do
         --peft_lora_r ${peft_lora_r:-8} \
         --peft_lora_alpha ${peft_lora_alpha:-16}"
     echo "$host: $args"
-    cmd="cd $directory; bash ./set_mul_bandwidth.sh \"$bandwidth\"; $args"
+    # cmd="cd $directory; bash ./set_mul_bandwidth.sh \"$bandwidth\"; $args"
+    cmd="cd $directory; $args"
     echo "$host"
     if [ $(expr $i + 1) -eq $node_count ]; then
         ssh -p $port $host $cmd   # return until finished or interrupted

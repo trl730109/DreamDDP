@@ -22,6 +22,16 @@ case "$cluster_name" in
             
         esac
         ;;
+    "autodl")
+        case "$dataset" in
+            "cifar10" | "cifar100" | "mnist") data_dir="/root/DreamDDP/cifar" ;;
+            "wikitext2") data_dir="/root/DreamDDP/datasets" ;;
+            "openwebtext") data_dir="/root/autodl-tmp/encoded_openwebtext" ;;
+        esac
+        case "$dnn" in
+            "gpt2") model_dir="/root/models/gpt2" ;;
+        esac
+        ;;
     *)
         echo "Unknown cluster name: $cluster_name"
         exit 1
