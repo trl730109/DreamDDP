@@ -81,6 +81,7 @@ Edit `train_exps/env_configs/env.sh` to match your cluster:
 ```bash
 bash ./train_exps/transformer_pipeline.sh
 ```
+After completing the configuration steps above, this command runs the full pipeline end-to-end: (1) profiling layer-wise computation and communication times, (2) running the DreamDDP scheduler to produce an optimal synchronization plan and estimated speedup, and (3) executing the actual distributed training with the scheduled configuration.
 
 ## 🚀 Customizing the Training
 
