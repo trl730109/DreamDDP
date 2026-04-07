@@ -26,13 +26,16 @@ case "$cluster_name" in
 
         PY="/workspace/pretrain/miniconda3/envs/dreamddp_clean/bin/python"
         ;;
-
-    # add more clusters here. follow the above format.
-    # "A100")
-    #     PY="python3 path here"
-    #     data_dir="dataset path here"
-    #     model_dir="model path here"
-    #     ;;
+    "your_cluster_name")
+        case "$dataset" in
+            "wikitext2") data_dir="dataset path here" ;;
+            "openwebtext") data_dir="dataset path here" ;;
+        esac
+        case "$dnn" in
+            "gpt2") model_dir="model path here" ;;
+        esac
+        PY="python3 path here"
+        ;;
     *)
         echo "Unknown cluster name: $cluster_name"
         exit 1

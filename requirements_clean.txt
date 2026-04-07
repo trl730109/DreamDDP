@@ -89,3 +89,4 @@ urllib3==2.6.3
 xxhash==3.6.0
 yarl==1.23.0
 zope.interface==8.2
+wandb

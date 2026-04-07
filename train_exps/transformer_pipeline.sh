@@ -4,27 +4,28 @@ MODE=${1:-all}
 # ============================================================
 # Cluster Config  <-- edit this when switching clusters
 # ============================================================
-cluster_name=A6000
+# cluster_name=A6000
+
+cluster_name=your_cluster_name
 # PY is set in train_exps/env_configs/env.sh based on cluster_name
 
 # Node IPs and SSH ports (internal network)
-hosts=('10.244.13.201')
-ports=(22)
-# hosts=('10.244.3.188' '10.244.4.109')
-# ports=(22 22)
+nwpernode=4    # GPUs per node
+hosts=('node_ip_1' 'node_ip_2')
+ports=(22 22)
+# Examples
 # hosts=('10.244.4.118' '10.244.3.196' '10.244.5.219' '10.244.1.135')
 # ports=(22 22 22 22)
 
-nwpernode=4          # GPUs per node
 master_port=3357
 bandwidth="1gbit"    # used for scheduling and (optionally) tc bandwidth shaping
 enable_tc=false      # set true to throttle inter-node bandwidth via tc (requires cap_net_admin)
 
 # WandB
-enable_wandb=false
-wandb_offline=true
-wandb_entity=hpml-hkbu
-wandb_key=174615c3e7f0204e9374d7ace7a3e91c580124ac
+enable_wandb=false  # set true to enable WandB logging
+wandb_offline=true  # set true to run WandB in offline mode
+wandb_entity=your_wandb_entity
+wandb_key=your_wandb_key
 
 # ============================================================
 # Model List  <-- uncomment models to run
