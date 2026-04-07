@@ -120,9 +120,9 @@ if [ "$MODE" = "all" ]; then
     for dnn in "${dnn_list[@]}"; do
         set_model_params "$dnn"
 
-        # alg='transformer_sgd'
-        # source train_exps/launch_transformer_A6000.sh
-        # master_port=$((master_port + 1))
+        alg='transformer_sgd'
+        source train_exps/launch_transformer_A6000.sh
+        master_port=$((master_port + 1))
 
         alg='transformer_localsgd'
         source train_exps/launch_transformer_A6000.sh
@@ -155,21 +155,21 @@ for dnn in "${dnn_list[@]}"; do
     profiler_trace=False
     cpu_clock=True
 
-    # alg='transformer_sgd'
-    # source train_exps/launch_transformer_A6000.sh
-    # master_port=$((master_port + 1))
+    alg='transformer_sgd'
+    source train_exps/launch_transformer_A6000.sh
+    master_port=$((master_port + 1))
 
-    # alg='transformer_pipe_sgd'
-    # source train_exps/launch_transformer_A6000.sh
-    # master_port=$((master_port + 1))
+    alg='transformer_pipe_sgd'
+    source train_exps/launch_transformer_A6000.sh
+    master_port=$((master_port + 1))
 
-    # alg='transformer_localsgd'
-    # source train_exps/launch_transformer_A6000.sh
-    # master_port=$((master_port + 1))
+    alg='transformer_localsgd'
+    source train_exps/launch_transformer_A6000.sh
+    master_port=$((master_port + 1))
 
-    # alg='transformer_dream_ddp'
-    # source train_exps/launch_transformer_A6000.sh
-    # master_port=$((master_port + 1))
+    alg='transformer_dream_ddp'
+    source train_exps/launch_transformer_A6000.sh
+    master_port=$((master_port + 1))
 
-    # $PY train_exps/speedup_stats.py --time_stamp "$time_stamp" --dnn "$dnn" --nworkers "$nworkers" --bandwidth "$bandwidth"
+    $PY train_exps/speedup_stats.py --time_stamp "$time_stamp" --dnn "$dnn" --nworkers "$nworkers" --bandwidth "$bandwidth"
 done
