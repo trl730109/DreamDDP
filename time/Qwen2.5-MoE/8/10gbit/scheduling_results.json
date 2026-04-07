@@ -1,0 +1,22 @@
+{
+  "algorithm_times": {
+    "H_10": {
+      "sgd": 17.429842992262344,
+      "pipe_sgd": 12.485152075989268,
+      "localsgd": 6.291926703356693,
+      "pipe_seq_localsgd": 5.17391820757908,
+      "dream_ddp": 5.0865151564990825,
+      "LSGD_comp_time_per_H": 50.681157015790845,
+      "LSGD_comm_time_per_H": 12.361727290683323,
+      "LSGD_total_time_per_H": 63.042884306474164,
+      "LSGD_w_overlap": 50.867010095790846,
+      "LSGD_speedup": 0.19313637604986486
+    }
+  },
+  "speedups": {
+    "H_10": {
+      "over_pipe_sgd": 2.4545591022248083,
+      "over_localsgd": 1.2369818057688173
+    }
+  }
+}

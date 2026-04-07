@@ -42,6 +42,8 @@ from mpi4py import MPI
 from helpers.exp_path import ExpTool
 import layer_group
 
+MAX_ITERS_PROFILE = 100
+
 
 def _bandwidth_to_int(s):
     """Parse bandwidth string (e.g. '5gbt', '10Gbps') to int for wandb."""
@@ -254,9 +256,15 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
                 torch.cuda.synchronize()
                 layer_bp_timestamps[name] = time.time()
             layer.register_full_backward_hook(backward_hook)
+        # for name, module in trainer.net.named_modules():
+        #     if len(list(module.children())) == 0: 
+        #         add_backward_hook(module, name)
         for name, module in trainer.net.named_modules():
             if len(list(module.children())) == 0: 
-                add_backward_hook(module, name)
+                # 【新增】：只给包含可训练参数的层挂测速 hook
+                valid_params = [p for p in module.parameters() if p.requires_grad]
+                if len(valid_params) > 0:
+                    add_backward_hook(module, name)
     
     class _DummyProfSgd:
         def step(self): pass
@@ -302,6 +310,10 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
                 layer_bp_timestamps = {}
             for i in range(iters_per_epoch//nsteps_update):
                 global_iters += 1
+                
+                if profile and global_iters >= MAX_ITERS_PROFILE:
+                    break
+                
                 result_dict = {}
                 
                 iter_start = time.time()
@@ -381,14 +393,16 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
             
             if not profiler_trace and not args.cpu_clock:
                 log_info(f'The current training epoch is {trainer.get_train_epoch()}')
-            val_ppl, test_loss = trainer.test(epoch)
-            result_dict["test_loss"] = test_loss
-            result_dict["val_ppl"] = val_ppl
-            result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-            # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
-            result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
             
-            if profile:
+            if not profile:
+                val_ppl, test_loss = trainer.test(epoch)
+                result_dict["test_loss"] = test_loss
+                result_dict["val_ppl"] = val_ppl
+                result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+                # result_dict["train_epoch_acc"] = train_epoch_acc / (iters_per_epoch//nsteps_update)
+                result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+            
+            if profile and is_root():
                 avg_bp_dict = {}
                 for name in bp_dict:
                     if ('self_attn.rotary_emb' in name):
@@ -699,7 +713,11 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             # log_info(f' Rank {rank} Enter epochs')
             for j in range(iters_per_epoch):
                 global_iters += 1
-                # log_info(f' Enter iter {global_iters}')
+                if global_iters % 10 == 0:
+                    log_info(f' Enter iter {global_iters}')
+                    
+                if profile and global_iters >= MAX_ITERS_PROFILE:
+                    break
                 if not profiler_trace and not args.cpu_clock:
                     iter_start = time.time()
 
@@ -761,8 +779,6 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
                                     torch.cuda.synchronize()
                                     ls = time.time()
                                 
-                                # log_info(f' Comm layer name: {module_name}')
-                                # 直接对底层的 GPU 参数显存地址 (param.data) 调用 NCCL，起飞！
                                 dist.all_reduce(param.data, op=dist.ReduceOp.AVG, async_op=False)
                                 
                                 if profile:
@@ -811,11 +827,12 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
                     ExpTool.upload()
                 prof.step()
 
-            val_ppl, test_loss = trainer.test(epoch)
-            # result_dict["test_loss"] = test_loss
-            # result_dict["val_ppl"] = val_ppl
-            # result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
-            # result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
+            if not profile:
+                val_ppl, test_loss = trainer.test(epoch)
+                result_dict["test_loss"] = test_loss
+                result_dict["val_ppl"] = val_ppl
+                result_dict["train_epoch_loss"] = train_epoch_loss / (iters_per_epoch//nsteps_update)
+                result_dict["train_epoch_ppl"] = train_epoch_ppl / (iters_per_epoch//nsteps_update)
 
             if not profiler_trace and not args.cpu_clock:
                 ExpTool.record(result_dict)
@@ -843,7 +860,7 @@ def transformer_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_size, max_e
             f.write(table_str)
         log_info('Profiler key_averages table saved to %s', table_path)
 
-    if profile:
+    if profile and is_root():
         avg_comm_dict = {}
         for name in comm_dict:
             new_name = name

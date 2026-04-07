@@ -12,4 +12,8 @@ pytz
 scikit-learn
 matplotlib
 mpi4py
-
+transformers
+datasets
+accelerate
+peft
+torchvision

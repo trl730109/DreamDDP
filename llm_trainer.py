@@ -123,10 +123,10 @@ _support_dnns = ['alexnet', 'alexnetbn',
         'mnistnet', 'fcn5net', 'lenet', 
         'lr',
         'transformer', "gpt2", 'gpt2-custom', 
-        "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B", "Jet-MOE", "Qwen2.5-MoE", "granite-MoE"]
 
 _llms = ['transformer', "gpt2", 'gpt2-custom', 
-        "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B"]
+        "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B", "Jet-MOE", "Qwen2.5-MoE", "granite-MoE"]
 
 
 LLAMA2_7B_HF = "meta-llama/llama-2-7b-hf"
@@ -162,10 +162,12 @@ def get_parameter_number(model):
 def load_quantization_config(args):
     if args.load_quantization == "8bit":
         quantization_config = BitsAndBytesConfig(
-            load_in_8bit=True
+            load_in_8bit=True,
+            # 删掉这里原来带 "gate", "router" 的 skip_modules，防止因为名字不完全匹配导致的错误
+            # 只保留输出层（大多数模型输出层不应该被量化）
+            llm_int8_skip_modules=["lm_head"] 
         )
-        # Copy the model to each device
-        device_map = {"": Accelerator().local_process_index}
+        device_map = {"": int(os.environ.get("LOCAL_RANK", 0))}
         torch_dtype = torch.bfloat16
     elif args.load_quantization == "4bit":
         quantization_config = BitsAndBytesConfig(
@@ -173,9 +175,9 @@ def load_quantization_config(args):
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16,
+            # 同理，如果支持 skip_modules 也可以加一个 ["lm_head"]
         )
-        # Copy the model to each device
-        device_map = {"": Accelerator().local_process_index}
+        device_map = {"": int(os.environ.get("LOCAL_RANK", 0))}
         torch_dtype = torch.bfloat16
     else:
         device_map = None
@@ -188,6 +190,13 @@ def load_quantization_config(args):
 
 def create_net(dnn='gpt2', args=None, **kwargs):
     ext = None
+    # 分布式且非量化时：仅 rank 0 从磁盘加载预训练权重，其他 rank 用 config 建空模型，之后通过 broadcast 同步，避免多进程同时加载导致 OOM。
+    # 8bit/4bit 时不能这样：非 0 rank 用 from_config 会得到全精度大模型，建 optimizer 会 OOM，因此量化时各 rank 都从 pretrained 加载（8bit 单进程占用较小）。
+    quant = getattr(args, "load_quantization", "no") if args else "no"
+    if dist.is_initialized() and dist.get_rank() != 0 and quant not in ("8bit", "4bit"):
+        kwargs = dict(kwargs)
+        kwargs["load_pretrain"] = False
+        log_info(f'Rank {dist.get_rank()} is not loading pretrained weights.')
     if dnn == 'gpt2':
         # config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
         # config = GPT2Config.from_pretrained(dnn, cache_dir=kwargs["model_dir"])
@@ -264,6 +273,65 @@ def create_net(dnn='gpt2', args=None, **kwargs):
             config.num_key_value_heads = 8
             log_info(f'Load {dnn} from scratch.')
             net = AutoModelForCausalLM.from_config(config)
+            
+    elif dnn == 'Jet-MOE':
+        log_info(f'Creating the Jet-MOE.')
+        # Jet-MOE 使用自定义仓库实现，需要 trust_remote_code
+        device_map, quantization_config, torch_dtype = load_quantization_config(args)
+        log_info(f'device_map: {device_map}')
+        log_info(f'quantization_config: {quantization_config}')
+        log_info(f'torch_dtype: {torch_dtype}')
+
+        config = AutoConfig.from_pretrained(
+            pretrained_model_name_or_path=kwargs["model_dir"],
+            trust_remote_code=True,
+        )
+
+        if kwargs["load_pretrain"]:
+            log_info(f'Load {dnn} from pretrained.')
+            net = AutoModelForCausalLM.from_pretrained(
+                pretrained_model_name_or_path=kwargs["model_dir"],
+                quantization_config=quantization_config,
+                from_tf=False,
+                config=config,
+                low_cpu_mem_usage=True,
+                trust_remote_code=True,
+            )
+        else:
+            log_info(f'Load {dnn} from scratch.')
+            net = AutoModelForCausalLM.from_config(config)
+    
+    elif dnn == "Qwen2.5-MoE" or dnn == "granite-MoE":
+        log_info(f'Creating the Qwen2.5-MoE.')
+        device_map, quantization_config, torch_dtype = load_quantization_config(args)
+        log_info(f'device_map: {device_map}')
+        log_info(f'quantization_config: {quantization_config}')
+        log_info(f'torch_dtype: {torch_dtype}')
+        config = AutoConfig.from_pretrained(
+            pretrained_model_name_or_path=kwargs["model_dir"],
+            trust_remote_code=True,
+        )
+        if kwargs["load_pretrain"]:
+            log_info(f'Load {dnn} from pretrained.')
+            net = AutoModelForCausalLM.from_pretrained(
+                pretrained_model_name_or_path=kwargs["model_dir"],
+                quantization_config=quantization_config,
+                torch_dtype=torch_dtype,
+                from_tf=False,
+                config=config,
+                low_cpu_mem_usage=True,
+                trust_remote_code=True,
+            )
+        else:
+            log_info(f'Load {dnn} from scratch.')
+            net = AutoModelForCausalLM.from_config(config)
+            if torch_dtype is not None:
+                net = net.to(torch_dtype)
+                
+        # for name, module in net.named_modules():
+        #     if 'router' in name.lower() or 'gate' in name.lower():
+        #         log_info(f"MOE LAYER FOUND: {name}")
+                
     elif dnn == "Qwen2.5-1.5B":
         log_info(f'Creating the Qwen2.5-1.5B.')
         # 对 Qwen 系列使用 AutoConfig / AutoModel，并允许 trust_remote_code
@@ -370,7 +438,7 @@ class LLMTrainer:
     def __init__(self, rank, size, master='gpu10', localsgd=False, dist=True, ngpus=1, batch_size=32, 
         is_weak_scaling=True, data_dir='./data', dataset='wikitext2', dnn='gpt2', 
         lr=0.04, nworkers=1, prefix=None, sparsity=0.95, pretrain=None, num_steps=35, tb_writer=None, amp_handle=None,optimizer_name='Adam', lr_decay='step',
-        args="/workspace/gpt2"):
+        args=None):
 
         self.args = args
         self.size = size
@@ -416,17 +484,37 @@ class LLMTrainer:
         else:
             self.dnn = dnn
             # TODO: Refact these codes!
-            if self.dnn in ['gpt2', 'gpt2-custom', "bert-base-uncased", "llama2-7B", "llama2-124M", "Qwen2.5-1.5B", "Qwen2.5-7B"]:
+            if self.dnn in _llms:
                 if data_dir is not None:
                     self.data_prepare()
                 log_info(f"Finish preparing loading datasets")
                 self.net, self.ext = create_net(dnn=self.dnn, args=self.args, model_dir=self.model_dir, load_pretrain=self.args.load_pretrain)
                 log_info(f"LOAD PRETRAIN is: {self.args.load_pretrain}===========")
                 if self.args.finetune_type == "lora":
+                    # 对一般 dense 模型默认在所有 linear 上加 LoRA；
+                    # 对 MoE 模型（如 Qwen2.5-MoE），为了节省显存，只在注意力相关 Linear 上加 LoRA。
+                    if args.load_quantization in ("8bit", "4bit"):
+                        self.net = prepare_model_for_kbit_training(self.net, use_gradient_checkpointing=True)
+                    else:
+                        # 对于非量化情况，手动开启梯度检查点
+                        if hasattr(self.net, "enable_input_require_grads"):
+                            self.net.enable_input_require_grads()
+                        if hasattr(self.net, "gradient_checkpointing_enable"):
+                            self.net.gradient_checkpointing_enable()
+                        
+                    # 2. 精确设置 Target Modules
+                    if "MoE" in self.dnn or "moe" in self.dnn.lower():
+                        # target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+                        target_modules = [
+                            "q_proj", "k_proj", "v_proj", "o_proj",
+                            "gate_proj", "up_proj", "down_proj"
+                        ]
+                    else:
+                        target_modules = "all-linear"
                     peft_config = LoraConfig(
                         r=self.args.peft_lora_r,
                         lora_alpha=self.args.peft_lora_alpha,
-                        target_modules="all-linear",
+                        target_modules=target_modules,
                         lora_dropout=0.05,
                         bias="none",
                         task_type="CAUSAL_LM",
@@ -455,11 +543,17 @@ class LLMTrainer:
         #    torch.cuda.manual_seed_all(3000)
 
         if self.is_cuda:
-            if self.ngpus > 1:
-                devices = get_available_gpu_device_ids(ngpus)
-                self.net = torch.nn.DataParallel(self.net, device_ids=devices).cuda()
+            # 对 4bit/8bit 量化模型，HF/accelerate 已经根据 device_map 把模型放到对应设备，
+            # 此时不能再调用 .cuda() 或 DataParallel 包一层，否则会报错。
+            quant_mode = getattr(self.args, "load_quantization", "no")
+            if quant_mode in ("8bit", "4bit"):
+                log_info(f"Detected quantized model with load_quantization={quant_mode}, skip explicit .cuda()/DataParallel.")
             else:
-                self.net.cuda()
+                if self.ngpus > 1:
+                    devices = get_available_gpu_device_ids(ngpus)
+                    self.net = torch.nn.DataParallel(self.net, device_ids=devices).cuda()
+                else:
+                    self.net.cuda()
         self.net.share_memory()
         log_info(f"Finish model sharing memory")
         self.accuracy = 0
@@ -606,7 +700,7 @@ class LLMTrainer:
         elif self.dnn in ["llama2-7B", "llama2-124M"]:
             token = "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"
             tokenizer = AutoTokenizer.from_pretrained(LLAMA2_7B_HF, use_auth_token=token, cache_dir=self.model_dir)
-        elif self.dnn in ["Qwen2.5-1.5B", "Qwen2.5-7B"]:
+        elif self.dnn in ["Qwen2.5-1.5B", "Qwen2.5-7B", "Qwen2.5-MoE", "granite-MoE"]:
             # Qwen 模型从本地 model_dir 加载 tokenizer，允许 trust_remote_code
             tokenizer = AutoTokenizer.from_pretrained(
                 self.model_dir,
@@ -709,7 +803,7 @@ class LLMTrainer:
             # tokenizer = AutoTokenizer.from_pretrained(self.model_dir, use_fast=False, padding_side="left", padding=True, truncation=True)
             tokenizer = AutoTokenizer.from_pretrained(self.model_dir, use_fast=False, use_auth_token=token, 
                                                       padding_side="left", padding=True, truncation=True)
-        elif self.dnn in ["Qwen2.5-1.5B", "Qwen2.5-7B"]:
+        elif self.dnn in ["Qwen2.5-1.5B", "Qwen2.5-7B", "Jet-MOE", "Qwen2.5-MoE", "granite-MoE"]:
             tokenizer = AutoTokenizer.from_pretrained(
                 self.model_dir,
                 use_fast=False,
@@ -718,6 +812,7 @@ class LLMTrainer:
                 padding=True,
                 truncation=True,
             )
+        
         else:
             raise NotImplementedError
         # tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2", cache_dir=self.model_dir)

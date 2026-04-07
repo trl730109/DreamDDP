@@ -2,7 +2,7 @@
 
 # Set Python and script environment
 directory=$(pwd)
-script="${script:-dist_trainer_transformer_final.py}"  # Assuming this is the PyTorch distributed training script
+script="${script:-dist_trainer_transformer_test.py}"  # Assuming this is the PyTorch distributed training script
 params="${params:-}"
 echo "launch dir: $directory"
 
@@ -71,6 +71,8 @@ time_stamp="${time_stamp:-time_stamp}"
 #     bandwidth="100G"
 # fi
 
+load_pretrain="${load_pretrain:-False}"
+load_quantization="${load_quantization:-no}"
 exp_name="${exp_name:-default}"
 extra_name="${extra_name:- }"
 
@@ -91,6 +93,14 @@ echo "Exp name: $exp_name"
 if [ -z "$exp_name" ]; then
     echo "Error: exp_name is empty."
     exit 1
+fi
+
+# 目前 bitsandbytes 在 ddp_moe 环境下 CUDA 初始化失败，
+# 先仅对 Qwen2.5-MoE 使用 8bit 量化，granite-MoE 使用全精度，避免触发 bitsandbytes。
+if [ "$dnn" = "Qwen2.5-MoE" ]; then
+    load_quantization="4bit"
+else
+    load_quantization="no"
 fi
 
 i=0
@@ -129,6 +139,7 @@ do
         --threshold $threshold \
         --saved-dir $GRADSPATH \
         --profiler_trace $profiler_trace \
+        --load_quantization $load_quantization \
         --enlarge $enlarge \
         --check_param_diversity $check_param_diversity \
         --nsteps_param_diversity $nsteps_param_diversity \
@@ -138,9 +149,14 @@ do
         --wandb_key $wandb_key \
         --finetune_type ${finetune_type:-full} \
         --peft_lora_r ${peft_lora_r:-8} \
-        --peft_lora_alpha ${peft_lora_alpha:-16}"
+        --peft_lora_alpha ${peft_lora_alpha:-16} \
+        --load_pretrain $load_pretrain"
     echo "$host: $args"
-    cmd="cd $directory; bash ./set_mul_bandwidth.sh \"$bandwidth\"; $args"
+    if [ "$bandwidth" != "10Gbps" ]; then
+        cmd="cd $directory; bash ./set_mul_bandwidth.sh \"$bandwidth\"; $args"
+    else
+        cmd="cd $directory; $args"
+    fi
     echo "$host"
     if [ $(expr $i + 1) -eq $node_count ]; then
         ssh -p $port $host $cmd   # return until finished or interrupted

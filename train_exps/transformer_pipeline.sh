@@ -5,10 +5,10 @@ lr=0.0001
 batch_size=1
 dataset='wikitext2'
 
-data_dir="/mnt/raid/tangzichen/wikitext2"
+# data_dir="/mnt/raid/tangzichen/wikitext2"
 interface=eth0
-PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
-
+# PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
+PY="${PY:-/workspace/pretrain/miniconda3/envs/ddp_moe/bin/python}"
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com NCCL_DEBUG=INFO NCCL_IB_DISABLE=1 NCCL_SOCKET_IFNAME=eth0"
 
 optimizer_name=Adam
@@ -22,10 +22,13 @@ nsteps_param_diversity=5
 cluster_name=A6000
 
 
-hosts=('10.244.3.188' '10.244.4.109')
-ports=(22 22)
+# hosts=('10.244.3.188' '10.244.4.109')
+# ports=(22 22)
 
-master_port=3188
+hosts=('10.244.4.118' '10.244.3.196' '10.244.5.219' '10.244.1.135')
+ports=(22 22 22 22)
+
+master_port=3357
 node_count=${#hosts[@]}
 nwpernode=8
 nworkers=$((nwpernode * node_count))
@@ -42,19 +45,20 @@ BP_MULTIPLIER=1
 COMM_MULTIPLIER=1
 
 # # 定义模型列表
-# declare -a dnn_list=(
-#     "gpt2"
-#     "llama2-124M"
-#     "Qwen2.5-7B"
-# )
-
 declare -a dnn_list=(
-    # "Qwen2.5-7B"
-    "llama2-124M"
+    # "gpt2"
+    # "llama2-124M"
+    "Qwen2.5-7B"
+    # "Qwen2.5-MoE"
+    # "granite-MoE"
 )
 
+load_pretrain=true
+# load_quantization=4bit
+
 bandwidth="1gbit"
-max_epochs=2
+# bandwidth="1Gbps"
+max_epochs=1
 # ========== Step 1: Profile ==========
 if [ "$MODE" = "all" ]; then
     echo "========== Starting Profile =========="
@@ -63,10 +67,10 @@ if [ "$MODE" = "all" ]; then
 
     for dnn in "${dnn_list[@]}"; do
         # Set parameters based on model
-        if [ "$dnn" = "Qwen2.5-7B" ]; then
+        if [ "$dnn" = "Qwen2.5-7B" ] || [ "$dnn" = "Qwen2.5-MoE" ]; then
             finetune_type=lora
-            peft_lora_r=16
-            peft_lora_alpha=32
+            peft_lora_r=8
+            peft_lora_alpha=16
             extra_name="${dnn}-lora"
         else
             finetune_type=full
@@ -114,10 +118,10 @@ for dnn in "${dnn_list[@]}"; do
     cpu_clock=True
 
 
-    if [ "$dnn" = "Qwen2.5-7B" ]; then
+    if [ "$dnn" = "Qwen2.5-7B" ] || [ "$dnn" = "Qwen2.5-MoE" ]; then
         finetune_type=lora
-        peft_lora_r=16
-        peft_lora_alpha=32
+        peft_lora_r=8
+        peft_lora_alpha=16
         extra_name="${dnn}-lora"
     else
         finetune_type=full
@@ -132,22 +136,22 @@ for dnn in "${dnn_list[@]}"; do
     # master_port=$((master_port + 1))
 
     # Train transformer_pipe_sgd
-    alg='transformer_pipe_sgd'
-    source train_exps/launch_transformer_A6000.sh
-    master_port=$((master_port + 1))
+    # alg='transformer_pipe_sgd'
+    # source train_exps/launch_transformer_A6000.sh
+    # master_port=$((master_port + 1))
     
-    # Train transformer_localsgd
-    alg='transformer_localsgd'
-    source train_exps/launch_transformer_A6000.sh
-    master_port=$((master_port + 1))
+    # # Train transformer_localsgd
+    # alg='transformer_localsgd'
+    # source train_exps/launch_transformer_A6000.sh
+    # master_port=$((master_port + 1))
     
-    # Train transformer_dream_ddp
-    alg='transformer_dream_ddp'
-    source train_exps/launch_transformer_A6000.sh
-    master_port=$((master_port + 1))
+    # # Train transformer_dream_ddp
+    # alg='transformer_dream_ddp'
+    # source train_exps/launch_transformer_A6000.sh
+    # master_port=$((master_port + 1))
 
-    # Calculate speedup of dreamddp relative to pipe_sgd and localsgd
-    $PY train_exps/speedup_stats.py --time_stamp "$time_stamp" --dnn "$dnn" --nworkers "$nworkers" --bandwidth "$bandwidth"
+    # # Calculate speedup of dreamddp relative to pipe_sgd and localsgd
+    # $PY train_exps/speedup_stats.py --time_stamp "$time_stamp" --dnn "$dnn" --nworkers "$nworkers" --bandwidth "$bandwidth"
 
     
 done

@@ -115,6 +115,12 @@ def calculate_algorithm_times(time_list, total_iterations=1000):
     alg_times["localsgd"] = cal_localsgd(total_iterations, nsteps_localsgd, bp_sum, comm_sum)
     alg_times["pipe_seq_localsgd"] = cal_pipe_seq_localsgd(total_iterations, nsteps_localsgd, plsgd_wait_list, bp_sum)
     alg_times["dream_ddp"] = cal_dreamddp(total_iterations, nsteps_localsgd, wait_time, bp_sum)
+    # alg_times["LSGD_wait_time_per_H"] = wait_time
+    alg_times["LSGD_comp_time_per_H"] = bp_sum * 10
+    alg_times["LSGD_comm_time_per_H"] = comm_sum * 1
+    alg_times["LSGD_total_time_per_H"] = alg_times["LSGD_comp_time_per_H"] + alg_times["LSGD_comm_time_per_H"]
+    alg_times["LSGD_w_overlap"] = alg_times["LSGD_comp_time_per_H"] + wait_time
+    alg_times["LSGD_speedup"] = (alg_times["LSGD_total_time_per_H"] - alg_times["LSGD_w_overlap"]) / alg_times["LSGD_total_time_per_H"]
     
     # 计算 DreamDDP 相对于 pipe_sgd 和 localsgd 的加速比
     # 公式: (dream_ddp - alg) / dream_ddp
@@ -242,7 +248,7 @@ def process_model_from_dir(base_dir, H_values=[5, 10], bp_multiplier=1.0, comm_m
                 'algorithm_times': alg_times,
                 'speedups': speedups
             }
-        
+                    
         return results
         
     except FileNotFoundError as e:
@@ -686,12 +692,32 @@ def main():
     if results:       # 输出算法时间总结
         # print("\n" + "="*80)
         # print("算法时间总结 (平均时间，1000 次迭代)")
-        # print("="*80)
-        print(f"{'算法':<25} ", end="")
+        print(f"LSGD H iteration statistics:")
+        print(f"{'metric':<25} ", end="")
         for H in H_values:
             print(f"H={H:<15} ", end="")
         print()
-        print("-" * 80)
+
+        lsgd_metrics = [
+            "LSGD_comp_time_per_H",
+            "LSGD_comm_time_per_H",
+            "LSGD_total_time_per_H",
+            "LSGD_w_overlap",
+            "LSGD_speedup",
+        ]
+        for metric in lsgd_metrics:
+            print(f"{metric:<25} ", end="")
+            for H in H_values:
+                if H in results['H_results']:
+                    alg_time_dict = results['H_results'][H]['algorithm_times']
+                    v = alg_time_dict.get(metric, None)
+                    if v is None:
+                        print(f"{'N/A':<15} ", end="")
+                    else:
+                        print(f"{v:<15.6f} ", end="")
+                else:
+                    print(f"{'N/A':<15} ", end="")
+            print()
         
         alg_names = ["sgd", "pipe_sgd", "localsgd", "pipe_seq_localsgd", "dream_ddp"]
         alg_display_names = ["SGD", "ASC-WFBP", "FLSGD", "PLSGD", "DreamDDP"]

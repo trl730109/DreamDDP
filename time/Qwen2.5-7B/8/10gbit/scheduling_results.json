@@ -1,17 +1,22 @@
 {
   "algorithm_times": {
     "H_10": {
-      "sgd": 1.4597040943687531,
-      "pipe_sgd": 1.4231526827714505,
-      "localsgd": 1.3773720397458633,
-      "pipe_seq_localsgd": 1.3683919873755377,
-      "dream_ddp": 1.368353681375534
+      "sgd": 8.673903145787161,
+      "pipe_sgd": 6.846332565922931,
+      "localsgd": 4.557300414642941,
+      "pipe_seq_localsgd": 4.256957305126612,
+      "dream_ddp": 4.215150806326541,
+      "LSGD_comp_time_per_H": 41.049766961266016,
+      "LSGD_comm_time_per_H": 4.568926449660417,
+      "LSGD_total_time_per_H": 45.61869341092643,
+      "LSGD_w_overlap": 42.162636761266015,
+      "LSGD_speedup": 0.075759658842676
     }
   },
   "speedups": {
     "H_10": {
-      "over_pipe_sgd": 1.0400473957440812,
-      "over_localsgd": 1.0065906632861643
+      "over_pipe_sgd": 1.6242200766926858,
+      "over_localsgd": 1.0811713801088365
     }
   }
 }

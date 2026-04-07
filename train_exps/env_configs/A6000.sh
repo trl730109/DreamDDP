@@ -19,7 +19,9 @@ case "$cluster_name" in
             "llama2-124M") model_dir="/workspace/models/Llama-2-7b-hf" ;;
             "Qwen2.5-1.5B") model_dir="/workspace/tzc/Qwen/Qwen2.5-1.5B" ;;
             "Qwen2.5-7B") model_dir="/workspace/tzc/Qwen/Qwen2.5-7B-Instruct" ;;
-            
+            "Jet-MOE") model_dir="/workspace/tzc/models/jetmoe-8b-chat" ;;
+            "Qwen2.5-MoE") model_dir="/workspace/tzc/Qwen/Qwen1.5-MoE-A2.7B" ;;
+            "granite-MoE") model_dir="/workspace/tzc/models/granite-MoE" ;;
         esac
         ;;
     *)
