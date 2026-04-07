@@ -37,8 +37,6 @@ import dist_optimizer as dist_optim
 # from tensorboardX import SummaryWriter
 from compression import compressors
 from profiling import benchmark
-from mpi4py import MPI
-
 from helpers.exp_path import ExpTool
 import layer_group
 
@@ -51,7 +49,13 @@ def _bandwidth_to_int(s):
 
 
 from layer_group import resnet_groups, resnet_groups_dream, llm_groups_dream, llm_groups_dream_enlarge
-comm = MPI.COMM_WORLD
+
+
+def _bcast(obj, src=0):
+    """Broadcast a Python object from src rank to all ranks via torch.distributed."""
+    container = [obj]
+    dist.broadcast_object_list(container, src=src)
+    return container[0]
 writer = None
 
 GPT2_MAX_GRAD_NORM = 1.0
@@ -200,7 +204,7 @@ def transformer_ssgd(optimizer_name, dnn, dataset, data_dir, nworkers, lr, batch
 
     if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
         seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
+        layerwise_times = _bcast(layerwise_times, src=0)
         if rank == 0:
             log_info('layerwise backward times: %s', list(layerwise_times))
             log_info('layerwise backward sizes: %s', list(layerwise_sizes))
@@ -459,7 +463,7 @@ def transformer_pipe_sgd(optimizer_name, overlap_scalar, dnn, dataset, data_dir,
 
     if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
         seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
+        layerwise_times = _bcast(layerwise_times, src=0)
         if rank == 0:
             log_info('layerwise backward times: %s', list(layerwise_times))
             log_info('layerwise backward sizes: %s', list(layerwise_sizes))
@@ -881,7 +885,7 @@ def transformer_pipe_seq_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_si
 
     if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
         seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
+        layerwise_times = _bcast(layerwise_times, src=0)
         if rank == 0:
             log_info('layerwise backward times: %s', list(layerwise_times))
             log_info('layerwise backward sizes: %s', list(layerwise_sizes))
@@ -1079,7 +1083,7 @@ def transformer_full_pipe_localsgd(dnn, dataset, data_dir, nworkers, lr, batch_s
 
     if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
         seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
+        layerwise_times = _bcast(layerwise_times, src=0)
         if rank == 0:
             log_info('layerwise backward times: %s', list(layerwise_times))
             log_info('layerwise backward sizes: %s', list(layerwise_sizes))
@@ -1276,7 +1280,7 @@ def transformer_dream_ddp(dnn, dataset, data_dir, nworkers, lr, batch_size, max_
 
     if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
         seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
+        layerwise_times = _bcast(layerwise_times, src=0)
         if rank == 0:
             log_info('layerwise backward times: %s', list(layerwise_times))
             log_info('layerwise backward sizes: %s', list(layerwise_sizes))
@@ -1541,7 +1545,7 @@ def transformer_dream_ddp_optimized(dnn, dataset, data_dir, nworkers, lr, batch_
 
     if settings.ADAPTIVE_MERGE or settings.ADAPTIVE_SPARSE:
         seq_layernames, layerwise_times, layerwise_sizes = benchmark(trainer)
-        layerwise_times = comm.bcast(layerwise_times, root=0)
+        layerwise_times = _bcast(layerwise_times, src=0)
         if rank == 0:
             log_info('layerwise backward times: %s', list(layerwise_times))
             log_info('layerwise backward sizes: %s', list(layerwise_sizes))
