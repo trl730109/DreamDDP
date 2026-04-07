@@ -57,6 +57,27 @@ load_pretrain=true
 bandwidth="1gbit"
 # bandwidth="1Gbps"
 max_epochs=1
+# ========== Step 0: SSH Check ==========
+# Verify all training nodes are reachable before starting.
+# If this fails, run bash ssh_conf.sh from your local machine first.
+echo "========== Step 0: SSH Connectivity Check =========="
+ssh_ok=true
+for i in "${!hosts[@]}"; do
+    h="${hosts[$i]}"
+    p="${ports[$i]}"
+    if ssh -p "$p" -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no "root@$h" "exit" 2>/dev/null; then
+        echo "  [OK]   root@$h:$p"
+    else
+        echo "  [FAIL] root@$h:$p"
+        ssh_ok=false
+    fi
+done
+if [ "$ssh_ok" = false ]; then
+    echo "ERROR: Some nodes unreachable. Run: bash ssh_conf.sh"
+    exit 1
+fi
+echo ""
+
 # ========== Step 1: Profile ==========
 if [ "$MODE" = "all" ]; then
     echo "========== Starting Profile =========="
