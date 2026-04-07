@@ -5,7 +5,7 @@ MODE=${1:-all}
 # Cluster Config  <-- edit this when switching clusters
 # ============================================================
 cluster_name=A6000
-PY="${PY:-/workspace/pretrain/miniconda3/envs/ddp_moe/bin/python}"
+# PY is set in train_exps/env_configs/env.sh based on cluster_name
 
 # Node IPs and SSH ports (internal network)
 hosts=('10.244.13.201')
