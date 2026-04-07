@@ -5,9 +5,7 @@ lr=0.0001
 batch_size=1
 dataset='wikitext2'
 
-# data_dir="/mnt/raid/tangzichen/wikitext2"
 interface=eth0
-# PY="/workspace/pretrain/miniconda3/envs/pretrain/bin/python"
 PY="${PY:-/workspace/pretrain/miniconda3/envs/ddp_moe/bin/python}"
 pre_cmd="NCCL_P2P_DISABLE=1 HF_ENDPOINT=https://hf-mirror.com NCCL_DEBUG=INFO NCCL_IB_DISABLE=1 NCCL_SOCKET_IFNAME=eth0"
 
@@ -25,12 +23,12 @@ cluster_name=A6000
 # hosts=('10.244.3.188' '10.244.4.109')
 # ports=(22 22)
 
-hosts=('10.244.4.118' '10.244.3.196' '10.244.5.219' '10.244.1.135')
-ports=(22 22 22 22)
+hosts=('10.244.13.201')
+ports=(22)
+nwpernode=4   # number of GPUs per node
 
 master_port=3357
 node_count=${#hosts[@]}
-nwpernode=8
 nworkers=$((nwpernode * node_count))
 ngpu_per_node=$nwpernode
 nsteps_localsgd=10
@@ -46,9 +44,9 @@ COMM_MULTIPLIER=1
 
 # # 定义模型列表
 declare -a dnn_list=(
-    # "gpt2"
+    "gpt2"
     # "llama2-124M"
-    "Qwen2.5-7B"
+    # "Qwen2.5-7B"
     # "Qwen2.5-MoE"
     # "granite-MoE"
 )
@@ -80,10 +78,10 @@ if [ "$MODE" = "all" ]; then
         fi
         # model_dir="/workspace/models/${dnn}"
         
-        # Profile transformer_sgd (full-precision)
-        alg='transformer_sgd'
-        source train_exps/launch_transformer_A6000.sh
-        master_port=$((master_port + 1))
+        # # Profile transformer_sgd (full-precision)
+        # alg='transformer_sgd'
+        # source train_exps/launch_transformer_A6000.sh
+        # master_port=$((master_port + 1))
         
         # Profile transformer_localsgd (low-precision)
         alg='transformer_localsgd'
