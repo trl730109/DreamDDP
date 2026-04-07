@@ -11,11 +11,13 @@ total_host=${#hosts[@]}
 # Model and training configurations
 dnn="${dnn:-resnet18}"
 echo "cluster name: $cluster_name"
-source train_exps/env_configs/$cluster_name.sh
+source train_exps/env_configs/env.sh
+
 echo "dataset dir: $data_dir"
 echo "model_dir: $model_dir"
+echo "Python path: $PY"
 
-export NCCL_DEBUG=TRACE
+# export NCCL_DEBUG=TRACE
 
 nworkers="${nworkers:-4}"
 density="${density:-1.0}"

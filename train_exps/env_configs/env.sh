@@ -23,6 +23,8 @@ case "$cluster_name" in
             "Qwen2.5-MoE") model_dir="/workspace/tzc/Qwen/Qwen1.5-MoE-A2.7B" ;;
             "granite-MoE") model_dir="/workspace/tzc/models/granite-MoE" ;;
         esac
+
+        PY="/workspace/pretrain/miniconda3/envs/dreamddp/bin/python"
         ;;
     *)
         echo "Unknown cluster name: $cluster_name"
