@@ -57,29 +57,25 @@ bash ssh_conf.sh
 
 `transformer_pipeline.sh` will verify SSH connectivity (Step 0) before starting training. It does **not** configure SSH — that must be done in advance via `ssh_conf.sh`.
 
-**4. Configure Cluster Environment:**
-
-Edit `train_exps/env_configs/env.sh` to set paths for your cluster:
-- **Python path**: run `which python3` inside your conda env to get the path, set it as `PY=...` under your `cluster_name` case.
-- **Data paths**: set `data_dir` for each dataset.
-- **Model paths**: set `model_dir` for each model.
-
-**5. Download Models and Datasets:**
+**4. Download Models and Datasets:**
 
 CIFAR-10/100 are downloaded automatically at runtime. For LLM experiments, run the provided script to download GPT-2 and WikiText-2:
 
 ```bash
-# Optional: override default paths (must match env.sh)
-# MODEL_DIR=/your/path DATA_DIR=/your/path bash scripts/download_gpt2_wikitext2.sh
-
 bash scripts/download_gpt2_wikitext2.sh
+# Optional: override default paths
+# MODEL_DIR=/your/path DATA_DIR=/your/path bash scripts/download_gpt2_wikitext2.sh
 ```
 
-Default paths (matching `train_exps/env_configs/env.sh`):
+Default paths:
 - GPT-2 model: `/workspace/models/gpt2`
 - WikiText-2: `/workspace/wikitext2`
 
-If you use different paths, update the corresponding `model_dir` and `data_dir` entries in `train_exps/env_configs/env.sh`.
+**5. Configure Cluster Environment:**
+
+Edit `train_exps/env_configs/env.sh` to match your cluster:
+- **Python path**: run `which python3` inside your conda env, set it as `PY=...` under your `cluster_name` case.
+- **Data/model paths**: update `data_dir` and `model_dir` to match where you downloaded the data in Step 4.
 
 ## 🚀 Quick Start (Profiling & Training)
 ```bash
