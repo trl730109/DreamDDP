@@ -64,9 +64,22 @@ Edit `train_exps/env_configs/env.sh` to set paths for your cluster:
 - **Data paths**: set `data_dir` for each dataset.
 - **Model paths**: set `model_dir` for each model.
 
-**5. Configure Models and Datasets:**
-* **CIFAR-10 / CIFAR-100**: Automatically downloaded via `torchvision.datasets`.
-* **WikiText-2**: Downloaded via the HuggingFace `datasets` library.
+**5. Download Models and Datasets:**
+
+CIFAR-10/100 are downloaded automatically at runtime. For LLM experiments, run the provided script to download GPT-2 and WikiText-2:
+
+```bash
+# Optional: override default paths (must match env.sh)
+# MODEL_DIR=/your/path DATA_DIR=/your/path bash scripts/download_gpt2_wikitext2.sh
+
+bash scripts/download_gpt2_wikitext2.sh
+```
+
+Default paths (matching `train_exps/env_configs/env.sh`):
+- GPT-2 model: `/workspace/models/gpt2`
+- WikiText-2: `/workspace/wikitext2`
+
+If you use different paths, update the corresponding `model_dir` and `data_dir` entries in `train_exps/env_configs/env.sh`.
 
 ## 🚀 Quick Start (Profiling & Training)
 ```bash
