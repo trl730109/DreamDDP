@@ -17,7 +17,8 @@ ports=(22)
 
 nwpernode=4          # GPUs per node
 master_port=3357
-bandwidth="1gbit"    # used for scheduling and tc bandwidth shaping
+bandwidth="1gbit"    # used for scheduling and (optionally) tc bandwidth shaping
+enable_tc=false      # set true to throttle inter-node bandwidth via tc (requires cap_net_admin)
 
 # WandB
 enable_wandb=false

@@ -31,45 +31,42 @@ cd DreamDDP
 ```
 
 
-**2. Install the required dependencies::**
+**2. Install the required dependencies:**
 ```bash
-# Create a conda environment (optional but recommended)
 conda create -n dreamddp python=3.10 -y
 conda activate dreamddp
-
-# Install requirements
-pip install -r requirements.txt
+pip install -r requirements_clean.txt
 ```
 
-**3. SSH Setup:**
-To enable multi-node distributed training, password-free SSH login must be configured across all nodes.
+**3. SSH Setup (multi-node only):**
 
-**Two separate networks are involved:**
+Two separate networks are involved:
 
 | Network | Used for |
 |---------|----------|
 | External IP + high ports (e.g. `10.249.40.11:30215`) | Running `ssh_conf.sh` from your **local machine** to push keys into the cluster |
-| Internal IPs + port 22 (e.g. `10.244.x.x:22`) | Node-to-node SSH during training (master SSHes into workers) |
+| Internal IPs + port 22 (e.g. `10.244.x.x:22`) | Node-to-node SSH during training |
 
-Internal nodes can reach each other by IP, but SSH still requires key auth — it is **not** passwordless by default. `ssh_conf.sh` handles both:
-1. Copies your **public key** to all nodes → your local machine can SSH in
-2. Copies the **private key** to all nodes → nodes can SSH to each other via internal IPs
+Internal nodes are network-reachable but SSH still requires key auth. `ssh_conf.sh` handles this by copying both the public key (so your local machine can SSH in) and the private key to every node (so nodes can SSH to each other via internal IPs).
 
-**Steps:**
-* Edit `HOST`, `PORTS`, `USER`, and `EMAIL` in `ssh_conf.sh` to match your cluster, then run it from your local machine:
-  ```bash
-  bash ssh_conf.sh
-  ```
-* Update `hosts`, `ports`, and `master_port` in `train_exps/transformer_pipeline.sh` to match your internal node IPs.
-* `transformer_pipeline.sh` will automatically verify SSH connectivity to all nodes before starting (Step 0).
+Run once from your **local machine**:
+```bash
+# Edit HOST, PORTS, USER in ssh_conf.sh first
+bash ssh_conf.sh
+```
 
+`transformer_pipeline.sh` will verify SSH connectivity (Step 0) before starting training. It does **not** configure SSH — that must be done in advance via `ssh_conf.sh`.
 
-**4. Configure Models and Datasets:**
-The models and datasets used in our paper are automatically downloaded:
+**4. Configure Cluster Environment:**
+
+Edit `train_exps/env_configs/env.sh` to set paths for your cluster:
+- **Python path**: run `which python3` inside your conda env to get the path, set it as `PY=...` under your `cluster_name` case.
+- **Data paths**: set `data_dir` for each dataset.
+- **Model paths**: set `model_dir` for each model.
+
+**5. Configure Models and Datasets:**
 * **CIFAR-10 / CIFAR-100**: Automatically downloaded via `torchvision.datasets`.
-* **WikiText-2**: Manually downloaded via the HuggingFace `datasets` library for LLM (GPT-2, Llama-2, Qwen2.5-7B with LoRA) experiments.
-
-After downloading the datasets, you should revise the data path in the configuration file, located at `./train_exps/env_configs/A6000.sh`.
+* **WikiText-2**: Downloaded via the HuggingFace `datasets` library.
 
 ## 🚀 Quick Start (Profiling & Training)
 ```bash
@@ -83,6 +80,6 @@ You can customize the pipeline by editing `train_exps/transformer_pipeline.sh`:
 | Option | Location | Description |
 |--------|----------|-------------|
 | **DNN list** | `dnn_list=(...)` | Models to run (e.g. `gpt2`, `llama2-124M`, `Qwen2.5-7B`). Add or remove entries as needed. |
-| **Bandwidth** | `bandwidth="..."` | Inter-node network bandwidth (e.g. `1gbit`, `10Gbps`). Affects scheduling and profiling. |
+| **Bandwidth** | `bandwidth="..."` | Inter-node network bandwidth (e.g. `1gbit`, `10Gbps`). Affects scheduling and profiling. Set `enable_tc=true` to also throttle actual traffic via `tc` (requires `cap_net_admin`). |
 | **DDP algorithms** | `alg='...'` blocks | Enable/disable algorithms by (un)commenting: `transformer_sgd`, `transformer_pipe_sgd`, `transformer_localsgd`, `transformer_dream_ddp`. |
 | **Profile mode** | `bash transformer_pipeline.sh all` or `train` | `all` (default): profile → scheduling → training. `train`: skip profile, reuse existing data and run scheduling + training only. |

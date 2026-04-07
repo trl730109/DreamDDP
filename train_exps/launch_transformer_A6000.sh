@@ -154,7 +154,7 @@ do
         --peft_lora_alpha ${peft_lora_alpha:-16} \
         --load_pretrain $load_pretrain"
     echo "$host: $args"
-    if [ "$bandwidth" != "10Gbps" ]; then
+    if [ "${enable_tc:-false}" = "true" ]; then
         cmd="cd $directory; bash ./set_mul_bandwidth.sh \"$bandwidth\"; $args"
     else
         cmd="cd $directory; $args"
