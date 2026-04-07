@@ -71,7 +71,7 @@ scipy==1.15.3
 shellingham==1.5.4
 simplejson==3.20.2
 six==1.17.0
-sympy==1.14.0
+sympy==1.13.1
 tensorboardX==2.6.5
 threadpoolctl==3.6.0
 tokenizers==0.22.2
