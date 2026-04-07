@@ -24,8 +24,15 @@ case "$cluster_name" in
             "granite-MoE") model_dir="/workspace/tzc/models/granite-MoE" ;;
         esac
 
-        PY="/workspace/pretrain/miniconda3/envs/dreamddp/bin/python"
+        PY="/workspace/pretrain/miniconda3/envs/dreamddp_clean/bin/python"
         ;;
+
+    # add more clusters here. follow the above format.
+    # "A100")
+    #     PY="python3 path here"
+    #     data_dir="dataset path here"
+    #     model_dir="model path here"
+    #     ;;
     *)
         echo "Unknown cluster name: $cluster_name"
         exit 1
