@@ -42,9 +42,26 @@ pip install -r requirements.txt
 ```
 
 **3. SSH Setup:**
-To enable multi-node distributed training, password-free SSH login must be configured across all machines:
-* **Configure SSH Keys**: Edit the target `HOST`, `PORTS`, `USER`, and `EMAIL` variables in `ssh_conf.sh`, then run `bash ssh_conf.sh` to automatically generate and distribute the SSH keys.
-* **Update Training Script**: Configure the cluster topology in `train_exps/transformer_pipeline.sh` by updating the `hosts` (e.g., `('10.244.3.188' '10.244.4.109')`), `ports` (e.g., `(22 22)`), and `master_port` variables to match your actual node IPs and SSH ports.
+To enable multi-node distributed training, password-free SSH login must be configured across all nodes.
+
+**Two separate networks are involved:**
+
+| Network | Used for |
+|---------|----------|
+| External IP + high ports (e.g. `10.249.40.11:30215`) | Running `ssh_conf.sh` from your **local machine** to push keys into the cluster |
+| Internal IPs + port 22 (e.g. `10.244.x.x:22`) | Node-to-node SSH during training (master SSHes into workers) |
+
+Internal nodes can reach each other by IP, but SSH still requires key auth — it is **not** passwordless by default. `ssh_conf.sh` handles both:
+1. Copies your **public key** to all nodes → your local machine can SSH in
+2. Copies the **private key** to all nodes → nodes can SSH to each other via internal IPs
+
+**Steps:**
+* Edit `HOST`, `PORTS`, `USER`, and `EMAIL` in `ssh_conf.sh` to match your cluster, then run it from your local machine:
+  ```bash
+  bash ssh_conf.sh
+  ```
+* Update `hosts`, `ports`, and `master_port` in `train_exps/transformer_pipeline.sh` to match your internal node IPs.
+* `transformer_pipeline.sh` will automatically verify SSH connectivity to all nodes before starting (Step 0).
 
 
 **4. Configure Models and Datasets:**
